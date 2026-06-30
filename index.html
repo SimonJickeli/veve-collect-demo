@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VeVe Collect — Community Tools</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html" class="active">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="#wiki">Wiki</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero">
+    <span class="badge">Community gift · live on-chain</span>
+    <h1>Get more from your <span class="grad">VeVe collection</span>.</h1>
+    <p>A free companion to the VeVe / Collect ecosystem — see what you're missing from a set, find the
+       <strong>cheapest Master Collector Points</strong> for your holdings, and spot your special mints.
+       <strong>Paste your Collect Chain wallet</strong> and every tool runs on your real on-chain collection.</p>
+    <div class="stats" id="stats" style="margin-top:18px"></div>
+  </section>
+
+  <div class="grid cols-3">
+    <a class="card feature-card" href="sets.html">
+      <div class="emoji">🧩</div>
+      <h3>Set Tracker</h3>
+      <p class="sub">"Which Star Wars collectibles am I missing?" Owned vs. missing across every set — diffed against the full catalog — plus what completing it earns. <strong>Live.</strong></p>
+      <span class="pill-best">try it →</span>
+    </a>
+    <a class="card feature-card" href="mcp.html">
+      <div class="emoji">📈</div>
+      <h3>MCP Optimizer</h3>
+      <p class="sub">Your live daily Master Collector Points (VeVe's <em>real</em> published formula) + the cheapest points to add across the whole catalog, ranked by Gems-per-point. <strong>Live.</strong></p>
+      <span class="pill-best">try it →</span>
+    </a>
+    <a class="card feature-card" href="mint-checker.html">
+      <div class="emoji">✨</div>
+      <h3>Mint Checker</h3>
+      <p class="sub">Scan your wallet for special mints — #1s, lowest-public, palindromes, repdigits, milestones, and 🏆 <strong>grail years</strong> (e.g. #1977 on any Star Wars). <strong>Live.</strong></p>
+      <span class="pill-best">try it →</span>
+    </a>
+  </div>
+
+  <div class="grid cols-3" style="margin-top:16px">
+    <div class="card"><h3>🔎 Floor & holders</h3><p class="sub">Floor history and holder distribution per collectible <span class="small">(next — needs a floor-price feed; holder data is already on-chain).</span></p></div>
+    <div class="card" id="wiki"><h3>📚 The Wiki</h3><p class="sub">An encyclopedic, cited reference for every universe, character, drop, and mechanic — the Obsidian vault that powers this app.</p></div>
+    <div class="card"><h3>🔗 Built on-chain</h3><p class="sub">Holdings read live from the public <span class="mono">collectscan</span> explorer for Collect Chain. Read-only, no login, no keys.</p></div>
+  </div>
+
+  <div class="note warn" style="margin-top:22px">
+    <strong>What's live vs. proxied.</strong> Your holdings, mint numbers, rarities and editions are read <strong>live on-chain</strong>.
+    The MCP math is VeVe's <strong>real published formula</strong>. The only placeholder is <strong>floor price</strong> — the optimizer
+    uses each item's original <em>drop price</em> as a proxy until a live floor feed is wired. See <span class="mono">wiki/meta/architecture.md</span>.
+  </div>
+
+  <footer class="foot">VeVe Collect community tools · not affiliated with VeVe / Collect · data via collectscan + community sources.</footer>
+</div>
+
+<script src="data/catalog.js?v=4"></script>
+<script>
+(function () {
+  if (typeof CATALOG === 'undefined') return;
+  var unis = Object.keys(CATALOG.universes()).length;
+  var sets = Object.keys(CATALOG.sets).length;
+  var stat = function (k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v accent">' + v + '</div></div>'; };
+  document.getElementById('stats').innerHTML =
+    stat('Collectibles', CATALOG.items.length.toLocaleString()) +
+    stat('Sets', sets.toLocaleString()) +
+    stat('Universes', unis) +
+    stat('Live tools', '3');
+})();
+</script>
+</body>
+</html>

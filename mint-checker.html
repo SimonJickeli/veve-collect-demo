@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mint Checker — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
+  .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
+  .t-epic      { color:#c79bff; background:#1e1633; border-color:#46306e; }
+  .t-rare      { color:#67b8ff; background:#0f2034; border-color:#274a72; }
+  .t-notable   { color:#7fe3a3; background:#0e2419; border-color:#2c5b3f; }
+  .verdict { font-size:22px; font-weight:800; }
+  .scan-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .scan-row .ic { font-size:26px; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; }
+  .filters label { display:inline-flex; align-items:center; gap:7px; background:var(--bg-2); border:1px solid var(--border); border-radius:999px; padding:7px 13px; font-size:13.5px; font-weight:600; color:var(--muted); cursor:pointer; user-select:none; }
+  .filters label:has(input:checked) { color:#fff; border-color:var(--accent); background:linear-gradient(135deg, #2a2350, #1c2340); }
+  .filters input { accent-color: var(--accent); width:15px; height:15px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html" class="active">Mint Checker</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:36px 0 18px">
+    <h1>Mint Checker</h1>
+    <p>Is your mint <strong>special</strong>? Choose what you're hunting for, then check a single mint or scan a whole collection.</p>
+  </section>
+
+  <!-- Selectable filter (shared) -->
+  <div class="card">
+    <label class="field">What counts as special? <span class="small">(applies to both tools below)</span></label>
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <!-- Single check -->
+  <div class="card" style="margin-top:18px">
+    <h3>Check a mint</h3>
+    <div class="row" style="margin-top:8px">
+      <div style="flex:0 0 260px">
+        <label class="field" for="pick">Pick a collectible (optional)</label>
+        <select id="pick"></select>
+      </div>
+      <div style="flex:0 0 140px">
+        <label class="field" for="mint">Mint #</label>
+        <input type="number" id="mint" min="1" placeholder="e.g. 41" />
+      </div>
+      <div style="flex:0 0 140px">
+        <label class="field" for="edition">Edition size</label>
+        <input type="number" id="edition" min="1" placeholder="e.g. 5000" />
+      </div>
+      <div style="flex:0 0 auto"><button class="btn" id="analyze">Analyze</button></div>
+    </div>
+    <div id="single" style="margin-top:16px"></div>
+  </div>
+
+  <!-- Wallet scan -->
+  <div class="card" style="margin-top:18px">
+    <h3 style="margin:0 0 10px">Scan a collection for significant mints</h3>
+    <div class="row">
+      <div>
+        <label class="field" for="wallet">Collect Chain wallet address</label>
+        <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
+      </div>
+      <div style="flex:0 0 auto; display:flex; gap:10px; align-items:end">
+        <button class="btn" id="scanlive">Scan wallet</button>
+        <button class="btn ghost" id="sample">Use sample</button>
+      </div>
+    </div>
+    <p class="small" id="scanstatus" style="margin:10px 0 0">Paste a Collect Chain wallet to scan your real on-chain mints — or click <strong>Use sample</strong>.</p>
+    <div id="scan" style="margin-top:14px"></div>
+  </div>
+
+  <div class="note warn" style="margin-top:20px">
+    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve (e.g. #21 when VeVe holds #1–20). Engine: <span class="mono">app/assets/mints.js</span>.
+  </div>
+  <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
+</div>
+
+<script src="assets/data.js?v=2"></script>
+<script src="data/catalog.js?v=3"></script>
+<script src="assets/significant-years.js?v=2"></script>
+<script src="assets/mints.js?v=3"></script>
+<script src="assets/collectscan.js?v=3"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var tier = function (t) { return '<span class="tchip t-' + t + '">' + t + '</span>'; };
+  var scanMode = null, liveHoldings = null, liveById = null;  // 'sample' | 'live'
+
+  // build filter checkboxes (all on by default)
+  $('#filters').innerHTML = MINTS.CATEGORIES.map(function (c) {
+    return '<label><input type="checkbox" value="' + c.key + '" checked> ' + c.label + '</label>';
+  }).join('');
+
+  function selectedCats() {
+    return Array.prototype.slice.call(document.querySelectorAll('#filters input:checked')).map(function (i) { return i.value; });
+  }
+
+  // collectible picker
+  $('#pick').innerHTML = '<option value="">— manual —</option>' +
+    DATA.collectibles.map(function (c) { return '<option value="' + c.id + '">' + c.img + ' ' + c.name + ' (/' + c.editionSize + ')</option>'; }).join('');
+  $('#pick').addEventListener('change', function () { var c = DATA.byId[this.value]; if (c) $('#edition').value = c.editionSize; });
+
+  function flagsHtml(a) {
+    if (!a.special) return '<span class="small">No match for the selected categories.</span>';
+    return a.flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join('<br>');
+  }
+
+  function analyze() {
+    var mint = +$('#mint').value, ed = +$('#edition').value, c = DATA.byId[$('#pick').value];
+    if (!mint) { $('#single').innerHTML = '<div class="note">Enter a mint number.</div>'; return; }
+    var a = MINTS.analyzeMint(mint, ed, {
+      firstAppearanceYear: c ? c.firstAppearanceYear : null,
+      withheld: c ? c.withheld : 0,
+      significantYears: c ? SIG.lookup(c.character || c.name) : [],
+      universeYears: c ? SIG.lookupUniverse(c.universe) : [],
+      universeEggs: c ? SIG.lookupEggs(c.universe) : [],
+      categories: selectedCats()
+    });
+    var headline = a.special
+      ? '<span class="verdict" style="color:var(--accent-2)">✨ ' + (a.topTier ? a.topTier.toUpperCase() : '') + '</span> <span class="small">(score ' + a.score + ')</span>'
+      : '<span class="verdict" style="color:var(--muted)">Nothing matching</span>';
+    $('#single').innerHTML = '<div class="note"><div style="margin-bottom:8px">#' + mint + (ed ? ' of ' + ed.toLocaleString() : '') + (c ? ' — ' + c.name : '') + '</div>' +
+      headline + '<div style="margin-top:10px">' + flagsHtml(a) + '</div></div>';
+  }
+
+  // groups for the scan results — a holding appears under every category it matches
+  var SECTIONS = [
+    { title: '🥇 Lowest mints',                match: function (t) { return t === 'lowest-public' || t === 'top5-low' || t === 'ace'; } },
+    { title: '🏁 Highest (final) mint',         match: function (t) { return t === 'highest-public'; } },
+    { title: '➡️ Ascending runs',               match: function (t) { return t === 'ascending'; } },
+    { title: '⬅️ Descending runs',              match: function (t) { return t === 'descending'; } },
+    { title: '🔢 Palindromes',                  match: function (t) { return t === 'palindrome'; } },
+    { title: '😎 Meme / iconic & easter eggs',  match: function (t) { return t === 'meme'; } },
+    { title: '📅 Historically significant',     match: function (t) { return t.indexOf('historic-') === 0; } }
+  ];
+
+  function scanRow(r, flags) {
+    return '<div class="scan-row">' +
+      '<div class="ic">' + (r.collectible.img || '🎴') + '</div>' +
+      '<div style="flex:1; min-width:160px"><strong>' + r.collectible.name + '</strong> ' +
+        '<span class="small">#' + r.holding.mintNumber + ' / ' + (r.collectible.editionSize || '?') + '</span><br>' +
+        flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join(' ') +
+      '</div></div>';
+  }
+
+  function renderScan() {
+    var holdings, byId, total;
+    if (scanMode === 'live') { holdings = liveHoldings; byId = liveById; }
+    else if (scanMode === 'sample') { holdings = DATA.sampleHoldings; byId = DATA.byId; }
+    else return;
+    total = holdings.length;
+    var scannable = holdings.filter(function (h) { return h.mintNumber && (byId[h.collectibleId] || {}).editionSize; });
+    var rows = MINTS.scanHoldings(scannable, byId, selectedCats(), SIG.lookup, SIG.lookupUniverse, SIG.lookupEggs);
+    if (!rows.length) { $('#scan').innerHTML = '<div class="note">No holdings match the selected categories.</div>'; return; }
+
+    var html = '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
+    SECTIONS.forEach(function (sec) {
+      var hits = [];
+      rows.forEach(function (r) {
+        var fl = r.analysis.flags.filter(function (f) { return sec.match(f.tag); });
+        if (fl.length) hits.push({ r: r, flags: fl });
+      });
+      if (!hits.length) return;
+      hits.sort(function (a, b) { return (b.r.collectible.editionSize || 0) - (a.r.collectible.editionSize || 0); });
+      html += '<div style="margin-top:18px"><h3 style="margin:0 0 4px">' + sec.title +
+              ' <span class="small" style="color:var(--muted)">(' + hits.length + ')</span></h3>' +
+              hits.map(function (x) { return scanRow(x.r, x.flags); }).join('') + '</div>';
+    });
+    $('#scan').innerHTML = html;
+  }
+
+  async function scanLive() {
+    var addr = $('#wallet').value.trim();
+    if (!COLLECTSCAN.isAddress(addr)) { $('#scanstatus').innerHTML = 'Enter a valid <span class="mono">0x…</span> Collect Chain wallet address.'; return; }
+    $('#scanlive').disabled = true;
+    $('#scanstatus').textContent = 'Fetching holdings from collectscan…';
+    try {
+      var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#scanstatus').textContent = 'Fetched ' + n + ' editions…'; } });
+      liveHoldings = holdings; liveById = COLLECTSCAN.catalogFromHoldings(holdings); scanMode = 'live';
+      // enrich with the authoritative researched first-public mint (reserve) + edition from the catalog,
+      // so #21/#16/#11/#6 first-public mints are recognised (collectscan metadata carries no reserve count)
+      if (typeof CATALOG !== 'undefined' && CATALOG.byName) {
+        Object.keys(liveById).forEach(function (id) {
+          var e = liveById[id], ci = CATALOG.byName[(e.name || '').toLowerCase()];
+          if (ci) { if (ci.lowmint) e.lowmint = ci.lowmint; if (ci.edition) e.editionSize = ci.edition; }
+        });
+      }
+      $('#scanstatus').innerHTML = '✓ <strong>' + holdings.length + '</strong> editions on-chain for <span class="mono">' + addr.slice(0, 6) + '…' + addr.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(addr) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — partial</strong>' : '');
+      renderScan();
+    } catch (e) {
+      $('#scanstatus').innerHTML = '⚠️ ' + (e && e.message ? e.message : 'fetch failed') + ' (collectscan may be rate-limiting — try again).';
+    } finally { $('#scanlive').disabled = false; }
+  }
+
+  // re-run live when filters change
+  $('#filters').addEventListener('change', function () {
+    if ($('#mint').value) analyze();
+    renderScan();
+  });
+  $('#analyze').addEventListener('click', analyze);
+  $('#mint').addEventListener('keydown', function (e) { if (e.key === 'Enter') analyze(); });
+  $('#scanlive').addEventListener('click', scanLive);
+  $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') scanLive(); });
+  $('#sample').addEventListener('click', function () { scanMode = 'sample'; $('#scanstatus').textContent = 'Scanning the sample wallet (mock data).'; renderScan(); });
+})();
+</script>
+</body>
+</html>

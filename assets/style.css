@@ -1,0 +1,135 @@
+/* VeVe Collect community app — shared styles. Self-contained, no CDN. */
+:root {
+  --bg: #0b0d17;
+  --bg-2: #11142099;
+  --panel: #151a2c;
+  --panel-2: #1b2138;
+  --border: #262d47;
+  --text: #e7eaf6;
+  --muted: #98a0bd;
+  --accent: #7c5cff;
+  --accent-2: #34e0d8;
+  --good: #41d693;
+  --warn: #ffcc66;
+  --bad: #ff6b81;
+  --gem: #5ad1ff;
+  --radius: 14px;
+  --shadow: 0 8px 30px rgba(0,0,0,.35);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(1200px 600px at 80% -10%, #1a1340 0%, transparent 55%),
+              radial-gradient(900px 500px at -10% 0%, #07303a 0%, transparent 50%),
+              var(--bg);
+  color: var(--text);
+  font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  min-height: 100vh;
+}
+a { color: var(--accent-2); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 80px; }
+
+/* Header / nav */
+header.topbar {
+  position: sticky; top: 0; z-index: 10;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(11,13,23,.92), rgba(11,13,23,.6));
+  border-bottom: 1px solid var(--border);
+}
+.topbar .wrap { padding: 14px 20px; display: flex; align-items: center; gap: 22px; }
+.brand { font-weight: 800; letter-spacing: .3px; font-size: 18px; }
+.brand .dot { color: var(--accent); }
+nav.main { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+nav.main a {
+  color: var(--muted); padding: 7px 13px; border-radius: 999px; font-weight: 600; font-size: 14px;
+}
+nav.main a:hover { color: var(--text); background: var(--panel); text-decoration: none; }
+nav.main a.active { color: #fff; background: linear-gradient(135deg, var(--accent), #5b7cff); }
+
+/* Hero */
+.hero { padding: 56px 0 30px; }
+.hero h1 { font-size: 40px; line-height: 1.1; margin: 0 0 14px; letter-spacing: -.5px; }
+.hero h1 .grad {
+  background: linear-gradient(120deg, var(--accent-2), var(--accent));
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero p { color: var(--muted); font-size: 17px; max-width: 640px; }
+.badge { display:inline-block; font-size:12px; font-weight:700; letter-spacing:.5px; text-transform:uppercase;
+  color: var(--accent-2); border:1px solid var(--border); background: var(--bg-2); padding:4px 10px; border-radius:999px; margin-bottom:18px;}
+
+/* Cards / grid */
+.grid { display: grid; gap: 16px; }
+.grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 760px) { .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; } }
+.card {
+  background: linear-gradient(180deg, var(--panel), var(--panel-2));
+  border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow);
+}
+.card h3 { margin: 0 0 6px; font-size: 18px; }
+.card .sub { color: var(--muted); font-size: 14px; margin: 0 0 14px; }
+.feature-card { display: block; transition: transform .12s ease, border-color .12s ease; }
+.feature-card:hover { transform: translateY(-3px); border-color: var(--accent); text-decoration: none; }
+.feature-card .emoji { font-size: 30px; }
+
+/* Inputs */
+label.field { display:block; font-size:13px; color:var(--muted); font-weight:600; margin: 0 0 6px; }
+input[type=text], input[type=number], select {
+  width: 100%; background: #0e1222; color: var(--text);
+  border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px; font-size: 15px;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; }
+.row > * { flex: 1; min-width: 180px; }
+button.btn {
+  background: linear-gradient(135deg, var(--accent), #5b7cff); color: #fff; border: 0;
+  padding: 11px 20px; border-radius: 10px; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+button.btn:hover { filter: brightness(1.08); }
+button.ghost { background: var(--panel); color: var(--text); border: 1px solid var(--border); }
+
+/* Stats */
+.stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.stat { flex:1; min-width: 150px; background: var(--bg-2); border:1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+.stat .v { font-size: 26px; font-weight: 800; margin-top: 2px; }
+.v.accent { color: var(--accent-2); }
+.gem::before { content: "💎 "; }
+
+/* Progress */
+.progress { height: 10px; background: #0e1222; border-radius: 999px; overflow: hidden; border:1px solid var(--border); }
+.progress > span { display:block; height:100%; background: linear-gradient(90deg, var(--accent-2), var(--accent)); }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 14px; }
+th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+tr:hover td { background: #ffffff06; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Rarity chips */
+.chip { display:inline-block; font-size: 11px; font-weight:700; padding: 2px 8px; border-radius: 999px; border:1px solid var(--border); }
+.r-Common      { color:#b9c0d6; }
+.r-Uncommon    { color:#7fe3a3; border-color:#2c5b3f; }
+.r-Rare        { color:#67b8ff; border-color:#274a72; }
+.r-Ultra.Rare, .r-UltraRare { color:#c79bff; border-color:#46306e; }
+.r-Secret.Rare, .r-SecretRare { color:#ffd36b; border-color:#6e5a23; background:#2a230c; }
+
+/* Collectible tiles (set tracker) */
+.tiles { display:grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap: 12px; }
+.tile { background: var(--bg-2); border:1px solid var(--border); border-radius: 12px; padding: 14px 10px; text-align:center; position: relative; }
+.tile.missing { opacity: .42; filter: grayscale(.6); border-style: dashed; }
+.tile .ic { font-size: 30px; }
+.tile .nm { font-size: 12.5px; margin-top: 6px; font-weight: 600; }
+.tile .mt { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.tile .own { position:absolute; top:8px; right:8px; font-size:12px; }
+
+/* Callouts */
+.note { border:1px solid var(--border); border-left: 3px solid var(--accent-2); background: var(--bg-2); border-radius: 10px; padding: 12px 14px; font-size: 13.5px; color: var(--muted); }
+.note.warn { border-left-color: var(--warn); }
+.note strong { color: var(--text); }
+.pill-best { background: linear-gradient(135deg, var(--good), #2fb3c9); color:#04221a; font-weight:800; font-size:11px; padding:2px 8px; border-radius:999px; }
+footer.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--border); margin-top: 40px; padding-top: 18px; }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+.small { font-size: 12.5px; color: var(--muted); }

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MCP Optimizer — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html" class="active">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:36px 0 18px">
+    <h1>MCP Optimizer</h1>
+    <p>The <strong>cheapest Master Collector Points</strong> for your holdings — ranked by Gems per +1 daily point, using VeVe's
+       <em>real published</em> point formula and factoring your duplicates and near-complete sets.</p>
+  </section>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label class="field" for="wallet">Wallet address</label>
+        <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
+      </div>
+      <div style="flex:0 0 auto; display:flex; gap:10px">
+        <button class="btn" id="run">Optimize</button>
+        <button class="btn ghost" id="sample">Use sample wallet</button>
+      </div>
+    </div>
+    <p class="small" id="mcpstatus" style="margin:12px 0 0">Paste your wallet for a <strong>live</strong> read, or use the sample. <span class="small">Your wallet is your <strong>VeVe / ImmutableX 0x address</strong> — find it in the VeVe app (Account → Wallet) or at <span class="mono">omi.veve.me</span>; it's the same address collectscan uses.</span></p>
+  </div>
+
+  <div id="current" style="margin-top:18px"></div>
+  <div id="recs" style="margin-top:18px"></div>
+
+  <div class="note warn" style="margin-top:20px">
+    <strong>How this works.</strong> Δ MCP/day is exact (VeVe's published formula: rarity bonuses, low-mint, duplicate
+    diminishing, set-completion). <strong>"💎 / +1 day"</strong> = cost ÷ daily points gained — lower is cheaper.
+    Cost is the <strong>live StackR on-chain floor ⛓</strong> (<span class="mono">StackrListings</span> on Base → OMI→USD) where an item is
+    currently listed, else its original drop price <strong>~</strong>. Rank/level projections are intentionally omitted because VeVe doesn't
+    publish exact thresholds. Source: <span class="mono">wiki/sources/economy-gems-omi-mcp.md</span>.
+  </div>
+  <footer class="foot">Not financial advice. VeVe may change the MCP formula or act against system-gaming — see the program FAQ.</footer>
+</div>
+
+<script src="assets/data.js"></script>
+<script src="assets/mcp.js?v=4"></script>
+<script src="assets/collectscan.js?v=3"></script>
+<script src="data/catalog.js?v=4"></script>
+<script src="data/floor.js?v=1"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var rClass = function (r) { return 'chip r-' + r.replace(/ /g, ''); };
+  var holdings = [];
+  var liveMode = false;
+  var liveSets = null; // set-completion sets built from the catalog, matched to live holdings by name
+  var portfolioValue = 0; // total market-floor value (💎) of held items, for the MCP-per-$ stat
+  function setStatus(html) { $('#mcpstatus').innerHTML = html; }
+
+  function ownedCount(id) { return holdings.filter(function (h) { return h.collectibleId === id; }).length; }
+
+  // ---- StackR live floor (app/data/floor.js, on-chain snapshot) ----
+  // Use normName (keeps the distinguishing variant words like "(Water Element)") — the old fnorm
+  // STRIPPED parentheticals, collapsing e.g. ILLAZILLAZ Water/Fire/Earth to one key so a Secret Rare
+  // wrongly borrowed a Common variant's StackR price. A missing price is fine; a WRONG price is not.
+  var _fnN = window.normName || function(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); };
+  var FLOORNORM = {};
+  if (window.FLOOR && FLOOR.byName) Object.keys(FLOOR.byName).forEach(function(n){ var k=_fnN(n); if(k && !(k in FLOORNORM)) FLOORNORM[k]=FLOOR.byName[n]; });
+  function floorRec(name){ if(!window.FLOOR||!FLOOR.byName) return null; return FLOOR.byName[name] || FLOORNORM[_fnN(name)] || null; }
+  function floorAsOf(){ return (window.FLOOR && FLOOR.asOf) ? new Date(FLOOR.asOf*1000).toISOString().slice(0,10) : null; }
+  // acquisition cost: authoritative VeVe market floor (Gems snapshot) > live StackR on-chain floor > original drop price
+  // Cost = the rarity's real market floor. A blind-box's list price is NOT the price of a specific
+  // rarity, so we never use it: floor(VeVe) > floor(StackR) > fixed drop price (non-blind-box only) > none.
+  // cost = the CHEAPER of VeVe market floor 💠 and live StackR on-chain floor ⛓ (1 Gem = $1),
+  // else a non-blind-box fixed drop price. Picking the cheaper venue answers "where do I buy it".
+  // Expected cost to PULL one of this rarity from its blind box = box price ÷ pull-odds,
+  // where odds = this rarity's edition ÷ the set's total editions. Used only when there's no
+  // secondary-market floor for an unsold/unlisted blind-box item (clearly labelled an estimate).
+  function pullCost(c){
+    if (!c.blind || !(c.price>0) || !c.edition) return null;
+    if (!c.set || typeof CATALOG==='undefined' || !CATALOG.sets[c.set]) return null;
+    var total=0; CATALOG.sets[c.set].members.forEach(function(m){ var it=_byNameN && _byNameN[nN(m.name)]; if(it&&it.edition) total+=it.edition; });
+    if (total<=0) return null;
+    return c.price * total / c.edition;
+  }
+  // acquisition cost, best→worst: VeVe market floor 💎 / live StackR floor ⛓ (cheaper of the two),
+  // else expected blind-box pull cost (estimate), else original drop price. 1 Gem = $1.
+  function costOf(c){
+    var veve = (c.floor>0) ? c.floor : null;
+    var f = floorRec(c.name); var stackr = (f && f.usd>0) ? f.usd : null;
+    if (veve!=null && stackr!=null) return veve<=stackr ? {v:veve, src:'veve'} : {v:stackr, src:'stackr'};
+    if (veve!=null) return {v:veve, src:'veve'};
+    if (stackr!=null) return {v:stackr, src:'stackr'};
+    if (c.blind){ var pc=pullCost(c); if(pc) return {v:pc, src:'pull'}; }    // unsold blind-box: expected pull cost
+    var p=Number(c.price); if(p>0) return {v:p, src:'drop'};
+    return null;
+  }
+  // "Cheaper on" cell: 💎 VeVe (Gem floor) · red OMI circle StackR (OMI floor) · ~ estimate (pull / drop, NOT a market floor)
+  function venueCell(c){
+    var co = costOf(c); if(!co) return '<span class="small">—</span>';
+    var n = Math.round(co.v).toLocaleString();
+    if (co.src==='veve')   return '<span class="gemico" title="cheaper on VeVe (Gem market floor)">💎</span> ' + n;
+    if (co.src==='stackr') return '<span class="omidot" title="cheaper on StackR (live OMI market floor)"></span> ' + n;
+    if (co.src==='pull')   return '<span class="small est" title="No secondary-market floor yet (unsold/unlisted blind-box). Estimated cost to PULL this rarity = box price ÷ pull odds. NOT a market floor.">~ ' + n + ' <em>est. pull</em></span>';
+    return '<span class="small est" title="Original drop/primary price — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
+  }
+  function thumb(c){
+    return c.img
+      ? '<img class="thumb" src="' + c.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">'
+      : '<span class="thumb noimg"></span>';
+  }
+
+  // ---- normalized catalog indices (match on-chain holding names to the catalog) ----
+  var nN = window.normName || function (s) { return (s||'').toLowerCase(); };
+  // canonical key: prefer the on-chain alias (`aka`) over the embellished display name
+  function ck(o){ return nN((o && (o.aka || o.name)) || ''); }
+  var _byNameN = null, _byKeyN = null;
+  function reg(it, key){ if(key){ if(!_byNameN[key]) _byNameN[key]=it; var kk=key+'|'+nN(it.rarity); if(!_byKeyN[kk]) _byKeyN[kk]=it; } }
+  function catIndex(){
+    if (_byNameN) return;
+    _byNameN = {}; _byKeyN = {};
+    var items = (typeof CATALOG !== 'undefined' && CATALOG.items) ? CATALOG.items : [];
+    items.forEach(function (it) {
+      reg(it, nN(it.name));            // embellished display name
+      if (it.aka) reg(it, nN(it.aka)); // authoritative on-chain name (alias)
+    });
+  }
+
+  function renderCurrent() {
+    var d = MCP.computeDaily(holdings, liveMode ? (liveSets || []) : DATA.sets);
+    $('#current').innerHTML =
+      '<div class="card"><h3>Your daily Master Collector Points' + (liveMode ? ' <span class="pill-best">LIVE</span>' : '') + '</h3>' +
+      '<div class="stats" style="margin-top:8px">' +
+        stat('Editions held', holdings.length) +
+        stat('From items', d.itemPoints.toFixed(2), 'accent') +
+        stat('From sets', d.setPoints.toFixed(2), 'accent') +
+        stat('Total / day', d.total.toFixed(2), 'accent') +
+        (liveMode && portfolioValue > 0
+          ? stat('Collection value', '💎 ' + Math.round(portfolioValue).toLocaleString()) +
+            stat('MCP/day per 💎1,000', (d.total / portfolioValue * 1000).toFixed(2), 'accent')
+          : '') +
+      '</div>' +
+      (d.setBreakdown.length
+        ? '<p class="small" style="margin:12px 0 0">Completed sets: ' + d.setBreakdown.map(function (b) { return b.name + ' (' + b.daily.toFixed(1) + '/day)'; }).join(' · ') + '</p>'
+        : '') +
+      '</div>';
+  }
+  function stat(k, v, cls) { return '<div class="stat"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div></div>'; }
+
+  function renderRecs() {
+    catIndex();   // ensure the normalized catalog index exists (for pull-cost set lookups) in sample mode too
+    var src = (typeof CATALOG !== 'undefined' && CATALOG.items) ? CATALOG.items : [];
+    var sets = (typeof CATALOG !== 'undefined' && CATALOG.sets) ? CATALOG.sets : {};
+    var ownedByName = {}, ownedNames = {};
+    holdings.forEach(function (h) { var nk = h.nameKey || nN(h.collectibleId); ownedByName[nk] = (ownedByName[nk] || 0) + 1; ownedNames[nk] = 1; });
+    // candidate = acquire one more of any catalog item; cost = live StackR floor if listed, else drop price
+    var floorHits = 0;
+    var rows = src.filter(function (c) { return c.rarity && costOf(c); }).map(function (c) {
+      // key the candidate to MATCH your holdings, so the marginal reflects duplicate diminishing
+      // if you already own it (was keyed to c.name → never matched → wrongly showed full value).
+      var cand = { collectibleId: ck(c) + '|' + nN(c.rarity), rarity: c.rarity, format: 'collectible', lowMint: false };
+      var m = MCP.marginalDaily(holdings, cand, []);
+      // set-completion: does acquiring this finish a REAL (series) set you're one away from?
+      // (uses the series-based set; single-item series are not sets, so require >=2 members)
+      var completes = null, setBonus = 0;
+      if (c.set && sets[c.set] && sets[c.set].members.length >= 2) {
+        var members = sets[c.set].members;
+        var ownedM = members.filter(function (x) { return ownedNames[ck(x)]; }).length;
+        if (!ownedNames[ck(c)] && ownedM === members.length - 1) {
+          completes = c.set; setBonus = MCP.setBaseBySize(members.length);
+        }
+      }
+      var cost = costOf(c);
+      if (cost.src !== 'drop') floorHits++;
+      var total = m.delta + setBonus;  // ranking value (item + first-completion set bonus)
+      var cpp = total > 0 ? (cost.v / total) : Infinity;
+      return { c: c, delta: m.delta, setBonus: setBonus, completes: completes, total: total, cost: cost.v, costSrc: cost.src, cpp: cpp, owned: ownedByName[ck(c)] || 0 };
+    }).filter(function (r) { return r.total > 0.0001 && isFinite(r.cpp); })
+      .sort(function (a, b) { return a.cpp - b.cpp; }).slice(0, 60);
+
+    var best = rows.length ? rows[0] : null;
+    var body = rows.map(function (r, i) {
+      var setName = r.completes ? String(r.completes).replace(/"/g,'') : '';
+      var badges = (i === 0 ? '<span class="pill-best">BEST</span>' : '') +
+        (r.completes ? '<span class="setbadge" title="Completing the set &quot;' + setName + '&quot; adds +' + r.setBonus.toFixed(1) + ' MCP/day in set points. The +100 is a one-off granted only the FIRST time you ever complete this set (the app can\'t see your past completions, so it can\'t guarantee it).">🧩 completes set: +' + r.setBonus.toFixed(1) + '/day · +100 first time only</span>' : '') +
+        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '');
+      return '<tr>' +
+        '<td><div class="item">' + thumb(r.c) + '<div class="meta"><div class="cn">' + r.c.name + '</div>' + (badges ? '<div class="badges">' + badges + '</div>' : '') + '</div></div></td>' +
+        '<td><span class="' + rClass(r.c.rarity) + '">' + r.c.rarity + '</span></td>' +
+        '<td class="num cpp">+' + r.delta.toFixed(2) + '</td>' +
+        '<td class="num">' + venueCell(r.c) + '</td>' +
+      '</tr>';
+    }).join('');
+
+    var STY = '<style>' +
+      '#recs .item{display:flex;align-items:center;gap:10px}' +
+      '#recs .thumb{width:38px;height:38px;border-radius:7px;object-fit:cover;background:#1b1b2f;flex:0 0 auto}' +
+      '#recs .thumb.noimg{background:#1b1b2f url("data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'20\' height=\'20\'><text y=\'15\' x=\'2\' font-size=\'14\'>🎴</text></svg>") center/20px no-repeat}' +
+      '#recs .cn{font-weight:600}' +
+      '#recs .badges{margin-top:3px;display:flex;gap:6px;flex-wrap:wrap}' +
+      '#recs .setbadge{font-size:11px;background:rgba(80,200,120,.15);color:#5fd38a;border:1px solid rgba(80,200,120,.35);border-radius:10px;padding:1px 7px}' +
+      '#recs .dupwarn{font-size:11px;color:#c9a227;opacity:.8}' +
+      '#recs .cpp{font-weight:700}' +
+      '#recs .omidot{display:inline-block;width:12px;height:12px;border-radius:50%;background:#ff2d55;box-shadow:0 0 0 2px rgba(255,45,85,.25);vertical-align:-1px}' +
+      '#recs td .gemico{filter:none}' +
+      '#recs .est{opacity:.7}' +
+      '#recs .est em{font-size:10px;opacity:.8;font-style:normal}' +
+      '</style>';
+    $('#recs').innerHTML = STY + '<div class="card"><h3>Cheapest points to add</h3>' +
+      '<p class="sub">Ranked by best value, factoring your holdings &amp; duplicates. <strong>MCP/day</strong> = the points <em>this item itself</em> earns you per day. A 🧩 badge means it also completes a set (extra set points shown on the badge). <strong>Cheaper on</strong>: 💎 VeVe (Gem floor) · <span class="omidot"></span> StackR (OMI floor) · <strong>~</strong> = estimate, not a market floor (unsold blind-box → expected pull cost = box price ÷ pull odds; or original drop price).</p>' +
+      (best ? '<div class="note" style="margin-bottom:14px">Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
+      '<table><thead><tr><th>Collectible</th><th>Rarity</th><th class="num">MCP/day</th><th class="num">Cheaper on</th></tr></thead><tbody>' +
+      body + '</tbody></table>' +
+      '<p class="small" style="margin-top:10px">🧩 <strong>Set completion</strong> adds daily set points (shown on the badge) <em>and</em> a one-off <strong>+100 MCP the first time you complete that set ever</strong> — so if you\'ve completed it before, you won\'t get the +100 again. The MCP/day column is the item\'s own value only.</p></div>';
+  }
+
+  function run() {
+    if (!holdings.length) {
+      $('#current').innerHTML = '<div class="note">Enter a wallet (or <strong>Use sample wallet</strong>) to analyze your MCP.</div>';
+      $('#recs').innerHTML = '';
+      return;
+    }
+    renderCurrent();
+    renderRecs();
+  }
+
+  async function loadAndRun() {
+    var v = $('#wallet').value.trim();
+    if (COLLECTSCAN.isAddress(v)) {
+      $('#run').disabled = true; setStatus('Fetching holdings from collectscan…');
+      try {
+        var raw = await COLLECTSCAN.fetchHoldings(v, { maxPages: 400, onProgress: function (n) { setStatus('Fetched ' + n + ' editions…'); } });
+        catIndex();
+        portfolioValue = 0;
+        holdings = raw.filter(function (h) { return h.rarity && h.mintNumber && h.editionSize; })
+          .map(function (h) {
+            var nk = h.nameKey || nN(h.name);
+            var rk = h.rarityKey || nN(h.rarity);
+            // EXACT name+rarity catalog match only — used for the reserve (low-mint) lookup.
+            // We do NOT fall back to a name-only match: edition size & rarity differ PER variant,
+            // so a Common entry must never define an SR holding's rarity/edition (that mis-scored SRs as Common).
+            var ci = _byKeyN[nk + '|' + rk] || null;
+            var rar = h.rarity || (ci && ci.rarity) || '';                         // on-chain rarity is authoritative for the held item
+            var ed = h.editionSize || (ci && ci.edition);                          // on-chain edition is authoritative per-variant
+            var fp = (ci && ci.lowmint) ? ci.lowmint : 1;                          // first PUBLIC mint (#41 etc.)
+            var pool = Math.max(1, Math.ceil(((ed - (fp - 1)) || ed) * 0.05));     // lowest 5% of the PUBLIC pool
+            var low = h.mintNumber >= fp && h.mintNumber <= fp + pool - 1;
+            // dup-group by collectible TYPE = name+rarity (collectibles) / "name #issue"+rarity (comics),
+            // so different-rarity covers/variants of the same title are NOT wrongly merged as duplicates
+            var base = (h.format === 'comic') ? nk : nk;   // nameKey already includes the comic number
+            var id = base + '|' + nN(rar);
+            // accrue this edition's market-floor value (VeVe gem floor, else StackR floor) for MCP-per-$
+            portfolioValue += (ci && ci.floor) || ((floorRec(h.name) || {}).usd) || 0;
+            return { collectibleId: id, nameKey: nk, rarity: rar, format: h.format, lowMint: low };
+          });
+        // build set-completion sets from the catalog, keyed by normalized member name+rarity (matches the holding key)
+        liveSets = [];
+        if (typeof CATALOG !== 'undefined' && CATALOG.sets) {
+          Object.keys(CATALOG.sets).forEach(function (k) {
+            var s = CATALOG.sets[k];
+            liveSets.push({ id: s.id, name: s.id, memberCollectibleIds: s.members.map(function (m) { return ck(m) + '|' + nN(m.rarity); }) });
+          });
+        }
+        // NOTE: comics do NOT earn set-completion points (VeVe official: set points are collectibles-only,
+        // verified 2026-06-29). An earlier comic-set construct was removed — it was based on a misread.
+        liveMode = true;
+        setStatus('✓ <strong>' + holdings.length + '</strong> scorable editions on-chain for <span class="mono">' + v.slice(0, 6) + '…' + v.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(v) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (raw.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — total is partial</strong>' : ''));
+      } catch (e) {
+        setStatus('⚠️ ' + (e && e.message ? e.message : 'fetch failed') + ' (collectscan may be rate-limiting — try again).');
+        $('#run').disabled = false; return;
+      }
+      $('#run').disabled = false;
+    } else {
+      holdings = []; liveMode = false; setStatus('Enter a valid <span class="mono">0x…</span> address, or click <strong>Use sample wallet</strong>.');
+    }
+    run();
+  }
+
+  $('#sample').addEventListener('click', function () {
+    $('#wallet').value = ''; holdings = DATA.sampleHoldings.slice(); liveMode = false; setStatus('Sample wallet (mock data).'); run();
+  });
+  $('#run').addEventListener('click', loadAndRun);
+  $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadAndRun(); });
+  run();
+})();
+</script>
+</body>
+</html>

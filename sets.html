@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Set Tracker — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html" class="active">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:36px 0 18px">
+    <h1>Set Tracker</h1>
+    <p>What am I missing? Paste your Collect Chain wallet, pick a universe, and see every set's completion against the full catalog — plus what finishing it earns.</p>
+  </section>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label class="field" for="wallet">Wallet address</label>
+        <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
+      </div>
+      <div style="flex:0 0 200px">
+        <label class="field" for="universe">Universe</label>
+        <select id="universe"></select>
+      </div>
+      <div style="flex:0 0 auto; display:flex; gap:10px; align-items:end">
+        <button class="btn" id="track">Track wallet</button>
+        <button class="btn ghost" id="sample">Use sample</button>
+      </div>
+    </div>
+    <p class="small" id="status" style="margin:10px 0 0">Catalog: <strong id="catn">…</strong> collectibles across <strong id="setn">…</strong> sets. Paste your wallet, or click <strong>Use sample</strong>. <span class="small">Your wallet = your <strong>VeVe / ImmutableX 0x address</strong> (VeVe app → Account → Wallet, or <span class="mono">omi.veve.me</span>).</span></p>
+  </div>
+
+  <div id="results" style="margin-top:20px"></div>
+
+  <div class="note warn" style="margin-top:20px">
+    Set membership = the real VeVe <strong>series</strong> (e.g. "Starlight, Series 1"), not a same-day-drop proxy. Live holdings are read from <span class="mono">collectscan</span> and matched by collectible name. <strong>💎 costs and portfolio value use the live StackR on-chain floor</strong> (<span class="mono">StackrListings</span> on Base, OMI→USD) where an item is currently listed, falling back to original drop price otherwise. Catalog coverage is partial, so "missing" reflects what's in the catalog so far. Rewards use VeVe's published set-completion points.
+  </div>
+  <footer class="foot">Sets are the real VeVe series (from the authoritative catalog); set-completion points use the series, not a same-day-drop proxy.</footer>
+</div>
+
+<script src="data/catalog.js?v=4"></script>
+<script src="data/floor.js?v=1"></script>
+<script src="assets/collectscan.js?v=3"></script>
+<script src="assets/mcp.js?v=4"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var rClass = function (r) { return 'chip r-' + (r||'').replace(/ /g, ''); };
+  var ownedNames = null, mode = null; // Set of lowercased owned names
+
+  // ---- StackR floor lookup (live on-chain snapshot, app/data/floor.js) ----
+  // normName (not parens-stripping fnorm) so variant names like "(Water Element)" don't collide
+  var _fnN = window.normName || function(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); };
+  var FLOORNORM = {};
+  if (window.FLOOR && FLOOR.byName) Object.keys(FLOOR.byName).forEach(function(n){ var k=_fnN(n); if(k && !(k in FLOORNORM)) FLOORNORM[k]=FLOOR.byName[n]; });
+  function floorRec(name){ if(!window.FLOOR||!FLOOR.byName) return null; return FLOOR.byName[name] || FLOORNORM[_fnN(name)] || null; }
+  function floorAsOf(){ return (window.FLOOR && FLOOR.asOf) ? new Date(FLOOR.asOf*1000).toISOString().slice(0,10) : null; }
+  // cost of an item: authoritative VeVe market floor (Gems snapshot) > live StackR on-chain floor > original drop price
+  function itemCost(m){ if(m.floor>0) return {v:m.floor, src:'veve'}; var f=floorRec(m.name); if(f&&f.usd>0) return {v:f.usd, src:'stackr'}; if(!m.blind){ var p=Number(m.price); if(p>0) return {v:p, src:'drop'}; } return null; }
+  function srcMark(s){ return s==='veve'?' 💠':s==='stackr'?' ⛓':''; }
+
+  // normalized match key (folds zero-width chars, curly apostrophes, dashes, enum rarities)
+  var nN = window.normName || function (s) { return (s||'').toLowerCase(); };
+  // canonical key: prefer the on-chain alias (`aka`) over the embellished display name
+  function ck(o){ return nN((o && (o.aka || o.name)) || ''); }
+  // catalog index keyed by normalized name + alias — so owned (on-chain canonical) names match catalog members
+  var byNameN = {};
+  (CATALOG.items || []).forEach(function (it) { var k = nN(it.name); if (k && !byNameN[k]) byNameN[k] = it; if (it.aka){ var a = nN(it.aka); if (a && !byNameN[a]) byNameN[a] = it; } });
+
+  $('#catn').textContent = CATALOG.items.length;
+  $('#setn').textContent = Object.keys(CATALOG.sets).length;
+
+  // universe filter
+  var unis = CATALOG.universes();
+  var uniList = Object.keys(unis).sort(function(a,b){ return unis[b]-unis[a]; });
+  $('#universe').innerHTML = '<option value="all">All universes</option>' +
+    uniList.map(function (u) { return '<option value="' + u + '">' + u + ' (' + unis[u] + ')</option>'; }).join('');
+  $('#universe').value = 'star-wars';
+
+  function setsForUniverse(uni) {
+    return Object.values(CATALOG.sets)
+      .filter(function (s) { return s.members.length >= 2 && (uni === 'all' || s.universe === uni); });
+  }
+
+  function render() {
+    if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your set completion.</div>'; return; }
+    var uni = $('#universe').value;
+    var sets = setsForUniverse(uni).map(function (s) {
+      var owned = s.members.filter(function (m) { return ownedNames.has(ck(m)); });
+      return { s: s, owned: owned, pct: Math.round(owned.length / s.members.length * 100) };
+    }).filter(function (x) { return mode === 'sample' ? true : x.owned.length > 0; }) // live: only sets you own ≥1 of
+      .sort(function (a, b) { return (b.pct - a.pct) || (b.s.members.length - a.s.members.length); });
+
+    if (!sets.length) { $('#results').innerHTML = '<div class="note">No tracked sets ' + (mode==='live'?'owned ':'') + 'in this universe yet.</div>'; return; }
+
+    var done = sets.filter(function(x){return x.pct===100;}).length;
+    // portfolio value @ live StackR floor (owned items, name-joined to the on-chain snapshot)
+    var portfolio = 0, pvN = 0;
+    ownedNames.forEach(function (n) { var ci = byNameN[n] || null; if (ci && ci.floor>0) { portfolio += ci.floor; pvN++; return; } var f = floorRec(n); if (f && f.usd) { portfolio += f.usd; pvN++; } });
+    var pvBanner = (mode==='live' && pvN) ? '<div class="note" style="margin-bottom:14px">💰 <strong>Market floor value of your collection ≈ 💎 ' + Math.round(portfolio).toLocaleString() + '</strong> <span class="small">(' + pvN + ' of your items have a known floor · VeVe 💠 snapshot / StackR ⛓ on-chain)</span></div>' : '';
+    var html = pvBanner + '<p class="small">' + sets.length + ' sets' + (mode==='live'?' you own part of':'') + ' · ' + done + ' complete · 💎 costs = <strong>market floor</strong> (VeVe 💠 / StackR ⛓) where known, else drop est.</p>' +
+      sets.slice(0, 60).map(function (x) {
+        var s = x.s, size = s.members.length, complete = x.pct === 100;
+        var daily = MCP.setBaseBySize(size);
+        var tiles = s.members.map(function (m) {
+          var has = ownedNames.has(ck(m));
+          return '<div class="tile ' + (has ? '' : 'missing') + '">' +
+            '<div class="own">' + (has ? '✅' : '➕') + '</div>' +
+            '<div class="ic">' + (m.rarity === 'Secret Rare' ? '🏆' : '🎴') + '</div>' +
+            '<div class="nm">' + m.name + '</div>' +
+            '<div class="mt"><span class="' + rClass(m.rarity) + '">' + (m.rarity||'?') + '</span></div>' +
+            '<div class="mt">' + (has ? 'owned' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })()) + '</div>' +
+          '</div>';
+        }).join('');
+        // cost to complete = sum of cheapest known cost (StackR floor, else drop) of missing members
+        var missing = s.members.filter(function (m) { return !ownedNames.has(ck(m)); });
+        var costSum = 0, costKnown = 0, costFloor = 0;
+        missing.forEach(function (m) { var c = itemCost(m); if (c) { costSum += c.v; costKnown++; if (c.src!=='drop') costFloor++; } });
+        return '<div class="card" style="margin-bottom:16px">' +
+          '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">' +
+            '<h3 style="margin:0">' + s.id + '</h3>' + (complete ? '<span class="pill-best">COMPLETE</span>' : '') +
+            '<span class="small" style="margin-left:auto">' + x.owned.length + ' / ' + size + ' · ' + x.pct + '%</span></div>' +
+          '<div class="progress" style="margin:10px 0 14px"><span style="width:' + x.pct + '%"></span></div>' +
+          '<div class="tiles">' + tiles + '</div>' +
+          (complete
+            ? '<div class="note" style="margin-top:14px">🎉 Complete — earning <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points.</div>'
+            : '<div class="note" style="margin-top:14px">Complete for <strong>+100 MCP</strong> (one-off) + <strong>' + daily.toFixed(1) + ' MCP/day</strong>. Missing ' + (size - x.owned.length) +
+              (costKnown ? ' · est. cost to finish <strong>💎 ' + Math.round(costSum).toLocaleString() + '</strong>' + (costFloor ? ' <span class="small">(' + costFloor + ' at market floor 💠/⛓)</span>' : ' <span class="small">(drop-price est.)</span>') : '') +
+              '.</div>') +
+        '</div>';
+      }).join('');
+    $('#results').innerHTML = html;
+  }
+
+  async function track() {
+    var addr = $('#wallet').value.trim();
+    if (!COLLECTSCAN.isAddress(addr)) { $('#status').innerHTML = 'Enter a valid <span class="mono">0x…</span> Collect Chain wallet address.'; return; }
+    $('#track').disabled = true; $('#status').textContent = 'Fetching holdings from collectscan…';
+    try {
+      var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#status').textContent = 'Fetched ' + n + ' editions…'; } });
+      ownedNames = new Set(holdings.map(function (h) { return h.nameKey || nN(h.name); }));
+      mode = 'live';
+      $('#status').innerHTML = '✓ <strong>' + ownedNames.size + '</strong> distinct collectibles owned by <span class="mono">' + addr.slice(0,6) + '…' + addr.slice(-4) + '</span>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — list is partial</strong>' : '');
+      render();
+    } catch (e) { $('#status').innerHTML = '⚠️ ' + (e && e.message ? e.message : 'fetch failed') + ' (collectscan may be rate-limiting).'; }
+    finally { $('#track').disabled = false; }
+  }
+
+  function useSample() {
+    // sample: pretend you own every Common/Uncommon/Rare (missing the Ultra/Secret chases)
+    mode = 'sample';
+    ownedNames = new Set(CATALOG.items
+      .filter(function (c) { return ['Common','Uncommon','Rare'].indexOf(c.rarity) >= 0; })
+      .map(function (c) { return nN(c.name); }));
+    $('#status').innerHTML = 'Sample: you own every Common/Uncommon/Rare — chasing the Ultra Rares &amp; Secret Rares.';
+    render();
+  }
+
+  $('#track').addEventListener('click', track);
+  $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') track(); });
+  $('#sample').addEventListener('click', useSample);
+  $('#universe').addEventListener('change', render);
+})();
+</script>
+</body>
+</html>
