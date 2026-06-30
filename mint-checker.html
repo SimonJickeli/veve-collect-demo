@@ -88,9 +88,10 @@
 </div>
 
 <script src="assets/data.js?v=2"></script>
-<script src="data/catalog.js?v=3"></script>
-<script src="assets/significant-years.js?v=2"></script>
-<script src="assets/mints.js?v=3"></script>
+<script src="data/catalog.js?v=4"></script>
+<script src="data/historic-years.js?v=1"></script>
+<script src="assets/significant-years.js?v=3"></script>
+<script src="assets/mints.js?v=4"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script>
 (function () {
@@ -194,7 +195,7 @@
       if (typeof CATALOG !== 'undefined' && CATALOG.byName) {
         Object.keys(liveById).forEach(function (id) {
           var e = liveById[id], ci = CATALOG.byName[(e.name || '').toLowerCase()];
-          if (ci) { if (ci.lowmint) e.lowmint = ci.lowmint; if (ci.edition) e.editionSize = ci.edition; }
+          if (ci) { if (ci.lowmint) e.lowmint = ci.lowmint; if (ci.edition) e.editionSize = ci.edition; if (ci.drop) e.drop = ci.drop; }
         });
       }
       $('#scanstatus').innerHTML = '✓ <strong>' + holdings.length + '</strong> editions on-chain for <span class="mono">' + addr.slice(0, 6) + '…' + addr.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(addr) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — partial</strong>' : '');

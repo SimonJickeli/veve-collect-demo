@@ -119,12 +119,16 @@
     return holdings.map(function (h) {
       var c = catalogById[h.collectibleId] || {};
       var uni = c.universe || h.universe;
+      // VeVe drop year — a mint matching the year this NFT dropped (on-chain dropDate, else catalog drop)
+      var sy = (sigLookup ? sigLookup(c.character || c.name) : []).slice();
+      var dd = h.dropDate || c.drop, dm = dd ? String(dd).match(/(\d{4})/) : null;
+      if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
       var a = analyzeMint(h.mintNumber, c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
         firstPublicMint: c.lowmint != null ? c.lowmint : c.lowest_public_mint,
         categories: categories,
-        significantYears: sigLookup ? sigLookup(c.character || c.name) : [],
+        significantYears: sy,
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],
         universeEggs: (eggLookup && uni) ? eggLookup(uni) : []
       });
