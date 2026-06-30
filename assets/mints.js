@@ -129,6 +129,8 @@
         if (chi) {
           if (chi.pub) sy.push({ year: chi.pub, reason: 'comic first published' });
           (chi.c || []).forEach(function (cr) { var by = global.COMIC_HISTORIC.births[cr]; if (by) sy.push({ year: by, reason: cr + ' (creator) born' }); });
+          var cfa = global.COMIC_HISTORIC.cfa || {};
+          (chi.ch || []).forEach(function (cc) { var fy = cfa[cc]; if (fy) sy.push({ year: fy, reason: cc + ' first appeared' }); });
         }
       }
       var a = analyzeMint(h.mintNumber, c.editionSize, {
