@@ -123,6 +123,14 @@
       var sy = (sigLookup ? sigLookup(c.character || c.name) : []).slice();
       var dd = h.dropDate || c.drop, dm = dd ? String(dd).match(/(\d{4})/) : null;
       if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
+      // comics: original publication year + writer/artist birth years (from window.COMIC_HISTORIC)
+      if (h.format === 'comic' && global.COMIC_HISTORIC && h.nameKey) {
+        var chi = global.COMIC_HISTORIC.issues[h.nameKey];
+        if (chi) {
+          if (chi.pub) sy.push({ year: chi.pub, reason: 'comic first published' });
+          (chi.c || []).forEach(function (cr) { var by = global.COMIC_HISTORIC.births[cr]; if (by) sy.push({ year: by, reason: cr + ' (creator) born' }); });
+        }
+      }
       var a = analyzeMint(h.mintNumber, c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
