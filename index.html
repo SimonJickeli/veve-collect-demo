@@ -14,7 +14,7 @@
     <a href="sets.html">Set Tracker</a>
     <a href="mcp.html">MCP Optimizer</a>
     <a href="mint-checker.html">Mint Checker</a>
-    <a href="#wiki">Wiki</a>
+    <a href="ask.html">Ask</a>
   </nav>
 </div></header>
 
@@ -50,9 +50,14 @@
   </div>
 
   <div class="grid cols-3" style="margin-top:16px">
-    <div class="card"><h3>🔎 Floor & holders</h3><p class="sub">Floor history and holder distribution per collectible <span class="small">(next — needs a floor-price feed; holder data is already on-chain).</span></p></div>
-    <div class="card" id="wiki"><h3>📚 The Wiki</h3><p class="sub">An encyclopedic, cited reference for every universe, character, drop, and mechanic — the Obsidian vault that powers this app.</p></div>
-    <div class="card"><h3>🔗 Built on-chain</h3><p class="sub">Holdings read live from the public <span class="mono">collectscan</span> explorer for Collect Chain. Read-only, no login, no keys.</p></div>
+    <a class="card feature-card" href="ask.html">
+      <div class="emoji">💬</div>
+      <h3>Ask the Wiki</h3>
+      <p class="sub">"What are the scarcest 5 Spider-Man collectibles?" · "Which Disney collectibles are held back?" — ask in plain English, answered live from the catalog + wiki knowledge. <strong>New.</strong></p>
+      <span class="pill-best">ask →</span>
+    </a>
+    <div class="card"><h3>📚 The Wiki</h3><p class="sub">An encyclopedic, cited reference for every universe, character, drop, and mechanic — the Obsidian vault that powers this app and the <a href="ask.html">Ask</a> feature.</p></div>
+    <div class="card"><h3>🔗 Built on-chain</h3><p class="sub">Holdings + floors read live from the public <span class="mono">collectscan</span> explorer for Collect Chain (VeVe Gem / StackR OMI floors). Read-only, no login, no keys.</p></div>
   </div>
 
   <div class="note warn" style="margin-top:22px">
@@ -73,7 +78,7 @@
     stat('Collectibles', CATALOG.items.length.toLocaleString()) +
     stat('Sets', sets.toLocaleString()) +
     stat('Universes', unis) +
-    stat('Live tools', '3');
+    stat('Live tools', '4');
 })();
 </script>
 </body>

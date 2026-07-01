@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ask the Wiki — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=3" />
+<style>
+  .chat { display:flex; flex-direction:column; gap:14px; margin-top:8px; }
+  .msg { max-width:100%; }
+  .msg.you { align-self:flex-end; background:linear-gradient(135deg,var(--accent),#5b7cff); color:#fff; border-radius:14px 14px 4px 14px; padding:9px 14px; font-weight:600; }
+  .msg.bot { align-self:stretch; }
+  .answer { background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:var(--shadow); }
+  .answer .sum { font-size:15px; margin-bottom:10px; }
+  .arow { display:grid; grid-template-columns:34px 26px 1fr auto; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .arow:last-child { border-bottom:0; }
+  .arow .n { font-size:13px; font-weight:800; color:var(--muted); text-align:center; }
+  .athumb { width:34px; height:34px; border-radius:7px; object-fit:cover; background:#1b1b2f; }
+  .athumb.noimg { background:#1b1b2f url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='18' height='18'><text y='14' x='2' font-size='13'>🎴</text></svg>") center/18px no-repeat; }
+  .aname { font-weight:700; font-size:14px; }
+  .ameta { font-size:11.5px; color:var(--muted); margin-top:2px; }
+  .metric { text-align:right; font-weight:700; font-size:14px; white-space:nowrap; }
+  .metric .sub { display:block; font-size:10.5px; color:var(--muted); font-weight:600; }
+  .exchips { display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+  .exchip { cursor:pointer; border:1px solid var(--border); background:var(--bg-2); border-radius:999px; padding:6px 12px; font-size:12.5px; color:var(--text); }
+  .exchip:hover { border-color:var(--accent); }
+  .askbar { display:flex; gap:10px; position:sticky; bottom:0; background:linear-gradient(0deg,var(--bg) 60%,transparent); padding:14px 0 4px; }
+  .askbar input { flex:1; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="ask.html" class="active">Ask</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 12px">
+    <h1>Ask the <span class="grad">Wiki</span></h1>
+    <p>Ask anything about the collectibles — scarcity, price, what VeVe holds back, sets, seasons, lore. Answered live from the on-chain catalog. <span class="small" id="stat"></span></p>
+  </section>
+
+  <div class="card">
+    <div class="small" style="margin-bottom:8px">Try:</div>
+    <div class="exchips" id="examples"></div>
+  </div>
+
+  <div class="chat" id="chat" style="margin-top:18px"></div>
+
+  <div class="askbar">
+    <input type="text" id="q" placeholder="e.g. what are the scarcest 5 Spider-Man collectibles?" autocomplete="off" />
+    <button class="btn" id="send">Ask</button>
+  </div>
+
+  <div class="note warn" style="margin-top:18px">
+    Answers are computed <strong>live</strong> from the catalog (edition sizes, market floors, VeVe held-back stock, rarities). <strong>Held back</strong> = editions still unsold in VeVe's Store <em>plus</em> the reserved low mints (first #1–N) where researched — VeVe also keeps some scattered mints that aren't individually recorded here. Prices are the real VeVe 💠 / StackR ⛓ market floor. Not affiliated with VeVe.
+  </div>
+  <footer class="foot">Ask the Wiki · deterministic answers grounded in the on-chain catalog + wiki knowledge base.</footer>
+</div>
+
+<script src="data/catalog.js?v=7"></script>
+<script src="data/comics.js?v=1"></script>
+<script src="data/floor.js?v=1"></script>
+<script src="data/descriptions.js?v=1"></script>
+<script src="assets/collectscan.js?v=3"></script>
+<script src="assets/ask.js?v=4"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  $('#stat').textContent = ASK.stats.collectibles.toLocaleString() + ' collectibles · ' + ASK.stats.universes + ' universes · ' + ASK.stats.comics.toLocaleString() + ' comics';
+  var EX = [
+    'Scarcest 5 Spider-Man collectibles',
+    'Which Disney collectibles are held back?',
+    'Cheapest Secret Rares',
+    'Most valuable Star Wars collectibles',
+    'How many Marvel collectibles are there?',
+    'Best MCP value collectibles',
+    'What is Alligator Loki?'
+  ];
+  $('#examples').innerHTML = EX.map(function (e) { return '<span class="exchip">' + e + '</span>'; }).join('');
+
+  function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
+  function thumb(it) { return it.img ? '<img class="athumb" src="' + it.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">' : '<span class="athumb noimg"></span>'; }
+  function metric(it, cols) {
+    if (cols === 'cheap' || cols === 'expensive') return '<div class="metric">' + ASK.costStr(it) + '</div>';
+    if (cols === 'mcp') { var c = ASK.cost(it); return '<div class="metric">+' + ASK.mcp(it).toFixed(2) + '<span class="sub">MCP/day · ' + ASK.costStr(it) + '</span></div>'; }
+    if (cols === 'held') { var parts = []; if (it.store) parts.push(it.store.toLocaleString() + ' in store'); var r = ASK.reserved(it); if (r) parts.push(r + ' reserved'); return '<div class="metric">' + (it.store ? it.store.toLocaleString() : ASK.heldBack(it).toLocaleString()) + '<span class="sub">' + (parts.join(' · ') || 'held back') + '</span></div>'; }
+    return '<div class="metric">' + (it.edition ? it.edition.toLocaleString() : '?') + '<span class="sub">edition</span></div>';
+  }
+  function rowHtml(it, i, cols) {
+    return '<div class="arow"><div class="n">' + (i + 1) + '</div>' + thumb(it) +
+      '<div style="min-width:0"><div class="aname">' + (it.name || '') + '</div>' +
+      '<div class="ameta"><span class="' + rClass(it.rarity) + '">' + (it.rarity || '?') + '</span> ' + (it.universe ? '· ' + it.universe : (it._comic ? '· comic' : '')) + '</div></div>' +
+      metric(it, cols) + '</div>';
+  }
+
+  function answer(text) {
+    var chat = $('#chat');
+    chat.insertAdjacentHTML('beforeend', '<div class="msg you">' + text.replace(/</g, '&lt;') + '</div>');
+    var r = ASK.ask(text);
+    var body = '<div class="answer"><div class="sum">' + r.summary + '</div>';
+    if (r.note) body += '<div class="small" style="margin:6px 0">' + r.note + '</div>';
+    if (r.rows && r.rows.length) body += r.rows.map(function (it, i) { return rowHtml(it, i, r.cols); }).join('');
+    body += '</div>';
+    chat.insertAdjacentHTML('beforeend', '<div class="msg bot">' + body + '</div>');
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  $('#send').addEventListener('click', function () { var v = $('#q').value.trim(); if (v) { answer(v); $('#q').value = ''; } });
+  $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#send').click(); });
+  $('#examples').addEventListener('click', function (e) { if (e.target.classList.contains('exchip')) { $('#q').value = e.target.textContent; $('#send').click(); } });
+})();
+</script>
+</body>
+</html>
