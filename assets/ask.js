@@ -52,7 +52,9 @@
     return null;
   }
   var STOP = /\b(what|whats|which|who|show|me|the|are|is|of|on|app|veve|top|best|good|great|some|any|scarcest|rarest|lowest|smallest|fewest|highest|biggest|largest|most|least|cheapest|expensive|valuable|priciest|common|commons|uncommon|uncommons|secret|ultra|proof|artist|held|back|reserved|reserve|unsold|store|still|available|left|how|many|much|number|count|list|give|find|tell|about|collectible|collectibles|comic|comics|edition|editions|mint|mints|floor|price|worth|value|mcp|points|per|day|by|with|an|and|do|does|my|can|get|in|for|to|scarce|rare|rares|there)\b/g;
-  function subject(q) { return q.toLowerCase().replace(STOP, ' ').replace(/[0-9]+/g, ' ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+  // strip only STANDALONE numbers (the "top 5" count) — keep in-word digits so leetspeak / numbered
+  // names survive (S3LF, Spider-Man 2099, X-23).
+  function subject(q) { return q.toLowerCase().replace(STOP, ' ').replace(/\b\d+\b/g, ' ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 
   function intentOf(q) {
     var s = ' ' + q.toLowerCase() + ' ';
