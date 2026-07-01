@@ -138,10 +138,12 @@
           (chi.ch || []).forEach(function (cc) { var fy = cfa[cc]; if (fy) sy.push({ year: fy, reason: cc + ' first appeared' }); });
         }
       }
-      var a = analyzeMint(h.mintNumber, c.editionSize, {
+      var a = analyzeMint(h.mintNumber, h.editionSize || c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
-        firstPublicMint: c.lowmint != null ? c.lowmint : c.lowest_public_mint,
+        // prefer the per-holding reserve (set by the live scan via a normName+rarity catalog match),
+        // then the catalog entry's — so #21/#41 lowest-public mints are recognised per rarity.
+        firstPublicMint: h.lowmint != null ? h.lowmint : (c.lowmint != null ? c.lowmint : c.lowest_public_mint),
         categories: categories,
         significantYears: sy,
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],

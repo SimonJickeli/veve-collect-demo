@@ -93,7 +93,7 @@
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=8"></script>
+<script src="assets/mints.js?v=9"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script>
 (function () {
@@ -218,12 +218,21 @@
     try {
       var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#scanstatus').textContent = 'Fetched ' + n + ' editions…'; } });
       liveHoldings = holdings; liveById = COLLECTSCAN.catalogFromHoldings(holdings); scanMode = 'live';
-      // enrich with the authoritative researched first-public mint (reserve) + edition from the catalog,
-      // so #21/#16/#11/#6 first-public mints are recognised (collectscan metadata carries no reserve count)
-      if (typeof CATALOG !== 'undefined' && CATALOG.byName) {
-        Object.keys(liveById).forEach(function (id) {
-          var e = liveById[id], ci = CATALOG.byName[(e.name || '').toLowerCase()];
-          if (ci) { if (ci.lowmint) e.lowmint = ci.lowmint; if (ci.edition) e.editionSize = ci.edition; if (ci.drop) e.drop = ci.drop; }
+      // enrich EACH holding with the authoritative researched reserve (lowmint) + edition, matched by
+      // normName(name/aka) + rarity — so #21/#16/#11/#6 lowest-public mints are recognised per rarity/variant.
+      // (was a plain toLowerCase name-only match, which missed variants + curly-apostrophe/zero-width names.)
+      if (typeof CATALOG !== 'undefined' && CATALOG.items) {
+        var nn = window.normName || function (s) { return (s || '').toLowerCase(); };
+        var idx = {};
+        CATALOG.items.forEach(function (it) {
+          var r = nn(it.rarity || '');
+          [nn(it.name), it.aka ? nn(it.aka) : null].forEach(function (k) {
+            if (!k) return; var key = k + '|' + r; if (!idx[key]) idx[key] = it; if (!idx[k]) idx[k] = it;
+          });
+        });
+        holdings.forEach(function (h) {
+          var it = idx[(h.nameKey || nn(h.name)) + '|' + (h.rarityKey || nn(h.rarity))] || idx[h.nameKey || nn(h.name)];
+          if (it) { if (it.lowmint) h.lowmint = it.lowmint; if (it.edition && !h.editionSize) h.editionSize = it.edition; }
         });
       }
       $('#scanstatus').innerHTML = '✓ <strong>' + holdings.length + '</strong> editions on-chain for <span class="mono">' + addr.slice(0, 6) + '…' + addr.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(addr) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — partial</strong>' : '');
