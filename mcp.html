@@ -43,9 +43,9 @@
 
   <div class="note warn" style="margin-top:20px">
     <strong>How this works.</strong> Δ MCP/day is exact (VeVe's published formula: rarity bonuses, low-mint, duplicate
-    diminishing, set-completion). <strong>"💎 / +1 day"</strong> = cost ÷ daily points gained — lower is cheaper.
-    Cost is the <strong>live StackR on-chain floor ⛓</strong> (<span class="mono">StackrListings</span> on Base → OMI→USD) where an item is
-    currently listed, else its original drop price <strong>~</strong>. Rank/level projections are intentionally omitted because VeVe doesn't
+    diminishing, set-completion). <strong>"💎 / point"</strong> = cost ÷ daily points gained — lower is cheaper.
+    Cost is the <strong>VeVe Gem floor 💎</strong> or <strong>live StackR on-chain floor ⛓</strong> (<span class="mono">StackrListings</span> on Base → OMI→USD), whichever is cheaper;
+    for <strong>non-blind</strong> items with no floor, the fixed drop price <strong>~</strong>. <strong>Blind-box items are shown only when a real secondary-market floor exists</strong> — a sealed box's list price isn't the price of a specific rarity, so we won't quote it. Rank/level projections are omitted because VeVe doesn't
     publish exact thresholds. Source: <span class="mono">wiki/sources/economy-gems-omi-mcp.md</span>.
   </div>
   <footer class="foot">Not financial advice. VeVe may change the MCP formula or act against system-gaming — see the program FAQ.</footer>
@@ -77,41 +77,28 @@
   if (window.FLOOR && FLOOR.byName) Object.keys(FLOOR.byName).forEach(function(n){ var k=_fnN(n); if(k && !(k in FLOORNORM)) FLOORNORM[k]=FLOOR.byName[n]; });
   function floorRec(name){ if(!window.FLOOR||!FLOOR.byName) return null; return FLOOR.byName[name] || FLOORNORM[_fnN(name)] || null; }
   function floorAsOf(){ return (window.FLOOR && FLOOR.asOf) ? new Date(FLOOR.asOf*1000).toISOString().slice(0,10) : null; }
-  // acquisition cost: authoritative VeVe market floor (Gems snapshot) > live StackR on-chain floor > original drop price
-  // Cost = the rarity's real market floor. A blind-box's list price is NOT the price of a specific
-  // rarity, so we never use it: floor(VeVe) > floor(StackR) > fixed drop price (non-blind-box only) > none.
-  // cost = the CHEAPER of VeVe market floor 💠 and live StackR on-chain floor ⛓ (1 Gem = $1),
-  // else a non-blind-box fixed drop price. Picking the cheaper venue answers "where do I buy it".
-  // Expected cost to PULL one of this rarity from its blind box = box price ÷ pull-odds,
-  // where odds = this rarity's edition ÷ the set's total editions. Used only when there's no
-  // secondary-market floor for an unsold/unlisted blind-box item (clearly labelled an estimate).
-  function pullCost(c){
-    if (!c.blind || !(c.price>0) || !c.edition) return null;
-    if (!c.set || typeof CATALOG==='undefined' || !CATALOG.sets[c.set]) return null;
-    var total=0; CATALOG.sets[c.set].members.forEach(function(m){ var it=_byNameN && _byNameN[nN(m.name)]; if(it&&it.edition) total+=it.edition; });
-    if (total<=0) return null;
-    return c.price * total / c.edition;
-  }
-  // acquisition cost, best→worst: VeVe market floor 💎 / live StackR floor ⛓ (cheaper of the two),
-  // else expected blind-box pull cost (estimate), else original drop price. 1 Gem = $1.
+  // acquisition cost: VeVe market floor 💎 / live StackR floor ⛓ (cheaper of the two), else the
+  // original drop price for NON-blind items only. 1 Gem = $1.
+  // BLIND BOXES: a blind box's list price is the SEALED BOX, not this specific rarity — so we NEVER
+  // use the drop price (nor a pull-odds estimate) for a blind-box item. Without a real secondary-market
+  // floor (VeVe Gem or StackR OMI) we cannot honestly price it → return null so it is excluded.
   function costOf(c){
     var veve = (c.floor>0) ? c.floor : null;
     var f = floorRec(c.name); var stackr = (f && f.usd>0) ? f.usd : null;
     if (veve!=null && stackr!=null) return veve<=stackr ? {v:veve, src:'veve'} : {v:stackr, src:'stackr'};
     if (veve!=null) return {v:veve, src:'veve'};
     if (stackr!=null) return {v:stackr, src:'stackr'};
-    if (c.blind){ var pc=pullCost(c); if(pc) return {v:pc, src:'pull'}; }    // unsold blind-box: expected pull cost
-    var p=Number(c.price); if(p>0) return {v:p, src:'drop'};
+    if (c.blind) return null;                                   // blind box, no real floor → cannot price → omit
+    var p=Number(c.price); if(p>0) return {v:p, src:'drop'};    // non-blind: fixed drop price is a real purchase price
     return null;
   }
-  // "Cheaper on" cell: 💎 VeVe (Gem floor) · red OMI circle StackR (OMI floor) · ~ estimate (pull / drop, NOT a market floor)
+  // cost cell: 💎 VeVe (Gem floor) · red OMI circle StackR (OMI floor) · ~ drop (non-blind fixed price only)
   function venueCell(c){
     var co = costOf(c); if(!co) return '<span class="small">—</span>';
     var n = Math.round(co.v).toLocaleString();
     if (co.src==='veve')   return '<span class="gemico" title="cheaper on VeVe (Gem market floor)">💎</span> ' + n;
     if (co.src==='stackr') return '<span class="omidot" title="cheaper on StackR (live OMI market floor)"></span> ' + n;
-    if (co.src==='pull')   return '<span class="small est" title="No secondary-market floor yet (unsold/unlisted blind-box). Estimated cost to PULL this rarity = box price ÷ pull odds. NOT a market floor.">~ ' + n + ' <em>est. pull</em></span>';
-    return '<span class="small est" title="Original drop/primary price — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
+    return '<span class="small est" title="Original drop/primary price (non-blind-box fixed price) — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
   }
   function thumb(c){
     return c.img
@@ -206,7 +193,7 @@
     }).join('');
 
     $('#recs').innerHTML = '<div class="card"><h3>💰 Cheapest points to add</h3>' +
-      '<p class="sub">Ranked by best value (💎 per +1 MCP/day), factoring your holdings &amp; duplicates. <strong>MCP/day</strong> = the points <em>this item itself</em> earns. <strong>Cost</strong>: 💎 VeVe Gem floor · <span class="omidot"></span> StackR OMI floor · <strong>~</strong> estimate (unsold blind-box pull cost or drop price, not a market floor).</p>' +
+      '<p class="sub">Ranked by best value (💎 per +1 MCP/day), factoring your holdings &amp; duplicates. <strong>MCP/day</strong> = the points <em>this item itself</em> earns. <strong>Cost</strong>: 💎 VeVe Gem floor · <span class="omidot"></span> StackR OMI floor · <strong>~ drop</strong> = fixed drop price (non-blind items only). <strong>Blind-box items without a real market floor are omitted</strong> — a sealed box\'s price isn\'t the price of a specific rarity.</p>' +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (isFinite(best.cpp)?' at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
       '<div class="ranklist">' + body + '</div>' +
       '<p class="small" style="margin-top:12px">🧩 <strong>Set completion</strong> adds daily set points (on the badge) <em>and</em> a one-off <strong>+100 MCP the first time you ever complete that set</strong>. The MCP/day figure is the item\'s own value only.</p></div>';
