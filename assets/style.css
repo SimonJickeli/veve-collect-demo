@@ -146,26 +146,25 @@ footer.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--
 
 /* ranked list (MCP recs) */
 .ranklist { display:flex; flex-direction:column; gap:8px; }
-.rankrow { display:grid; grid-template-columns: 30px 46px 1fr auto auto; align-items:center; gap:14px;
+.rankrow { display:grid; grid-template-columns: 28px 44px 1fr auto; align-items:center; gap:13px;
   background: linear-gradient(180deg, var(--panel-2), var(--panel)); border:1px solid var(--border); border-radius:12px; padding:11px 14px; transition: border-color .12s, transform .12s; }
 .rankrow:hover { border-color:#3a3f63; transform: translateY(-1px); }
 .rankrow.top { border-color:#4a3f86; background: linear-gradient(135deg, rgba(124,92,255,.14), var(--panel)); }
 .rank { font-size:14px; font-weight:800; color:var(--muted); text-align:center; }
 .rankrow.top .rank { color:var(--accent-2); }
-.rthumb { width:46px; height:46px; border-radius:9px; object-fit:cover; background:#1b1b2f; }
+.rthumb { width:44px; height:44px; border-radius:9px; object-fit:cover; background:#1b1b2f; }
 .rthumb.noimg { background:#1b1b2f url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22'><text y='17' x='2' font-size='16'>🎴</text></svg>") center/22px no-repeat; }
 .rname { font-weight:700; font-size:14.5px; }
 .rmeta { margin-top:4px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
-.rmcp { text-align:right; }
-.rmcp .big { font-size:20px; font-weight:800; color:var(--accent-2); letter-spacing:-.5px; }
-.rmcp .lbl { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
-.rcost { text-align:right; min-width:96px; font-weight:700; font-size:14.5px; }
-.rcost .vpp { display:block; font-size:10.5px; color:var(--muted); font-weight:600; margin-top:2px; }
+.rval { text-align:right; white-space:nowrap; }
+.rval .big { font-size:19px; font-weight:800; color:var(--accent-2); letter-spacing:-.5px; }
+.rval .big .u { font-size:11px; color:var(--muted); font-weight:600; }
+.rval .sub { display:block; font-size:11px; color:var(--muted); font-weight:600; margin-top:2px; }
 .setbadge { font-size:11px; background:rgba(80,200,120,.15); color:#5fd38a; border:1px solid rgba(80,200,120,.35); border-radius:10px; padding:1px 8px; }
 .dupwarn { font-size:11px; color:#c9a227; }
 .omidot { display:inline-block; width:11px; height:11px; border-radius:50%; background:#ff2d55; box-shadow:0 0 0 2px rgba(255,45,85,.25); vertical-align:-1px; }
 .est { opacity:.72; } .est em { font-size:10px; font-style:normal; opacity:.8; }
-@media (max-width:640px){ .rankrow { grid-template-columns: 24px 40px 1fr auto; } .rankrow .rcost { grid-column: 3/5; text-align:left; margin-top:2px; } }
+@media (max-width:640px){ .rankrow { grid-template-columns: 24px 40px 1fr auto; } }
 
 /* scan result cards (mint checker) */
 .scanlist { display:flex; flex-direction:column; gap:8px; margin-top:6px; }
