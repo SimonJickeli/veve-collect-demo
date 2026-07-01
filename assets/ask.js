@@ -142,7 +142,9 @@
 
   function topBy(items, order, N) {
     var a = items.slice();
-    if (order === 'scarce') a = a.filter(function (i) { return i.edition; }).sort(function (x, y) { return x.edition - y.edition; });
+    // "scarcest" = scarcest FIGURES — exclude ARTWORK-variety pieces (comic-cover / print art), which
+    // are often 1-of-1 Artist Proofs and would otherwise dominate the list. (Only when other figures exist.)
+    if (order === 'scarce') { var fig = a.filter(function (i) { return !i.art; }); if (fig.length) a = fig; a = a.filter(function (i) { return i.edition; }).sort(function (x, y) { return x.edition - y.edition; }); }
     else if (order === 'common') a = a.filter(function (i) { return i.edition; }).sort(function (x, y) { return y.edition - x.edition; });
     else if (order === 'cheap') a = a.filter(cost).sort(function (x, y) { return cost(x).v - cost(y).v; });
     else if (order === 'expensive') a = a.filter(cost).sort(function (x, y) { return cost(y).v - cost(x).v; });
