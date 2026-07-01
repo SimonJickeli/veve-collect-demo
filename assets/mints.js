@@ -27,6 +27,7 @@
     { key: 'low',        label: 'Lowest mints (top 5)' },
     { key: 'high',       label: 'Highest (final) mint' },
     { key: 'palindrome', label: 'Palindromes (5+ digits)' },
+    { key: 'repdigit',   label: 'Repeating digits (111, 2222…)' },
     { key: 'sequence',   label: 'Ascending / descending' },
     { key: 'meme',       label: 'Meme / iconic numbers' }
   ];
@@ -77,8 +78,11 @@
     if (isConsecAsc(s)) add('ascending', 'Ascending run (#' + s + ') — highly prized', 'epic', ['sequence']);
     if (isConsecDesc(s)) add('descending', 'Descending run (#' + s + ')', 'rare', ['sequence']);
 
-    // ── palindrome (4+ digits only) ──
+    // ── palindrome (5+ digits only) ──
     if (isPalindrome(s)) add('palindrome', 'Palindrome (#' + s + ')', 'rare', ['palindrome']);
+
+    // ── repeating digits (3+ digits: #111, #333, #2222, #5555) — a lower "somewhat special" tier ──
+    if (s.length >= 3 && isRepdigit(s)) add('repdigit', 'Repeating digits (#' + s + ')', 'notable', ['repdigit']);
 
     // ── meme / iconic numbers + franchise easter eggs (kept tight) ──
     if (MEME_NUMBERS[mint]) add('meme', 'Meme / iconic number — ' + MEME_NUMBERS[mint], 'rare', ['meme']);
@@ -143,14 +147,10 @@
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],
         universeEggs: (eggLookup && uni) ? eggLookup(uni) : []
       });
-      // comic AGE + FIRST-APPEARANCE (VeVe's "comic ages" + key-issue categories) — a property of the
-      // book itself, not the mint number; the FA flag makes a key issue "special" regardless of mint.
-      var age = chi ? (chi.age || null) : null, isFa = !!(chi && chi.fa);
-      if (isFa && (!categories || !categories.length || categories.indexOf('fa') >= 0 || categories.indexOf('historic') >= 0)) {
-        a.flags.push({ tag: 'fa', label: '🔑 First appearance / key issue', tier: 'legendary', cats: ['fa', 'historic'] });
-        a.special = true; a.topTier = 'legendary'; a.score += (TIER_WEIGHT.legendary || 100);
-      }
-      return { holding: h, collectible: c, analysis: a, age: age, fa: isFa };
+      // comic AGE — exposed for the "Comics by age" panel + row chip (VeVe's comic-ages category).
+      // (First-appearance is NOT a special mint — it lives in the wiki for depth, not here.)
+      var age = chi ? (chi.age || null) : null;
+      return { holding: h, collectible: c, analysis: a, age: age };
     }).filter(function (r) { return r.analysis.special; })
       .sort(function (x, y) { return y.analysis.score - x.analysis.score; });
   }

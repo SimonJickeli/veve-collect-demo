@@ -82,17 +82,17 @@
   </div>
 
   <div class="note warn" style="margin-top:20px">
-    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve (e.g. #21 when VeVe holds #1–20). Engine: <span class="mono">app/assets/mints.js</span>.
+    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve (e.g. #21 when VeVe holds #1–20). Engine: <span class="mono">app/assets/mints.js</span>.
   </div>
   <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
 </div>
 
 <script src="assets/data.js?v=2"></script>
-<script src="data/catalog.js?v=5"></script>
+<script src="data/catalog.js?v=7"></script>
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=7"></script>
+<script src="assets/mints.js?v=8"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script>
 (function () {
@@ -139,12 +139,12 @@
 
   // groups for the scan results — a holding appears under every category it matches
   var SECTIONS = [
-    { title: '🔑 First appearances / key issues', match: function (t) { return t === 'fa'; } },
     { title: '🥇 Lowest mints',                match: function (t) { return t === 'lowest-public' || t === 'top5-low' || t === 'ace'; } },
     { title: '🏁 Highest (final) mint',         match: function (t) { return t === 'highest-public'; } },
     { title: '➡️ Ascending runs',               match: function (t) { return t === 'ascending'; } },
     { title: '⬅️ Descending runs',              match: function (t) { return t === 'descending'; } },
     { title: '🔢 Palindromes',                  match: function (t) { return t === 'palindrome'; } },
+    { title: '🔁 Repeating digits',             match: function (t) { return t === 'repdigit'; } },
     { title: '😎 Meme / iconic & easter eggs',  match: function (t) { return t === 'meme'; } },
     { title: '📅 Historically significant',     match: function (t) { return t.indexOf('historic-') === 0; } }
   ];
@@ -165,14 +165,13 @@
   var AGE_EMOJI = { Platinum: '⚪', Golden: '🟡', Silver: '⚙️', Bronze: '🥉', Copper: '🟤', Modern: '🟦' };
   function comicAgePanel(holdings) {
     if (!window.COMIC_HISTORIC) return '';
-    var ages = {}, fa = 0, nComics = 0;
+    var ages = {}, nComics = 0;
     holdings.forEach(function (h) {
       if (h.format !== 'comic' || !h.nameKey) return;
       var chi = COMIC_HISTORIC.issues[h.nameKey];
       if (!chi) return;
       nComics++;
       if (chi.age) ages[chi.age] = (ages[chi.age] || 0) + 1;
-      if (chi.fa) fa++;
     });
     if (!nComics) return '';
     var chips = AGE_ORDER.filter(function (a) { return ages[a]; }).map(function (a) {
@@ -180,7 +179,7 @@
     }).join(' ');
     return '<div class="note" style="margin-bottom:14px">' +
       '<div style="margin-bottom:6px"><strong>🗂️ Comics by age</strong> <span class="small">(' + nComics + ' comic editions · VeVe Collection-View category · age by original series year)</span></div>' +
-      chips + (fa ? ' &nbsp; <span class="pill">🔑 First appearances <strong>' + fa + '</strong></span>' : '') +
+      chips +
       '</div>';
   }
 

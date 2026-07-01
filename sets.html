@@ -51,12 +51,12 @@
   <div id="results" style="margin-top:20px"></div>
 
   <div class="note warn" style="margin-top:20px">
-    Set membership = the real VeVe <strong>series</strong> (e.g. "Starlight, Series 1"), not a same-day-drop proxy. Live holdings are read from <span class="mono">collectscan</span> and matched by collectible name. <strong>💎 costs and portfolio value use the live StackR on-chain floor</strong> (<span class="mono">StackrListings</span> on Base, OMI→USD) where an item is currently listed, falling back to original drop price otherwise. Catalog coverage is partial, so "missing" reflects what's in the catalog so far. Rewards use VeVe's published set-completion points.
+    Set membership = the real VeVe <strong>series</strong> (e.g. "Starlight, Series 1"). <strong>Completion is the base set</strong> — <strong>✨ special editions</strong> (Artist Proof, Gold/Platinum/Diamond variants, "Special Edition") are a <strong>master-set</strong> extra and are <strong>not required</strong> to complete the set on VeVe. Live holdings are read from <span class="mono">collectscan</span> and matched by name; 💎 = live market floor (VeVe 💠 / StackR ⛓) where listed, else drop est. Set-completion earns the <strong>daily set points</strong> shown. VeVe also grants a <strong>one-time +100 MCP the first time you ever complete a set</strong> — it's not shown per-set here because it applies only once ever and can't be inferred from current holdings. Catalog coverage is partial, so "missing" reflects the catalog so far.
   </div>
   <footer class="foot">Sets are the real VeVe series (from the authoritative catalog); set-completion points use the series, not a same-day-drop proxy.</footer>
 </div>
 
-<script src="data/catalog.js?v=5"></script>
+<script src="data/catalog.js?v=7"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script src="assets/mcp.js?v=4"></script>
@@ -150,10 +150,17 @@
     if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your set completion.</div>'; return; }
     var uni = $('#universe').value;
     var sets = setsForUniverse(uni).map(function (s) {
-      var owned = s.members.filter(function (m) { return ownedNames.has(ck(m)); });
-      return { s: s, owned: owned, pct: Math.round(owned.length / s.members.length * 100) };
-    }).filter(function (x) { return mode === 'sample' ? true : x.owned.length > 0; }) // live: only sets you own ≥1 of
-      .sort(function (a, b) { return (b.pct - a.pct) || (b.s.members.length - a.s.members.length); });
+      // VeVe base set = members that are NOT special editions; specials (AP / Gold / "Special Edition")
+      // are a "master set" extra, NOT required for VeVe set completion.
+      var base = s.members.filter(function (m) { return !m.sp; });
+      if (!base.length) base = s.members;                                  // guard: all-special series
+      var special = s.members.filter(function (m) { return m.sp; });
+      var owned = base.filter(function (m) { return ownedNames.has(ck(m)); });
+      var ownedSpecial = special.filter(function (m) { return ownedNames.has(ck(m)); });
+      return { s: s, base: base, special: special, owned: owned, ownedSpecial: ownedSpecial,
+               pct: Math.round(owned.length / base.length * 100) };
+    }).filter(function (x) { return mode === 'sample' ? true : (x.owned.length > 0 || x.ownedSpecial.length > 0); })
+      .sort(function (a, b) { return (b.pct - a.pct) || (b.base.length - a.base.length); });
 
     if (!sets.length) { $('#results').innerHTML = '<div class="note">No tracked sets ' + (mode==='live'?'owned ':'') + 'in this universe yet.</div>'; return; }
 
@@ -162,35 +169,45 @@
     var portfolio = 0, pvN = 0;
     ownedNames.forEach(function (n) { var ci = byNameN[n] || null; if (ci && ci.floor>0) { portfolio += ci.floor; pvN++; return; } var f = floorRec(n); if (f && f.usd) { portfolio += f.usd; pvN++; } });
     var pvBanner = (mode==='live' && pvN) ? '<div class="note" style="margin-bottom:14px">💰 <strong>Market floor value of your collection ≈ 💎 ' + Math.round(portfolio).toLocaleString() + '</strong> <span class="small">(' + pvN + ' of your items have a known floor · VeVe 💠 snapshot / StackR ⛓ on-chain)</span></div>' : '';
-    var html = pvBanner + '<p class="small">' + sets.length + ' sets' + (mode==='live'?' you own part of':'') + ' · ' + done + ' complete · 💎 costs = <strong>market floor</strong> (VeVe 💠 / StackR ⛓) where known, else drop est.</p>' +
+    function tileHtml(m, special) {
+      var has = ownedNames.has(ck(m));
+      return '<div class="tile ' + (has ? '' : 'missing') + '">' +
+        '<div class="own">' + (has ? '✅' : '➕') + '</div>' +
+        (special ? '<div class="own" style="left:8px;right:auto" title="special edition — master set only">✨</div>' : '') +
+        '<div class="ic">' + (m.rarity === 'Secret Rare' ? '🏆' : '🎴') + '</div>' +
+        '<div class="nm">' + m.name + '</div>' +
+        '<div class="mt"><span class="' + rClass(m.rarity) + '">' + (m.rarity||'?') + '</span></div>' +
+        '<div class="mt">' + (has ? 'owned' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })()) + '</div>' +
+      '</div>';
+    }
+    var html = pvBanner + '<p class="small">' + sets.length + ' sets' + (mode==='live'?' you own part of':'') + ' · ' + done + ' complete on VeVe · ✨ = special edition (master set only, not required for VeVe completion) · 💎 = market floor (VeVe 💠 / StackR ⛓) where known.</p>' +
       sets.slice(0, 60).map(function (x) {
-        var s = x.s, size = s.members.length, complete = x.pct === 100;
+        var s = x.s, size = x.base.length, complete = x.pct === 100;
         var daily = MCP.setBaseBySize(size);
-        var tiles = s.members.map(function (m) {
-          var has = ownedNames.has(ck(m));
-          return '<div class="tile ' + (has ? '' : 'missing') + '">' +
-            '<div class="own">' + (has ? '✅' : '➕') + '</div>' +
-            '<div class="ic">' + (m.rarity === 'Secret Rare' ? '🏆' : '🎴') + '</div>' +
-            '<div class="nm">' + m.name + '</div>' +
-            '<div class="mt"><span class="' + rClass(m.rarity) + '">' + (m.rarity||'?') + '</span></div>' +
-            '<div class="mt">' + (has ? 'owned' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })()) + '</div>' +
-          '</div>';
-        }).join('');
-        // cost to complete = sum of cheapest known cost (StackR floor, else drop) of missing members
-        var missing = s.members.filter(function (m) { return !ownedNames.has(ck(m)); });
+        var baseTiles = x.base.map(function (m) { return tileHtml(m, false); }).join('');
+        var missingSpecial = x.special.filter(function (m) { return !ownedNames.has(ck(m)); }).length;
+        // cost to finish the BASE set (specials excluded)
+        var missing = x.base.filter(function (m) { return !ownedNames.has(ck(m)); });
         var costSum = 0, costKnown = 0, costFloor = 0;
         missing.forEach(function (m) { var c = itemCost(m); if (c) { costSum += c.v; costKnown++; if (c.src!=='drop') costFloor++; } });
+        var masterNote = '';
+        if (x.special.length) {
+          if (missingSpecial > 0) masterNote = ' · ✨ Master set: <strong>' + missingSpecial + '</strong> special edition' + (missingSpecial>1?'s':'') + ' available (optional, not required)';
+          else if (complete) masterNote = ' · 🏆 <strong>Master set complete</strong> too';
+          else masterNote = ' · ✨ special edition' + (x.special.length>1?'s':'') + ' owned';
+        }
         return '<div class="card" style="margin-bottom:16px">' +
           '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">' +
-            '<h3 style="margin:0">' + s.id + '</h3>' + (complete ? '<span class="pill-best">COMPLETE</span>' : '') +
+            '<h3 style="margin:0">' + s.id + '</h3>' + (complete ? '<span class="pill-best">COMPLETE ON VEVE</span>' : '') +
             '<span class="small" style="margin-left:auto">' + x.owned.length + ' / ' + size + ' · ' + x.pct + '%</span></div>' +
           '<div class="progress" style="margin:10px 0 14px"><span style="width:' + x.pct + '%"></span></div>' +
-          '<div class="tiles">' + tiles + '</div>' +
+          '<div class="tiles">' + baseTiles + '</div>' +
+          (x.special.length ? '<div class="small" style="margin:12px 0 6px">✨ Special editions <span style="color:var(--muted)">(master set — not needed for VeVe completion)</span></div><div class="tiles">' + x.special.map(function (m) { return tileHtml(m, true); }).join('') + '</div>' : '') +
           (complete
-            ? '<div class="note" style="margin-top:14px">🎉 Complete — earning <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points.</div>'
-            : '<div class="note" style="margin-top:14px">Complete for <strong>+100 MCP</strong> (one-off) + <strong>' + daily.toFixed(1) + ' MCP/day</strong>. Missing ' + (size - x.owned.length) +
-              (costKnown ? ' · est. cost to finish <strong>💎 ' + Math.round(costSum).toLocaleString() + '</strong>' + (costFloor ? ' <span class="small">(' + costFloor + ' at market floor 💠/⛓)</span>' : ' <span class="small">(drop-price est.)</span>') : '') +
-              '.</div>') +
+            ? '<div class="note" style="margin-top:14px">✅ <strong>Complete on VeVe</strong> — earning <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points.' + masterNote + '.</div>'
+            : '<div class="note" style="margin-top:14px">Finish the set for <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points. Missing ' + (size - x.owned.length) + ' of ' + size +
+              (costKnown ? ' · est. cost <strong>💎 ' + Math.round(costSum).toLocaleString() + '</strong>' + (costFloor ? ' <span class="small">(' + costFloor + ' at market floor 💠/⛓)</span>' : ' <span class="small">(drop-price est.)</span>') : '') +
+              masterNote + '.</div>') +
         '</div>';
       }).join('');
     $('#results').innerHTML = html;
