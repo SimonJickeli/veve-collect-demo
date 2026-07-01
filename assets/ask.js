@@ -28,8 +28,13 @@
   function costStr(it) { var c = cost(it); if (!c) return '—'; return '💎 ' + Math.round(c.v).toLocaleString() + (c.src === 'veve' ? ' 💠' : c.src === 'stackr' ? ' ⛓' : ' ~'); }
   var RB = { 'Rare': 0.25, 'Ultra Rare': 0.5, 'Secret Rare': 5, 'Artist Proof': 5 };
   function mcp(it) { return 1 + (RB[it.rarity] || 0); }
+  // HELD BACK = the reserved low mints (#1 → lowest-public−1) VeVe withholds. Distinct from UNSOLD
+  // (Store stock) and BURNT (removed from supply) — all three are separate on VeVe.
   function reserved(it) { return (it.lowmint && it.lowmint > 1) ? (it.lowmint - 1) : 0; }
-  function heldBack(it) { return (it.store || 0) + reserved(it); }
+  function heldBack(it) { return reserved(it); }
+  function unsold(it) { return it.store || 0; }
+  function burnt(it) { return it.burnt || 0; }
+  function issuedOf(it) { return it.issued || it.edition || 0; }
 
   // ---- universe detection ----
   var UNIS = {}; C.forEach(function (c) { if (c.universe) UNIS[c.universe] = (UNIS[c.universe] || 0) + 1; });
@@ -51,14 +56,16 @@
     if (/\bcommons?\b/.test(s)) return 'Common';
     return null;
   }
-  var STOP = /\b(what|whats|which|who|show|me|the|are|is|of|on|app|veve|top|best|good|great|some|any|scarcest|rarest|lowest|smallest|fewest|highest|biggest|largest|most|least|cheapest|expensive|valuable|priciest|common|commons|uncommon|uncommons|secret|ultra|proof|artist|held|back|reserved|reserve|unsold|store|still|available|left|how|many|much|number|count|list|give|find|tell|about|collectible|collectibles|comic|comics|edition|editions|mint|mints|floor|price|worth|value|mcp|points|per|day|by|with|an|and|do|does|my|can|get|in|for|to|scarce|rare|rares|there)\b/g;
+  var STOP = /\b(what|whats|which|who|whose|where|owns|own|holds|holder|locate|sitting|has|show|me|the|are|is|of|on|app|veve|top|best|good|great|some|any|scarcest|rarest|lowest|smallest|fewest|highest|biggest|largest|most|least|cheapest|expensive|valuable|priciest|common|commons|uncommon|uncommons|secret|ultra|proof|artist|held|back|reserved|reserve|withheld|unsold|burnt|burned|store|still|available|left|how|many|much|number|count|list|give|find|tell|about|collectible|collectibles|comic|comics|edition|editions|mint|mints|floor|price|worth|value|mcp|points|per|day|by|with|an|a|and|do|does|did|my|can|get|in|for|to|scarce|rare|rares|there|were|was|been|being|that|this|these|those|they|it|have|had)\b/g;
   // strip only STANDALONE numbers (the "top 5" count) — keep in-word digits so leetspeak / numbered
   // names survive (S3LF, Spider-Man 2099, X-23).
   function subject(q) { return q.toLowerCase().replace(STOP, ' ').replace(/\b\d+\b/g, ' ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 
   function intentOf(q) {
     var s = ' ' + q.toLowerCase() + ' ';
-    if (/held ?back|hold ?back|reserved|reserve|unsold|(didn.?t|did not|doesn.?t) sell|still available|in the store|left in|\bin store\b|\bthe store\b/.test(s)) return 'held';
+    if (/\bburn(t|ed)?\b|burning/.test(s)) return 'burnt';
+    if (/unsold|(didn.?t|did not|doesn.?t) sell|still (available|for sale)|in the store|store stock|left in the store/.test(s)) return 'unsold';
+    if (/held ?back|hold ?back|reserved|reserve|withheld/.test(s)) return 'held';
     if (/how many|number of|count/.test(s)) return 'count';
     if (/scarcest|rarest|lowest edition|smallest edition|fewest|hardest to (get|find)/.test(s)) return 'scarce';
     if (/most common|largest edition|biggest edition|highest edition/.test(s)) return 'common';
@@ -101,9 +108,39 @@
 
   function subjLabel(p) { return p.label || 'all'; }
 
+  function bestMatch(items, subj) {
+    var sj = sq(subj); if (!items.length) return null;
+    var m = items.filter(function (it) { return sj && sq(it.name).indexOf(sj) >= 0; }).sort(function (a, b) { return sq(a.name).length - sq(b.name).length; });
+    return m[0] || items.slice().sort(function (a, b) { return (b.edition || 0) - (a.edition || 0); })[0];
+  }
+  // EDITION LOCATOR — "where is #1987 of X?" → held back / no-such-edition / in circulation (collector/unsold/burnt).
+  // Certain part: anything below the lowest-public mint is held back. Exact owner of a circulating edition
+  // isn't in our data (token IDs aren't derivable; needs VeVe's app) — we say so honestly.
+  function locate(q, N) {
+    // subject for the locator: drop the edition phrase but KEEP in-name numbers (IG-11, R2-D2, 2099)
+    var sub = q.replace(/(?:#|edition|mint|no\.?|number)\s*#?\s*\d{1,7}/ig, ' ').toLowerCase().replace(STOP, ' ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    var sj = sq(sub), it = null;
+    if (sj) {
+      var m = C.filter(function (x) { return sq(x.name).indexOf(sj) >= 0 || sq(x.character).indexOf(sj) >= 0; });
+      if (!m.length) { var toks = sub.split(' ').filter(function (t) { return t.length > 1; }); m = C.filter(function (x) { var nm = sq(x.name) + sq(x.character); return toks.length && toks.every(function (t) { return nm.indexOf(sq(t)) >= 0; }); }); }
+      it = m.sort(function (a, b) { return sq(a.name).length - sq(b.name).length; })[0];
+    }
+    if (!it) return { summary: 'Which collectible? Try e.g. "where is #41 of Alligator Loki?"', rows: [] };
+    var lpm = it.lowmint, iss = issuedOf(it), res = reserved(it), bn = burnt(it), st = unsold(it);
+    var head = '<strong>#' + N + ' of ' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition of ' + it.edition.toLocaleString() : '') + ')</span> — ';
+    if (iss && N > iss) return { summary: head + '❔ there is no #' + N + ' — only ' + iss.toLocaleString() + ' editions were minted.', rows: [] };
+    if (lpm && N > 0 && N < lpm) return { summary: head + '🔒 <strong>Held back by VeVe</strong> — a reserved mint below the lowest public mint (#' + lpm + '). It sits in VeVe\'s reserve wallet and was never sold to collectors.', rows: [] };
+    var bits = []; if (res) bits.push('#1–#' + (lpm - 1) + ' reserved'); if (bn) bits.push(bn.toLocaleString() + ' burnt'); if (st) bits.push(st.toLocaleString() + ' unsold');
+    var ctx = bits.length ? ' For ' + esc(it.name) + ': ' + bits.join(' · ') + '.' : '';
+    if (!lpm) return { summary: head + '❔ the lowest public mint isn\'t recorded for this one, so I can\'t say for certain whether #' + N + ' is reserved.' + ctx + ' <span class="small">Mints below the reserve are held back; the rest are with collectors, unsold, or burnt — exact per-edition owner needs VeVe\'s app.</span>', rows: [] };
+    return { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + ' <span class="small">Pinpointing which needs VeVe\'s app / a full on-chain owner scan; only mints below #' + lpm + ' are certainly held back.</span>', rows: [] };
+  }
+
   // ---------- the answer engine ----------
   function ask(q) {
     q = (q || '').trim(); if (!q) return { summary: 'Ask me about the collectibles — e.g. "scarcest 5 Spider-Man collectibles".', rows: [] };
+    var em = q.match(/(?:#|edition|mint|no\.?|number)\s*#?\s*(\d{1,7})/i);
+    if (em && (/#\s*\d/.test(q) || /where|who|locate|holder|owns?|\bhas\b|sitting/i.test(q))) return locate(q, parseInt(em[1], 10));
     var useComics = /\bcomics?\b/.test(q.toLowerCase());
     var intent = intentOf(q), N = topN(q), p = pick(q, useComics), items = p.items, lbl = subjLabel(p);
     var kind = useComics ? 'comics' : 'collectibles';
@@ -124,10 +161,15 @@
       var br = Object.keys(byR).sort(function (a, b) { return byR[b] - byR[a]; }).map(function (r) { return byR[r] + ' ' + r; }).join(' · ');
       return { summary: '<strong>' + items.length + '</strong> ' + L(lbl) + kind + ' in the catalog.<br><span class="small">' + br + '</span>', rows: [] };
     }
-    if (intent === 'held') {
-      var held = items.filter(function (it) { return heldBack(it) > 0; }).sort(function (a, b) { return heldBack(b) - heldBack(a); }).slice(0, N);
-      if (!held.length) return { summary: 'No held-back data for <strong>' + esc(lbl) + '</strong> — those drops appear sold out (nothing left in VeVe\'s store), and reserved-mint data isn\'t recorded for them.', rows: [] };
-      return { summary: 'VeVe is <strong>holding back</strong> editions of these ' + L(lbl) + kind + ' — ' + (held[0].store ? 'unsold stock still in the Store' : 'reserved low mints') + ' (top ' + held.length + '):', rows: withCols(held, 'held'), cols: 'held' };
+    if (intent === 'held' || intent === 'burnt' || intent === 'unsold') {
+      var metricFn = intent === 'held' ? heldBack : (intent === 'burnt' ? burnt : unsold);
+      var list = items.filter(function (it) { return metricFn(it) > 0; }).sort(function (a, b) { return metricFn(b) - metricFn(a); }).slice(0, N);
+      var word = intent === 'held' ? 'held back (reserved low mints, #1 → lowest-public)' : (intent === 'burnt' ? 'burnt (removed from supply)' : 'unsold (still in VeVe\'s Store)');
+      if (!list.length) {
+        var why = intent === 'held' ? 'reserved-mint data isn\'t recorded for ' + L(lbl) + kind + ' (we know the reserve only where the lowest-public mint has been researched)' : 'no ' + (intent === 'burnt' ? 'burns' : 'unsold stock') + ' recorded for ' + L(lbl) + kind;
+        return { summary: 'No ' + intent + ' data — ' + why + '.', rows: [] };
+      }
+      return { summary: 'Top ' + list.length + ' ' + L(lbl) + kind + ' by <strong>' + word + '</strong>:', rows: list, cols: intent };
     }
     if (intent === 'floor') {
       // specific item: best name match, else fall to a list

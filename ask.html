@@ -59,28 +59,29 @@
   </div>
 
   <div class="note warn" style="margin-top:18px">
-    Answers are computed <strong>live</strong> from the catalog (edition sizes, market floors, VeVe held-back stock, rarities). <strong>Held back</strong> = editions still unsold in VeVe's Store <em>plus</em> the reserved low mints (first #1–N) where researched — VeVe also keeps some scattered mints that aren't individually recorded here. Prices are the real VeVe 💠 / StackR ⛓ market floor. Not affiliated with VeVe.
+    Answers are computed <strong>live</strong> from the catalog. VeVe keeps editions out of collectors' hands three distinct ways: <strong>🔒 held back</strong> (reserved low mints, #1 → the lowest public mint), <strong>📦 unsold</strong> (still in VeVe's Store), and <strong>🔥 burnt</strong> (removed from supply) — asked separately. Anything <em>below</em> a collectible's lowest-public mint is held back for certain; pinpointing the exact owner of a specific circulating edition needs VeVe's own app. Prices are the real VeVe 💠 / StackR ⛓ market floor. Not affiliated with VeVe.
   </div>
   <footer class="foot">Ask the Wiki · deterministic answers grounded in the on-chain catalog + wiki knowledge base.</footer>
 </div>
 
-<script src="data/catalog.js?v=8"></script>
+<script src="data/catalog.js?v=9"></script>
 <script src="data/comics.js?v=1"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="data/descriptions.js?v=1"></script>
 <script src="assets/collectscan.js?v=3"></script>
-<script src="assets/ask.js?v=6"></script>
+<script src="assets/ask.js?v=10"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   $('#stat').textContent = ASK.stats.collectibles.toLocaleString() + ' collectibles · ' + ASK.stats.universes + ' universes · ' + ASK.stats.comics.toLocaleString() + ' comics';
   var EX = [
     'Scarcest 5 Spider-Man collectibles',
+    'Where is #1987 of S3LF MADE?',
     'Which Disney collectibles are held back?',
+    'Which Marvel collectibles were burnt?',
     'Cheapest Secret Rares',
     'Most valuable Star Wars collectibles',
     'How many Marvel collectibles are there?',
-    'Best MCP value collectibles',
     'What is Alligator Loki?'
   ];
   $('#examples').innerHTML = EX.map(function (e) { return '<span class="exchip">' + e + '</span>'; }).join('');
@@ -90,7 +91,9 @@
   function metric(it, cols) {
     if (cols === 'cheap' || cols === 'expensive') return '<div class="metric">' + ASK.costStr(it) + '</div>';
     if (cols === 'mcp') { var c = ASK.cost(it); return '<div class="metric">+' + ASK.mcp(it).toFixed(2) + '<span class="sub">MCP/day · ' + ASK.costStr(it) + '</span></div>'; }
-    if (cols === 'held') { var parts = []; if (it.store) parts.push(it.store.toLocaleString() + ' in store'); var r = ASK.reserved(it); if (r) parts.push(r + ' reserved'); return '<div class="metric">' + (it.store ? it.store.toLocaleString() : ASK.heldBack(it).toLocaleString()) + '<span class="sub">' + (parts.join(' · ') || 'held back') + '</span></div>'; }
+    if (cols === 'held') return '<div class="metric">' + ASK.reserved(it).toLocaleString() + '<span class="sub">reserved #1–#' + ((it.lowmint || 1) - 1) + '</span></div>';
+    if (cols === 'burnt') return '<div class="metric">' + (it.burnt || 0).toLocaleString() + '<span class="sub">burnt</span></div>';
+    if (cols === 'unsold') return '<div class="metric">' + (it.store || 0).toLocaleString() + '<span class="sub">unsold in store</span></div>';
     return '<div class="metric">' + (it.edition ? it.edition.toLocaleString() : '?') + '<span class="sub">edition</span></div>';
   }
   function rowHtml(it, i, cols) {
