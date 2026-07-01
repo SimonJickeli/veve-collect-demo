@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mint Checker — VeVe Collect</title>
-<link rel="stylesheet" href="assets/style.css?v=2" />
+<link rel="stylesheet" href="assets/style.css?v=3" />
 <style>
   .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
   .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
@@ -88,7 +88,7 @@
 </div>
 
 <script src="assets/data.js?v=2"></script>
-<script src="data/catalog.js?v=4"></script>
+<script src="data/catalog.js?v=5"></script>
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
@@ -150,11 +150,13 @@
   ];
 
   function scanRow(r, flags) {
-    return '<div class="scan-row">' +
-      '<div class="ic">' + (r.collectible.img || '🎴') + '</div>' +
-      '<div style="flex:1; min-width:160px"><strong>' + r.collectible.name + '</strong> ' +
-        '<span class="small">#' + r.holding.mintNumber + ' / ' + (r.collectible.editionSize || '?') + '</span><br>' +
-        flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join(' ') +
+    var img = r.collectible.img || '';
+    var ic = /^https?:/.test(img) ? '<img class="rthumb" src="' + img + '" loading="lazy" onerror="this.replaceWith(document.createTextNode(\'🎴\'))">' : '<span class="ic">' + (img || '🎴') + '</span>';
+    var ageChip = r.age ? ' <span class="pill">' + r.age + '</span>' : '';
+    return '<div class="scanitem">' + ic +
+      '<div class="body"><div class="nm">' + r.collectible.name + '</div>' +
+      '<div class="sub2">#' + r.holding.mintNumber + ' / ' + (r.collectible.editionSize || '?') + ageChip + '</div>' +
+      '<div class="flagline">' + flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join('') + '</div>' +
       '</div></div>';
   }
 
@@ -202,9 +204,8 @@
       });
       if (!hits.length) return;
       hits.sort(function (a, b) { return (b.r.collectible.editionSize || 0) - (a.r.collectible.editionSize || 0); });
-      html += '<div style="margin-top:18px"><h3 style="margin:0 0 4px">' + sec.title +
-              ' <span class="small" style="color:var(--muted)">(' + hits.length + ')</span></h3>' +
-              hits.map(function (x) { return scanRow(x.r, x.flags); }).join('') + '</div>';
+      html += '<div class="sec-title">' + sec.title + '<span class="count">' + hits.length + '</span></div>' +
+              '<div class="scanlist">' + hits.map(function (x) { return scanRow(x.r, x.flags); }).join('') + '</div>';
     });
     $('#scan').innerHTML = html;
   }

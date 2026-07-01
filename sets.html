@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Set Tracker — VeVe Collect</title>
-<link rel="stylesheet" href="assets/style.css" />
+<link rel="stylesheet" href="assets/style.css?v=3" />
 </head>
 <body>
 <header class="topbar"><div class="wrap">
@@ -29,6 +29,13 @@
         <label class="field" for="wallet">Wallet address</label>
         <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
       </div>
+      <div style="flex:0 0 160px">
+        <label class="field" for="view">View</label>
+        <select id="view">
+          <option value="set">By set</option>
+          <option value="season">By season</option>
+        </select>
+      </div>
       <div style="flex:0 0 200px">
         <label class="field" for="universe">Universe</label>
         <select id="universe"></select>
@@ -49,7 +56,7 @@
   <footer class="foot">Sets are the real VeVe series (from the authoritative catalog); set-completion points use the series, not a same-day-drop proxy.</footer>
 </div>
 
-<script src="data/catalog.js?v=4"></script>
+<script src="data/catalog.js?v=5"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script src="assets/mcp.js?v=4"></script>
@@ -93,7 +100,53 @@
       .filter(function (s) { return s.members.length >= 2 && (uni === 'all' || s.universe === uni); });
   }
 
-  function render() {
+  function seasonLabel(s) { var m = CATALOG.seasonMeta && CATALOG.seasonMeta[s]; return 'Season ' + s + (m ? ' <span class="small" style="color:var(--muted)">· ~' + m.year + '</span>' : ''); }
+
+  function render() { if ($('#view').value === 'season') renderSeason(); else renderSets(); }
+
+  function renderSeason() {
+    if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your collectibles by season.</div>'; return; }
+    var uni = $('#universe').value;
+    var bySeason = {};
+    (CATALOG.items || []).forEach(function (it) {
+      if (!it.season) return;                                  // collectibles only (comics carry no VeVe season)
+      if (uni !== 'all' && it.universe !== uni) return;
+      var b = bySeason[it.season] || (bySeason[it.season] = { owned: [], total: 0 });
+      b.total++;
+      if (ownedNames.has(ck(it))) b.owned.push(it);
+    });
+    var seasons = Object.keys(bySeason).map(Number)
+      .filter(function (s) { return mode === 'sample' ? bySeason[s].total : bySeason[s].owned.length; })
+      .sort(function (a, b) { return b - a; });                // newest season first
+    if (!seasons.length) { $('#results').innerHTML = '<div class="note">No collectibles ' + (mode==='live'?'owned ':'') + 'in this universe by season yet.</div>'; return; }
+    var totalOwned = seasons.reduce(function (a, s) { return a + bySeason[s].owned.length; }, 0);
+    var rOrder = { 'Secret Rare':0, 'Ultra Rare':1, 'Rare':2, 'Uncommon':3, 'Common':4 };
+    var html = '<p class="small">You hold <strong>' + totalOwned + '</strong> collectible' + (totalOwned===1?'':'s') + ' across <strong>' + seasons.length + '</strong> season' + (seasons.length===1?'':'s') + (uni!=='all'?' in <strong>'+uni+'</strong>':'') + ' — VeVe Season is a collectibles-only grouping (<a href="#" id="tocomics" onclick="return false" style="color:var(--muted)">comics have no season</a>).</p>';
+    html += seasons.map(function (s) {
+      var b = bySeason[s], pct = b.total ? Math.round(b.owned.length / b.total * 100) : 0;
+      var owned = b.owned.slice().sort(function (x, y) { return (rOrder[x.rarity]==null?9:rOrder[x.rarity]) - (rOrder[y.rarity]==null?9:rOrder[y.rarity]) || (x.name>y.name?1:-1); });
+      var tiles = owned.map(function (m) {
+        var c = m.floor>0 ? {v:m.floor,src:'veve'} : (function(){ var f=floorRec(m.name); return f&&f.usd>0?{v:f.usd,src:'stackr'}:null; })();
+        return '<div class="tile">' +
+          '<div class="own">✅</div>' +
+          '<div class="ic">' + (m.rarity === 'Secret Rare' ? '🏆' : m.rarity === 'Ultra Rare' ? '💎' : '🎴') + '</div>' +
+          '<div class="nm">' + m.name + '</div>' +
+          '<div class="mt"><span class="' + rClass(m.rarity) + '">' + (m.rarity||'?') + '</span></div>' +
+          '<div class="mt">' + (c ? '💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src) : 'owned') + '</div>' +
+        '</div>';
+      }).join('') || '<div class="note" style="grid-column:1/-1">None owned from this season yet.</div>';
+      return '<div class="card" style="margin-bottom:16px">' +
+        '<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap">' +
+          '<h3 style="margin:0">🗓️ ' + seasonLabel(String(s)) + '</h3>' +
+          '<span class="small" style="margin-left:auto"><strong>' + b.owned.length + '</strong> owned / ' + b.total + ' in catalog · ' + pct + '%</span></div>' +
+        '<div class="progress" style="margin:10px 0 14px"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="tiles">' + tiles + '</div>' +
+      '</div>';
+    }).join('');
+    $('#results').innerHTML = html;
+  }
+
+  function renderSets() {
     if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your set completion.</div>'; return; }
     var uni = $('#universe').value;
     var sets = setsForUniverse(uni).map(function (s) {
@@ -171,6 +224,7 @@
   $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') track(); });
   $('#sample').addEventListener('click', useSample);
   $('#universe').addEventListener('change', render);
+  $('#view').addEventListener('change', render);
 })();
 </script>
 </body>
