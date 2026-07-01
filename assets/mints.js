@@ -124,8 +124,9 @@
       var dd = h.dropDate || c.drop, dm = dd ? String(dd).match(/(\d{4})/) : null;
       if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
       // comics: original publication year + writer/artist birth years (from window.COMIC_HISTORIC)
+      var chi = null;
       if (h.format === 'comic' && global.COMIC_HISTORIC && h.nameKey) {
-        var chi = global.COMIC_HISTORIC.issues[h.nameKey];
+        chi = global.COMIC_HISTORIC.issues[h.nameKey];
         if (chi) {
           if (chi.pub) sy.push({ year: chi.pub, reason: 'comic first published' });
           (chi.c || []).forEach(function (cr) { var by = global.COMIC_HISTORIC.births[cr]; if (by) sy.push({ year: by, reason: cr + ' (creator) born' }); });
@@ -142,7 +143,14 @@
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],
         universeEggs: (eggLookup && uni) ? eggLookup(uni) : []
       });
-      return { holding: h, collectible: c, analysis: a };
+      // comic AGE + FIRST-APPEARANCE (VeVe's "comic ages" + key-issue categories) — a property of the
+      // book itself, not the mint number; the FA flag makes a key issue "special" regardless of mint.
+      var age = chi ? (chi.age || null) : null, isFa = !!(chi && chi.fa);
+      if (isFa && (!categories || !categories.length || categories.indexOf('fa') >= 0 || categories.indexOf('historic') >= 0)) {
+        a.flags.push({ tag: 'fa', label: '🔑 First appearance / key issue', tier: 'legendary', cats: ['fa', 'historic'] });
+        a.special = true; a.topTier = 'legendary'; a.score += (TIER_WEIGHT.legendary || 100);
+      }
+      return { holding: h, collectible: c, analysis: a, age: age, fa: isFa };
     }).filter(function (r) { return r.analysis.special; })
       .sort(function (x, y) { return y.analysis.score - x.analysis.score; });
   }

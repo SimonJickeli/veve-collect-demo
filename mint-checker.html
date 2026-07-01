@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mint Checker — VeVe Collect</title>
-<link rel="stylesheet" href="assets/style.css" />
+<link rel="stylesheet" href="assets/style.css?v=2" />
 <style>
   .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
   .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
@@ -90,9 +90,9 @@
 <script src="assets/data.js?v=2"></script>
 <script src="data/catalog.js?v=4"></script>
 <script src="data/historic-years.js?v=1"></script>
-<script src="data/comic-historic.js?v=3"></script>
+<script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=6"></script>
+<script src="assets/mints.js?v=7"></script>
 <script src="assets/collectscan.js?v=3"></script>
 <script>
 (function () {
@@ -139,6 +139,7 @@
 
   // groups for the scan results — a holding appears under every category it matches
   var SECTIONS = [
+    { title: '🔑 First appearances / key issues', match: function (t) { return t === 'fa'; } },
     { title: '🥇 Lowest mints',                match: function (t) { return t === 'lowest-public' || t === 'top5-low' || t === 'ace'; } },
     { title: '🏁 Highest (final) mint',         match: function (t) { return t === 'highest-public'; } },
     { title: '➡️ Ascending runs',               match: function (t) { return t === 'ascending'; } },
@@ -157,6 +158,30 @@
       '</div></div>';
   }
 
+  // VeVe "comic ages" collection-view category — a distribution over the holder's comics.
+  var AGE_ORDER = ['Platinum', 'Golden', 'Silver', 'Bronze', 'Copper', 'Modern'];
+  var AGE_EMOJI = { Platinum: '⚪', Golden: '🟡', Silver: '⚙️', Bronze: '🥉', Copper: '🟤', Modern: '🟦' };
+  function comicAgePanel(holdings) {
+    if (!window.COMIC_HISTORIC) return '';
+    var ages = {}, fa = 0, nComics = 0;
+    holdings.forEach(function (h) {
+      if (h.format !== 'comic' || !h.nameKey) return;
+      var chi = COMIC_HISTORIC.issues[h.nameKey];
+      if (!chi) return;
+      nComics++;
+      if (chi.age) ages[chi.age] = (ages[chi.age] || 0) + 1;
+      if (chi.fa) fa++;
+    });
+    if (!nComics) return '';
+    var chips = AGE_ORDER.filter(function (a) { return ages[a]; }).map(function (a) {
+      return '<span class="pill">' + AGE_EMOJI[a] + ' ' + a + ' <strong>' + ages[a] + '</strong></span>';
+    }).join(' ');
+    return '<div class="note" style="margin-bottom:14px">' +
+      '<div style="margin-bottom:6px"><strong>🗂️ Comics by age</strong> <span class="small">(' + nComics + ' comic editions · VeVe Collection-View category · age by original series year)</span></div>' +
+      chips + (fa ? ' &nbsp; <span class="pill">🔑 First appearances <strong>' + fa + '</strong></span>' : '') +
+      '</div>';
+  }
+
   function renderScan() {
     var holdings, byId, total;
     if (scanMode === 'live') { holdings = liveHoldings; byId = liveById; }
@@ -165,9 +190,10 @@
     total = holdings.length;
     var scannable = holdings.filter(function (h) { return h.mintNumber && (byId[h.collectibleId] || {}).editionSize; });
     var rows = MINTS.scanHoldings(scannable, byId, selectedCats(), SIG.lookup, SIG.lookupUniverse, SIG.lookupEggs);
-    if (!rows.length) { $('#scan').innerHTML = '<div class="note">No holdings match the selected categories.</div>'; return; }
+    var agePanel = comicAgePanel(holdings);
+    if (!rows.length) { $('#scan').innerHTML = agePanel + '<div class="note">No holdings match the selected categories.</div>'; return; }
 
-    var html = '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
+    var html = agePanel + '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
     SECTIONS.forEach(function (sec) {
       var hits = [];
       rows.forEach(function (r) {
