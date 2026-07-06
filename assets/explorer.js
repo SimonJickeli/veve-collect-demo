@@ -105,7 +105,6 @@
       '<h1 style="text-transform:capitalize;margin:0 0 6px">' + esc(cap(u)) + '</h1>' +
       (d ? '<div class="prose">' + esc(d.ov) + '</div>' : '') +
       '<p class="small">' + all.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets</p>' +
-      (info.notable && info.notable.length ? notableStrip(info.notable) : '') +
       (hasSubs ? '<div class="sec-h">Explore ' + esc(cap(u)) + '</div>' + subTiles(u, info.subs) : '') +
       (ents.length && !hasSubs ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.slice(0, 60).map(function (s) { return '<span class="tag" onclick="' + href('e/' + s) + '">' + esc(W.ent[s].t) + '</span>'; }).join('') + '</div>' : '') +
       '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + grid(mainItems, 120);
@@ -150,6 +149,27 @@
       '<p class="small">' + items.length.toLocaleString() + ' collectibles dropped in VeVe Season ' + n + '</p>' + grid(items, 200);
   }
 
+  // ---- historically significant mints: the edition whose NUMBER matches a milestone year ----
+  // e.g. a Marvel collectible → #1939 (Marvel founded), #1963 (a character's 1st appearance),
+  // #2021 (its VeVe drop year). Only years that fit inside the edition size are real mints.
+  function sigMints(c) {
+    if (typeof SIG === 'undefined' || !c.edition) return [];
+    var E = c.edition, out = [], seen = {};
+    function add(y, r) { y = +y; if (y >= 1 && y <= E && !seen[y]) { seen[y] = 1; out.push({ mint: y, reason: r }); } }
+    if (c.drop) { var vy = parseInt(String(c.drop).slice(0, 4), 10); if (vy) add(vy, 'VeVe launch year — this collectible dropped'); }
+    SIG.lookupUniverse(c.universe).forEach(function (e) { add(e.year, e.reason); });   // licensor founding + franchise milestones
+    if (c.character) SIG.lookup(c.character).forEach(function (e) { add(e.year, e.reason); });   // first appearance + character milestones
+    out.sort(function (a, b) { return a.mint - b.mint; });
+    return out;
+  }
+  function sigSection(c) {
+    var s = sigMints(c); if (!s.length) return '';
+    return '<div class="sec-h">🎯 Historically significant mints</div>' +
+      '<p class="small" style="margin:-6px 0 12px">The edition whose <strong>mint number</strong> matches a milestone year — a prized pickup. Only years that fit inside this item\'s edition of ' + c.edition.toLocaleString() + ' are shown.</p>' +
+      '<div class="notable">' + s.map(function (m) {
+        return '<div class="notecard" style="cursor:default"><div class="nthumb noimg" style="font-size:15px;font-weight:800">#' + m.mint + '</div><div class="ninfo"><div class="nn">Mint #' + m.mint.toLocaleString() + '</div><div class="nw">' + esc(m.reason) + '</div></div></div>';
+      }).join('') + '</div>';
+  }
   function collectible(slug) {
     var c = bySlug[slug]; if (!c) return notfound('“' + slug + '”');
     var w = W.coll[slug] || {}, co = cost(c), entSlug = c.character && charToEnt[nn(c.character)];
@@ -179,6 +199,7 @@
       (w.ov ? '<div class="prose">' + esc(w.ov) + '</div>' : '') +
       (w.ab ? '<div class="prose"><h4>About</h4>' + esc(w.ab) + '</div>' : '') +
       '</div></div>' +
+      sigSection(c) +
       (moreSet.length ? '<div class="sec-h">More in “' + esc(c.set) + '”</div>' + grid(moreSet, 24) : '') +
       (related.length && (!c.set || !moreSet.length) ? '<div class="sec-h">More ' + esc(c.character || cap(c.universe)) + '</div>' + grid(related, 24) : '') +
       '<div style="margin-top:22px"><span class="backchip" onclick="history.back()">← Back</span></div>';
