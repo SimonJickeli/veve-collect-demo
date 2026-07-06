@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mint Checker — VeVe Collect</title>
-<link rel="stylesheet" href="assets/style.css?v=4" />
+<link rel="stylesheet" href="assets/style.css?v=5" />
 <style>
   .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
   .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
@@ -71,7 +71,13 @@
     <div class="row">
       <div>
         <label class="field" for="wallet">Collect Chain wallet address</label>
-        <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
+        <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
+        <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
+          <li>Your VeVe <strong>OMI / Collect Chain address</strong> (starts <span class="mono">0x…</span>).</li>
+          <li>In the <strong>VeVe app</strong> → menu → <strong>Wallet / OMI</strong> (Android shows it directly).</li>
+          <li>Or the Web Wallet — <a href="https://omi.veve.me" target="_blank" rel="noopener">omi.veve.me</a> → log in → copy the <span class="mono">0x…</span> address <em>(needs a VeVe login; if it won't load, retry or use the app)</em>.</li>
+          <li>Paste it above.</li>
+        </ol></details>
       </div>
       <div style="flex:0 0 auto; display:flex; gap:10px; align-items:end">
         <button class="btn" id="scanlive">Scan wallet</button>

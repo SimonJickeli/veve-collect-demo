@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Set Tracker — VeVe Collect</title>
-<link rel="stylesheet" href="assets/style.css?v=4" />
+<link rel="stylesheet" href="assets/style.css?v=5" />
 </head>
 <body>
 <header class="topbar"><div class="wrap">
@@ -28,25 +28,39 @@
     <div class="row">
       <div>
         <label class="field" for="wallet">Wallet address</label>
-        <input type="text" id="wallet" placeholder="0x… your VeVe wallet (= your ImmutableX address)" />
+        <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
+        <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
+          <li>Your VeVe <strong>OMI / Collect Chain address</strong> (starts <span class="mono">0x…</span>).</li>
+          <li>In the <strong>VeVe app</strong> → menu → <strong>Wallet / OMI</strong> (Android shows the address directly).</li>
+          <li>Or the Web Wallet — <a href="https://omi.veve.me" target="_blank" rel="noopener">omi.veve.me</a> → log in → copy the <span class="mono">0x…</span> address <em>(needs a VeVe login; if it won't load, retry or use the app)</em>.</li>
+          <li>Paste it above. <span style="color:var(--muted)">— soon: connect StackR to auto-fill.</span></li>
+        </ol></details>
       </div>
-      <div style="flex:0 0 160px">
+      <div style="flex:0 0 150px">
+        <label class="field" for="show">Show</label>
+        <select id="show">
+          <option value="missing">Missing (incomplete)</option>
+          <option value="complete">Complete</option>
+          <option value="all">All</option>
+        </select>
+      </div>
+      <div style="flex:0 0 140px">
         <label class="field" for="view">View</label>
         <select id="view">
           <option value="set">By set</option>
           <option value="season">By season</option>
         </select>
       </div>
-      <div style="flex:0 0 200px">
+      <div style="flex:0 0 170px">
         <label class="field" for="universe">Universe</label>
         <select id="universe"></select>
       </div>
       <div style="flex:0 0 auto; display:flex; gap:10px; align-items:end">
-        <button class="btn" id="track">Track wallet</button>
-        <button class="btn ghost" id="sample">Use sample</button>
+        <button class="btn" id="track">Track</button>
+        <button class="btn ghost" id="sample">Sample</button>
       </div>
     </div>
-    <p class="small" id="status" style="margin:10px 0 0">Catalog: <strong id="catn">…</strong> collectibles across <strong id="setn">…</strong> sets. Paste your wallet, or click <strong>Use sample</strong>. <span class="small">Your wallet = your <strong>VeVe / ImmutableX 0x address</strong> (VeVe app → Account → Wallet, or <span class="mono">omi.veve.me</span>).</span></p>
+    <p class="small" id="status" style="margin:10px 0 0">Catalog: <strong id="catn">…</strong> collectibles across <strong id="setn">…</strong> sets. Paste your wallet (or <strong>Sample</strong>) to see what you're missing.</p>
   </div>
 
   <div id="results" style="margin-top:20px"></div>
@@ -163,9 +177,15 @@
     }).filter(function (x) { return mode === 'sample' ? true : (x.owned.length > 0 || x.ownedSpecial.length > 0); })
       .sort(function (a, b) { return (b.pct - a.pct) || (b.base.length - a.base.length); });
 
-    if (!sets.length) { $('#results').innerHTML = '<div class="note">No tracked sets ' + (mode==='live'?'owned ':'') + 'in this universe yet.</div>'; return; }
+    var doneAll = sets.filter(function(x){return x.pct===100;}).length, totalSets = sets.length;
+    // Show filter: this tool is "what am I missing" → default to incomplete sets.
+    var show = ($('#show') && $('#show').value) || 'missing';
+    if (show === 'missing') sets = sets.filter(function (x) { return x.pct < 100; });
+    else if (show === 'complete') sets = sets.filter(function (x) { return x.pct === 100; });
 
-    var done = sets.filter(function(x){return x.pct===100;}).length;
+    if (!sets.length) { $('#results').innerHTML = '<div class="note">' + (show==='missing' ? '🎉 Nothing missing — every set you own part of is complete!' : (show==='complete' ? 'No complete sets yet.' : 'No tracked sets ' + (mode==='live'?'owned ':'') + 'in this universe.')) + '</div>'; return; }
+
+    var done = doneAll;
     // portfolio value @ live StackR floor (owned items, name-joined to the on-chain snapshot)
     var portfolio = 0, pvN = 0;
     ownedNames.forEach(function (n) { var ci = byNameN[n] || null; if (ci && ci.floor>0) { portfolio += ci.floor; pvN++; return; } var f = floorRec(n); if (f && f.usd) { portfolio += f.usd; pvN++; } });
@@ -181,7 +201,7 @@
         '<div class="mt">' + (has ? 'owned' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })()) + '</div>' +
       '</div>';
     }
-    var html = pvBanner + '<p class="small">' + sets.length + ' sets' + (mode==='live'?' you own part of':'') + ' · ' + done + ' complete on VeVe · ✨ = special edition (master set only, not required for VeVe completion) · 💎 = market floor (VeVe 💠 / StackR ⛓) where known.</p>' +
+    var html = pvBanner + '<p class="small">' + (show==='missing'?'<strong>'+sets.length+'</strong> incomplete set'+(sets.length===1?'':'s')+' — closest first':(show==='complete'?'<strong>'+sets.length+'</strong> complete set'+(sets.length===1?'':'s'):'<strong>'+sets.length+'</strong> sets')) + ' · ' + done + ' of ' + totalSets + ' complete on VeVe · ✨ = special edition (master set, optional) · 💎 = market floor.</p>' +
       sets.slice(0, 60).map(function (x) {
         var s = x.s, size = x.base.length, complete = x.pct === 100;
         var daily = MCP.setBaseBySize(size);
@@ -243,6 +263,7 @@
   $('#sample').addEventListener('click', useSample);
   $('#universe').addEventListener('change', render);
   $('#view').addEventListener('change', render);
+  $('#show').addEventListener('change', render);
 })();
 </script>
 </body>

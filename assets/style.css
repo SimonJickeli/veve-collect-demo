@@ -174,3 +174,13 @@ footer.foot { color: var(--muted); font-size: 13px; border-top: 1px solid var(--
 .scanitem .nm { font-weight:700; font-size:14px; }
 .scanitem .sub2 { font-size:12px; color:var(--muted); }
 .flagline { margin-top:5px; display:flex; flex-wrap:wrap; gap:6px; }
+
+/* "where's my wallet address?" inline help */
+.whelp { margin-top:8px; }
+.whelp summary { cursor:pointer; color:var(--accent-2); font-size:12.5px; font-weight:600; list-style:none; }
+.whelp summary::-webkit-details-marker { display:none; }
+.whelp summary::before { content:"ⓘ "; }
+.whelp[open] summary { margin-bottom:4px; }
+.whelp ol { margin:4px 0 0 16px; padding:0; font-size:12.5px; color:var(--muted); }
+.whelp ol li { margin:3px 0; }
+.whelp strong { color:var(--text); }
