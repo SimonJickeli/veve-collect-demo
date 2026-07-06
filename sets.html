@@ -5,6 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Set Tracker — VeVe Collect</title>
 <link rel="stylesheet" href="assets/style.css?v=5" />
+<style>
+  .lst { display:flex; flex-direction:column; }
+  .lrow { display:flex; align-items:center; gap:10px; padding:6px 9px; border-bottom:1px solid var(--border); font-size:13.5px; }
+  .lrow.miss { color:var(--muted); }
+  .lrow .ls { width:18px; text-align:center; flex:0 0 auto; }
+  .lrow .lsp { color:#ffd76b; flex:0 0 auto; }
+  .lrow .ln { flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:600; color:var(--text); }
+  .lrow .lp { flex:0 0 auto; min-width:92px; text-align:right; color:var(--muted); }
+</style>
 </head>
 <body>
 <header class="topbar"><div class="wrap">
@@ -18,6 +27,7 @@
     <a href="explorer.html">Explorer</a>
   </nav>
 </div></header>
+<script src="assets/i18n.js?v=1"></script>
 
 <div class="wrap">
   <section class="hero" style="padding:36px 0 18px">
@@ -52,6 +62,13 @@
           <option value="season">By season</option>
         </select>
       </div>
+      <div style="flex:0 0 120px">
+        <label class="field" for="layout">Layout</label>
+        <select id="layout">
+          <option value="cards">Cards</option>
+          <option value="list">List</option>
+        </select>
+      </div>
       <div style="flex:0 0 170px">
         <label class="field" for="universe">Universe</label>
         <select id="universe"></select>
@@ -67,7 +84,7 @@
   <div id="results" style="margin-top:20px"></div>
 
   <div class="note warn" style="margin-top:20px">
-    Set membership = the real VeVe <strong>series</strong> (e.g. "Starlight, Series 1"). <strong>Completion is the base set</strong> — <strong>✨ special editions</strong> (Artist Proof, Gold/Platinum/Diamond variants, "Special Edition") are a <strong>master-set</strong> extra and are <strong>not required</strong> to complete the set on VeVe. Live holdings are read from <span class="mono">collectscan</span> and matched by name; 💎 = live market floor (VeVe 💠 / StackR ⛓) where listed, else drop est. Set-completion earns the <strong>daily set points</strong> shown. VeVe also grants a <strong>one-time +100 MCP the first time you ever complete a set</strong> — it's not shown per-set here because it applies only once ever and can't be inferred from current holdings. Catalog coverage is partial, so "missing" reflects the catalog so far.
+    Set = the real VeVe <strong>series</strong>; completion = the <strong>base set</strong> (<strong>✨ special editions</strong> are an optional master-set extra). Holdings read live from <span class="mono">collectscan</span>, matched by name. 💎 = market floor (StackR ⛓ traded / VeVe 💠 ask). Catalog coverage is partial, so "missing" reflects what's catalogued so far.
   </div>
   <footer class="foot">Sets are the real VeVe series (from the authoritative catalog); set-completion points use the series, not a same-day-drop proxy.</footer>
 </div>
@@ -218,11 +235,20 @@
         '<div class="mt">' + (has ? 'owned' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })()) + '</div>' +
       '</div>';
     }
+    // compact list row (no thumbnails) — the "List" layout
+    function listRow(m, special) {
+      var has = owns(m);
+      var price = has ? '<span style="color:var(--good)">owned</span>' : (function(){ var c=itemCost(m); return c ? ('💎 ' + Math.round(c.v).toLocaleString() + srcMark(c.src)) : '—'; })();
+      return '<div class="lrow' + (has ? '' : ' miss') + '"><span class="ls">' + (has ? '✅' : '➕') + '</span>' + (special ? '<span class="lsp" title="special edition — master set">✨</span>' : '') + '<span class="ln">' + m.name + '</span><span class="' + rClass(m.rarity) + '">' + (m.rarity || '?') + '</span><span class="lp">' + price + '</span></div>';
+    }
+    var layout = ($('#layout') && $('#layout').value) || 'cards';
+    var renderItem = layout === 'list' ? listRow : tileHtml;
+    var wrapCls = layout === 'list' ? 'lst' : 'tiles';
     var html = pvBanner + '<p class="small">' + (show==='missing'?'<strong>'+sets.length+'</strong> incomplete set'+(sets.length===1?'':'s')+' — closest first':(show==='complete'?'<strong>'+sets.length+'</strong> complete set'+(sets.length===1?'':'s'):'<strong>'+sets.length+'</strong> sets')) + ' · ' + done + ' of ' + totalSets + ' complete on VeVe · ✨ = special edition (master set, optional) · 💎 = market floor.</p>' +
       sets.slice(0, 60).map(function (x) {
         var s = x.s, size = x.base.length, complete = x.pct === 100;
         var daily = MCP.setBaseBySize(size);
-        var baseTiles = x.base.map(function (m) { return tileHtml(m, false); }).join('');
+        var baseTiles = x.base.map(function (m) { return renderItem(m, false); }).join('');
         var missingSpecial = x.special.filter(function (m) { return !owns(m); }).length;
         // cost to finish the BASE set (specials excluded)
         var missing = x.base.filter(function (m) { return !owns(m); });
@@ -239,8 +265,8 @@
             '<h3 style="margin:0">' + s.id + '</h3>' + (complete ? '<span class="pill-best">COMPLETE ON VEVE</span>' : '') +
             '<span class="small" style="margin-left:auto">' + x.owned.length + ' / ' + size + ' · ' + x.pct + '%</span></div>' +
           '<div class="progress" style="margin:10px 0 14px"><span style="width:' + x.pct + '%"></span></div>' +
-          '<div class="tiles">' + baseTiles + '</div>' +
-          (x.special.length ? '<div class="small" style="margin:12px 0 6px">✨ Special editions <span style="color:var(--muted)">(master set — not needed for VeVe completion)</span></div><div class="tiles">' + x.special.map(function (m) { return tileHtml(m, true); }).join('') + '</div>' : '') +
+          '<div class="' + wrapCls + '">' + baseTiles + '</div>' +
+          (x.special.length ? '<div class="small" style="margin:12px 0 6px">✨ Special editions <span style="color:var(--muted)">(master set — not needed for VeVe completion)</span></div><div class="' + wrapCls + '">' + x.special.map(function (m) { return renderItem(m, true); }).join('') + '</div>' : '') +
           (complete
             ? '<div class="note" style="margin-top:14px">✅ <strong>Complete on VeVe</strong> — earning <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points.' + masterNote + '.</div>'
             : '<div class="note" style="margin-top:14px">Finish the set for <strong>' + daily.toFixed(1) + ' MCP/day</strong> in set points. Missing ' + (size - x.owned.length) + ' of ' + size +
@@ -284,6 +310,7 @@
   $('#universe').addEventListener('change', render);
   $('#view').addEventListener('change', render);
   $('#show').addEventListener('change', render);
+  $('#layout').addEventListener('change', render);
   (function () { var s = ''; try { s = localStorage.getItem('veve_wallet') || ''; } catch (e) {} if (COLLECTSCAN.isAddress(s) && !$('#wallet').value) { $('#wallet').value = s; track(); } })();   // auto-restore remembered wallet
 })();
 </script>
