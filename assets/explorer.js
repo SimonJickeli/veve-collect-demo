@@ -43,7 +43,9 @@
   var _fn = nn, FL = {};
   if (window.FLOOR && FLOOR.byName) Object.keys(FLOOR.byName).forEach(function (n) { var k = _fn(n); if (k && !(k in FL)) FL[k] = FLOOR.byName[n]; });
   function stackr(name) { var r = (window.FLOOR && FLOOR.byName && (FLOOR.byName[name] || FL[_fn(name)])) || null; return (r && r.usd > 0) ? r.usd : null; }
-  function cost(c) { if (c.floor > 0) return { v: c.floor, s: 'VeVe 💠' }; var k = stackr(c.name); if (k) return { v: k, s: 'StackR ⛓' }; if (!c.blind && c.price > 0) return { v: c.price, s: 'drop' }; return null; }
+  // StackR live TRADED floor is trusted first; the VeVe floor is only a lowest-ASK listing, so it's
+  // sanitized (troll listings dropped) and shown as an "ask", not a market value.
+  function cost(c) { var k = stackr(c.name); if (k) return { v: k, s: 'StackR ⛓' }; var vv = window.saneVeveFloor ? window.saneVeveFloor(c.floor) : c.floor; if (vv > 0) return { v: vv, s: 'VeVe ask 💠' }; if (!c.blind && c.price > 0) return { v: c.price, s: 'drop' }; return null; }
   function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
   window.exImgErr = function (img, cls) { img.outerHTML = '<div class="' + cls + ' noimg">🎴</div>'; };
   function thumb(c, cls) {

@@ -134,6 +134,20 @@
   }
   function emojiFor(h) { return h.format === 'comic' ? '📖' : '🎴'; }
 
+  // saneVeveFloor — VeVe's `floor` is the lowest ASKING price, and illiquid items carry troll
+  // listings (💎10,000,042, 💎3,000,000, repdigit 💎888,888 / 💎99,999 on 1-of-1s). Reject the
+  // obvious fakes so no troll number is ever shown as a market value or summed into a portfolio.
+  // Returns the floor if plausible, else 0. (StackR live traded floors are trusted as-is.)
+  function saneVeveFloor(v) {
+    v = +v || 0;
+    if (v <= 0) return 0;
+    if (v >= 100000) return 0;                 // no realistic VeVe floor ≥ 💎100k → troll listing
+    var s = String(Math.round(v));
+    if (/^(\d)\1{3,}/.test(s)) return 0;       // repdigit vanity price: 8888, 33333, 88888, 99999
+    return v;
+  }
+  global.saneVeveFloor = saneVeveFloor;
+
   global.normName = normName; // shared match-key normalizer (used by mcp.html + sets.html)
   global.COLLECTSCAN = {
     isAddress: isAddress,

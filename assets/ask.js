@@ -26,8 +26,9 @@
   if (g.FLOOR && g.FLOOR.byName) Object.keys(g.FLOOR.byName).forEach(function (n) { var k = _fnN(n); if (k && !(k in FLOORN)) FLOORN[k] = g.FLOOR.byName[n]; });
   function stackr(name) { var r = (g.FLOOR && g.FLOOR.byName && (g.FLOOR.byName[name] || FLOORN[_fnN(name)])) || null; return (r && r.usd > 0) ? r.usd : null; }
   function cost(it) {
-    if (it.floor > 0) return { v: it.floor, src: 'veve' };
-    var s = stackr(it.name); if (s) return { v: s, src: 'stackr' };
+    var s = stackr(it.name); if (s) return { v: s, src: 'stackr' };   // StackR live traded floor — trusted
+    var vv = g.saneVeveFloor ? g.saneVeveFloor(it.floor) : it.floor;    // VeVe floor is a lowest-ask listing → sanitized
+    if (vv > 0) return { v: vv, src: 'veve' };
     if (!it.blind && it.price > 0) return { v: it.price, src: 'drop' };
     return null;
   }
@@ -225,7 +226,7 @@
     if (intent === 'floor') {
       var subjq = sq(p.subj);
       var exact = items.filter(function (it) { return subjq && sq(it.name).indexOf(subjq) >= 0; }).sort(function (a, b) { return sq(a.name).length - sq(b.name).length; });
-      if (subjq && exact.length) { var it0 = exact[0]; var c0 = cost(it0); return fin(q, { item: it0, topic: 'the floor of ' + it0.name }, { summary: '<strong>' + esc(it0.name) + '</strong> — floor ' + (c0 ? '💎 ' + Math.round(c0.v).toLocaleString() + (c0.src === 'veve' ? ' (VeVe Gem floor)' : c0.src === 'stackr' ? ' (StackR OMI floor)' : ' (drop price)') : 'unknown') + ' · ' + rarLabel(it0) + (it0.edition ? ' · edition ' + it0.edition.toLocaleString() : '') + (DESC.coll[it0.slug] ? '<br><span class="small">' + DESC.coll[it0.slug] + '</span>' : ''), rows: [] }); }
+      if (subjq && exact.length) { var it0 = exact[0]; var c0 = cost(it0); return fin(q, { item: it0, topic: 'the floor of ' + it0.name }, { summary: '<strong>' + esc(it0.name) + '</strong> — floor ' + (c0 ? '💎 ' + Math.round(c0.v).toLocaleString() + (c0.src === 'veve' ? ' (VeVe lowest ask)' : c0.src === 'stackr' ? ' (StackR traded floor)' : ' (drop price)') : 'unknown') + ' · ' + rarLabel(it0) + (it0.edition ? ' · edition ' + it0.edition.toLocaleString() : '') + (DESC.coll[it0.slug] ? '<br><span class="small">' + DESC.coll[it0.slug] + '</span>' : ''), rows: [] }); }
       var fc = topBy(items, 'cheap');
       return fin(q, { topic: 'cheapest ' + L(lbl) + kind, full: fc, cols: 'cheap' }, { summary: 'Cheapest ' + esc(lbl) + ' ' + kind + ' by market floor:', rows: fc.slice(0, N), cols: 'cheap' });
     }

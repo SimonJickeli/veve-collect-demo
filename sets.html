@@ -74,7 +74,7 @@
 
 <script src="data/catalog.js?v=9"></script>
 <script src="data/floor.js?v=1"></script>
-<script src="assets/collectscan.js?v=3"></script>
+<script src="assets/collectscan.js?v=4"></script>
 <script src="assets/mcp.js?v=4"></script>
 <script>
 (function () {
@@ -90,7 +90,9 @@
   function floorRec(name){ if(!window.FLOOR||!FLOOR.byName) return null; return FLOOR.byName[name] || FLOORNORM[_fnN(name)] || null; }
   function floorAsOf(){ return (window.FLOOR && FLOOR.asOf) ? new Date(FLOOR.asOf*1000).toISOString().slice(0,10) : null; }
   // cost of an item: authoritative VeVe market floor (Gems snapshot) > live StackR on-chain floor > original drop price
-  function itemCost(m){ if(m.floor>0) return {v:m.floor, src:'veve'}; var f=floorRec(m.name); if(f&&f.usd>0) return {v:f.usd, src:'stackr'}; if(!m.blind){ var p=Number(m.price); if(p>0) return {v:p, src:'drop'}; } return null; }
+  // StackR live TRADED floor first; VeVe floor is a lowest-ASK listing → sanitized (troll listings dropped).
+  function saneV(v){ return window.saneVeveFloor ? window.saneVeveFloor(v) : (v>0?v:0); }
+  function itemCost(m){ var f=floorRec(m.name); if(f&&f.usd>0) return {v:f.usd, src:'stackr'}; var vv=saneV(m.floor); if(vv>0) return {v:vv, src:'veve'}; if(!m.blind){ var p=Number(m.price); if(p>0) return {v:p, src:'drop'}; } return null; }
   function srcMark(s){ return s==='veve'?' 💠':s==='stackr'?' ⛓':''; }
 
   // normalized match key (folds zero-width chars, curly apostrophes, dashes, enum rarities)
@@ -188,9 +190,18 @@
 
     var done = doneAll;
     // portfolio value @ live StackR floor (owned items, name-joined to the on-chain snapshot)
-    var portfolio = 0, pvN = 0;
-    ownedNames.forEach(function (n) { var ci = byNameN[n] || null; if (ci && ci.floor>0) { portfolio += ci.floor; pvN++; return; } var f = floorRec(n); if (f && f.usd) { portfolio += f.usd; pvN++; } });
-    var pvBanner = (mode==='live' && pvN) ? '<div class="note" style="margin-bottom:14px">💰 <strong>Market floor value of your collection ≈ 💎 ' + Math.round(portfolio).toLocaleString() + '</strong> <span class="small">(' + pvN + ' of your items have a known floor · VeVe 💠 snapshot / StackR ⛓ on-chain)</span></div>' : '';
+    var portfolio = 0, pvN = 0, pvExcluded = 0;
+    ownedNames.forEach(function (n) {
+      var f = floorRec(n);
+      if (f && f.usd) { portfolio += f.usd; pvN++; return; }                 // StackR traded floor — trusted first
+      var ci = byNameN[n] || null;
+      if (ci && ci.floor > 0) {
+        var vv = saneV(ci.floor);
+        if (vv > 0) { portfolio += vv; pvN++; }                              // plausible VeVe ask
+        else pvExcluded++;                                                   // troll listing (💎888,888 etc.) — not summed
+      }
+    });
+    var pvBanner = (mode==='live' && pvN) ? '<div class="note" style="margin-bottom:14px">💰 <strong>Floor value of your collection ≈ 💎 ' + Math.round(portfolio).toLocaleString() + '</strong> <span class="small">(' + pvN + ' items with a trustworthy floor · StackR ⛓ traded / VeVe 💠 ask' + (pvExcluded ? ' · <strong>' + pvExcluded + '</strong> item' + (pvExcluded>1?'s':'') + ' excluded — their only VeVe listing is an implausible “troll” ask, not a real value' : '') + ')</span></div>' : '';
     function tileHtml(m, special) {
       var has = ownedNames.has(ck(m));
       return '<div class="tile ' + (has ? '' : 'missing') + '">' +

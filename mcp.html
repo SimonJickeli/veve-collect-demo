@@ -61,7 +61,7 @@
 
 <script src="assets/data.js"></script>
 <script src="assets/mcp.js?v=4"></script>
-<script src="assets/collectscan.js?v=3"></script>
+<script src="assets/collectscan.js?v=4"></script>
 <script src="data/catalog.js?v=9"></script>
 <script src="data/floor.js?v=1"></script>
 <script>
@@ -91,7 +91,8 @@
   // use the drop price (nor a pull-odds estimate) for a blind-box item. Without a real secondary-market
   // floor (VeVe Gem or StackR OMI) we cannot honestly price it → return null so it is excluded.
   function costOf(c){
-    var veve = (c.floor>0) ? c.floor : null;
+    var sv = window.saneVeveFloor ? window.saneVeveFloor(c.floor) : (c.floor>0?c.floor:0);   // drop troll listings
+    var veve = (sv>0) ? sv : null;
     var f = floorRec(c.name); var stackr = (f && f.usd>0) ? f.usd : null;
     if (veve!=null && stackr!=null) return veve<=stackr ? {v:veve, src:'veve'} : {v:stackr, src:'stackr'};
     if (veve!=null) return {v:veve, src:'veve'};
