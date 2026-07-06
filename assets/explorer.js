@@ -25,6 +25,15 @@
   Object.keys(W.ent).forEach(function (slug) { var e = W.ent[slug]; if (e.t) charToEnt[nn(e.t)] = slug; });
   var uniList = Object.keys(byUni).sort(function (a, b) { return byUni[b].length - byUni[a].length; });
 
+  // ---- subdomains (franchise / brand layer, from subdomains.js) ----
+  var SUBS = window.SUBS || { uni: {}, item: {} };
+  var subOf = SUBS.item || {};
+  var bySub = {};   // "<universe>/<sub-slug>" -> [items]
+  C.forEach(function (c) { var s = subOf[c.slug]; if (s) (bySub[c.universe + '/' + s] = bySub[c.universe + '/' + s] || []).push(c); });
+  function subInfo(uni, slug) { var u = SUBS.uni[uni]; if (!u) return null; for (var i = 0; i < u.subs.length; i++) if (u.subs[i].slug === slug) return u.subs[i]; return null; }
+  function subLabel(uni, slug) { var s = subInfo(uni, slug); return s ? s.label : cap(slug); }
+  function byEd(a, b) { return (a.edition || 1e9) - (b.edition || 1e9); }
+
   // ---- helpers ----
   function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
   function cap(s) { return (s || '').replace(/-/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); }); }
@@ -60,8 +69,8 @@
   // ---- views ----
   function home() {
     var tiles = uniList.map(function (u) {
-      var d = W.dom[u];
-      return '<a class="unitile" onclick="' + href('u/' + u) + '"><h3>' + esc(cap(u)) + '</h3><div class="c">' + byUni[u].length.toLocaleString() + ' collectibles</div></a>';
+      var info = SUBS.uni[u], nsub = info ? info.subs.filter(function (s) { return s.slug !== 'other' && s.slug !== 'artworks'; }).length : 0;
+      return '<a class="unitile" onclick="' + href('u/' + u) + '"><h3>' + esc(cap(u)) + '</h3><div class="c">' + byUni[u].length.toLocaleString() + ' collectibles' + (nsub ? ' · ' + nsub + ' sections' : '') + '</div></a>';
     }).join('');
     view.innerHTML =
       '<section class="hero" style="padding:6px 0 14px"><h1>The <span class="grad">VeVe Wiki</span>, explorable.</h1>' +
@@ -69,18 +78,43 @@
       '<div class="sec-h">Universes</div><div class="unigrid">' + tiles + '</div>';
   }
 
+  function notableStrip(list) {
+    return '<div class="sec-h">Historically significant mints</div><div class="notable">' +
+      list.map(function (n) { var c = bySlug[n.slug]; return '<a class="notecard" onclick="' + href('c/' + n.slug) + '">' + (c ? thumb(c, 'nthumb') : '') + '<div class="ninfo"><div class="nn">' + esc(n.name) + '</div><div class="nw">' + esc(n.why) + '</div></div></a>'; }).join('') + '</div>';
+  }
+  function subTiles(u, subs) {
+    return '<div class="subgrid">' + subs.map(function (s) {
+      var muted = (s.slug === 'artworks' || s.slug === 'other');
+      return '<a class="subtile' + (muted ? ' muted' : '') + '" onclick="' + href('sub/' + u + '/' + s.slug) + '">' +
+        (s.thumb ? '<img class="sthumb" src="' + s.thumb + '" loading="lazy" onerror="exImgErr(this,\'sthumb\')">' : '<div class="sthumb noimg">🎴</div>') +
+        '<div class="sinfo"><div class="sl">' + esc(s.label) + '</div><div class="sc">' + s.count.toLocaleString() + (s.cat ? ' · ' + esc(s.cat) : '') + '</div></div></a>';
+    }).join('') + '</div>';
+  }
   function universe(u) {
-    var items = (byUni[u] || []).slice().sort(function (a, b) { return (a.edition || 1e9) - (b.edition || 1e9); });
-    if (!items.length) return notfound('universe “' + u + '”');
-    var d = W.dom[u];
+    var all = (byUni[u] || []).slice();
+    if (!all.length) return notfound('universe “' + u + '”');
+    var d = W.dom[u], info = SUBS.uni[u] || { subs: [], notable: [] };
+    var hasSubs = info.subs && info.subs.length;
+    var mainItems = all.filter(function (c) { return subOf[c.slug] !== 'artworks'; }).sort(byEd);   // artworks live in their own tucked-away section
+    var artCount = all.length - mainItems.length;
     var ents = Object.keys(W.ent).filter(function (s) { return W.ent[s].u === u; }).sort(function (a, b) { return W.ent[a].t > W.ent[b].t ? 1 : -1; });
     var sets = Object.keys(bySet).filter(function (s) { return (bySet[s][0] || {}).universe === u; });
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: cap(u) }]) +
       '<h1 style="text-transform:capitalize;margin:0 0 6px">' + esc(cap(u)) + '</h1>' +
       (d ? '<div class="prose">' + esc(d.ov) + '</div>' : '') +
-      '<p class="small">' + items.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets</p>' +
-      (ents.length ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.slice(0, 60).map(function (s) { return '<span class="tag" onclick="' + href('e/' + s) + '">' + esc(W.ent[s].t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="sec-h">Collectibles <span class="small">(scarcest first)</span></div>' + grid(items, 120);
+      '<p class="small">' + all.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets</p>' +
+      (info.notable && info.notable.length ? notableStrip(info.notable) : '') +
+      (hasSubs ? '<div class="sec-h">Explore ' + esc(cap(u)) + '</div>' + subTiles(u, info.subs) : '') +
+      (ents.length && !hasSubs ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.slice(0, 60).map(function (s) { return '<span class="tag" onclick="' + href('e/' + s) + '">' + esc(W.ent[s].t) + '</span>'; }).join('') + '</div>' : '') +
+      '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + grid(mainItems, 120);
+  }
+  function subPage(uni, slug) {
+    var items = (bySub[uni + '/' + slug] || []).slice().sort(byEd);
+    if (!items.length) return notfound('section “' + slug + '”');
+    var label = subLabel(uni, slug), s = subInfo(uni, slug);
+    view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: cap(uni), r: 'u/' + uni }, { t: label }]) +
+      '<h1>' + esc(label) + ' <span class="small" style="color:var(--muted);text-transform:none">· ' + esc(cap(uni)) + (s && s.cat ? ' · ' + esc(s.cat) : '') + '</span></h1>' +
+      '<p class="small">' + items.length.toLocaleString() + ' collectibles' + (slug === 'artworks' ? ' — artwork-variety pieces (prints & Artist Proofs)' : '') + '</p>' + grid(items, 200);
   }
 
   function entity(slug) {
@@ -133,8 +167,9 @@
 
     var related = (c.character ? (byChar[nn(c.character)] || []) : (c.set ? bySet[c.set] : byUni[c.universe] || [])).filter(function (x) { return x.slug !== slug; });
     var moreSet = c.set ? (bySet[c.set] || []).filter(function (x) { return x.slug !== slug; }) : [];
+    var subSlug = subOf[slug], subCr = (subSlug && subSlug !== 'other') ? [{ t: subLabel(c.universe, subSlug), r: 'sub/' + c.universe + '/' + subSlug }] : [];
 
-    view.innerHTML = crumb([{ t: 'Explorer', r: '' }].concat(c.universe ? [{ t: cap(c.universe), r: 'u/' + c.universe }] : []).concat(c.set ? [{ t: c.set, r: 'set/' + encodeURIComponent(c.set) }] : []).concat([{ t: c.name }])) +
+    view.innerHTML = crumb([{ t: 'Explorer', r: '' }].concat(c.universe ? [{ t: cap(c.universe), r: 'u/' + c.universe }] : []).concat(subCr).concat(c.set ? [{ t: c.set, r: 'set/' + encodeURIComponent(c.set) }] : []).concat([{ t: c.name }])) +
       '<div class="cpage"><div>' + thumb(c, 'hero-img') + '</div><div>' +
       '<h1>' + esc(c.name) + '</h1>' +
       '<dl class="facts">' + facts.map(function (f) { return '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>'; }).join('') + '</dl>' +
@@ -168,6 +203,7 @@
     window.scrollTo(0, 0);
     if (t === 'c') collectible(id);
     else if (t === 'u') universe(id);
+    else if (t === 'sub') { var pp = id.split('/'); subPage(pp[0], pp.slice(1).join('/')); }
     else if (t === 'e') entity(id);
     else if (t === 'set') setPage(id);
     else if (t === 'season') seasonPage(id);
