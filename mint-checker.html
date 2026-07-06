@@ -91,7 +91,7 @@
   </div>
 
   <div class="note warn" style="margin-top:20px">
-    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve where known; where it isn't, the <strong>lowest low mint you own</strong> (≤ #51) is flagged as the <strong>likely</strong> lowest public mint — reserves vary per item (some reserve only #1 → LPM #2), but <em>owning</em> a low mint proves it's in public circulation. Engine: <span class="mono">app/assets/mints.js</span>.
+    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" is a <strong>property of the collectible</strong>: it uses each item's researched reserve where known, and for un-researched <strong>2021–23</strong> drops VeVe uniformly reserved 40 → <strong>#41</strong>. Reserves vary in <strong>2024+</strong> (#21/#41/other), so those show an LPM only where researched. Engine: <span class="mono">app/assets/mints.js</span>.
   </div>
   <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
 </div>
@@ -101,7 +101,7 @@
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=11"></script>
+<script src="assets/mints.js?v=12"></script>
 <script src="assets/collectscan.js?v=4"></script>
 <script>
 (function () {
@@ -246,7 +246,11 @@
           var nk = h.nameKey || nn(h.name), rk = h.rarityKey || nn(h.rarity);
           var it = idx[nk + '|' + rk] || idx[nk];
           if (!it && nk.length >= 3) { for (var i = 0; i < bareKeys.length; i++) if (suffixMatch(nk, bareKeys[i])) { it = idx[bareKeys[i]]; break; } }
-          if (it) { if (it.lowmint) h.lowmint = it.lowmint; if (it.edition && !h.editionSize) h.editionSize = it.edition; }
+          if (it) {
+            if (it.lowmint) h.lowmint = it.lowmint;                                     // researched reserve → exact LPM
+            else if (it.drop) { var y = +String(it.drop).slice(0, 4); if (y >= 2021 && y <= 2023) h.lpmEra = 41; }  // 2021-23 era → VeVe reserved 40 → LPM #41
+            if (it.edition && !h.editionSize) h.editionSize = it.edition;
+          }
         });
       }
       $('#scanstatus').innerHTML = '✓ <strong>' + holdings.length + '</strong> editions on-chain for <span class="mono">' + addr.slice(0, 6) + '…' + addr.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(addr) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — partial</strong>' : '');

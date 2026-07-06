@@ -75,10 +75,9 @@
       if (mint === 1 && firstPublic > 1) add('ace', '#1 — the first edition ever (VeVe-reserved #1–' + withheld + ')', 'epic', ['historic', 'low']);
       if (mint === firstPublic) add('lowest-public', '🥇 #' + firstPublic + ' — THE lowest public mint', 'legendary', ['historic', 'low']);
       else if (mint > firstPublic && mint <= firstPublic + 4) add('top5-low', 'Top-5 lowest available mint (#' + firstPublic + '–#' + (firstPublic + 4) + ')', 'epic', ['low']);
-    } else if (opts.inferredLpm && mint === Number(opts.inferredLpm) && mint > 1) {
-      // Reserve not researched — but this is the LOWEST mint the collector owns and it's within the reserve
-      // range (≤ #51). Owning it proves it's in public circulation, so it's almost certainly THE lowest public mint.
-      add('lowest-public', '🥇 #' + mint + ' — likely THE lowest public mint <span class="small">(your lowest owned · not confirmed for this item)</span>', 'epic', ['historic', 'low']);
+    } else if (opts.eraLpm && mint === Number(opts.eraLpm) && mint > 1) {
+      // Reserve not researched, but this item dropped in the 2021-23 era when VeVe uniformly reserved 40 → LPM #41.
+      add('lowest-public', '🥇 #' + mint + ' — THE lowest public mint <span class="small">(VeVe reserved 40 for its 2021–23 drop era)</span>', 'epic', ['historic', 'low']);
     }
 
     if (editionSize > 0 && mint === editionSize) add('highest-public', '🏁 #' + editionSize + ' — THE highest (final) public mint', 'legendary', ['historic', 'high']);
@@ -129,14 +128,6 @@
   }
 
   function scanHoldings(holdings, catalogById, categories, sigLookup, uniLookup, eggLookup) {
-    // For collectibles with NO researched reserve: reserves VARY per item (IG-11 reserves only #1 → LPM #2;
-    // others reserve 10/20/40 → LPM #11/#21/#41), so a fixed boundary set is wrong. But owning a mint PROVES
-    // it's in public circulation — so the lowest mint the collector holds, if it's within the reserve range
-    // (≤ #51; researched reserves top out ~50), is almost certainly THE lowest public mint for that item.
-    var LPM_MAX = 51;
-    function mkey(h) { return h.collectibleId + '|' + (h.rarityKey || (h.rarity || '').toLowerCase()); }
-    var minMint = {};
-    holdings.forEach(function (h) { var k = mkey(h), mn = Number(h.mintNumber); if (mn > 0 && (minMint[k] == null || mn < minMint[k])) minMint[k] = mn; });
     return holdings.map(function (h) {
       var c = catalogById[h.collectibleId] || {};
       var uni = c.universe || h.universe;
@@ -156,15 +147,14 @@
         }
       }
       var researchedLpm = h.lowmint != null ? h.lowmint : (c.lowmint != null ? c.lowmint : c.lowest_public_mint);
-      var inferredLpm = null;
-      if (researchedLpm == null && !c.withheld) { var mm = minMint[mkey(h)]; if (mm && Number(h.mintNumber) === mm && mm > 1 && mm <= LPM_MAX) inferredLpm = mm; }
+      // Era inference is an ITEM property (h.lpmEra, set from the catalog DROP YEAR in the live-scan enrichment):
+      // VeVe uniformly reserved 40 → LPM #41 for 2021-23 drops (97-100% of researched). NOT holdings-based.
+      var eraLpm = (researchedLpm == null) ? (h.lpmEra || null) : null;
       var a = analyzeMint(h.mintNumber, h.editionSize || c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
-        // researched reserve first (per-holding via the live normName+rarity match, else the catalog entry);
-        // when none is researched, fall back to the owned-reserve-boundary inference (inferredLpm).
-        firstPublicMint: researchedLpm,
-        inferredLpm: inferredLpm,
+        firstPublicMint: researchedLpm,   // researched reserve (exact), if known
+        eraLpm: eraLpm,                    // else the era-standard LPM (#41 for 2021-23 drops)
         categories: categories,
         significantYears: sy,
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],
