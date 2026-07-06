@@ -76,9 +76,9 @@
       if (mint === firstPublic) add('lowest-public', '🥇 #' + firstPublic + ' — THE lowest public mint', 'legendary', ['historic', 'low']);
       else if (mint > firstPublic && mint <= firstPublic + 4) add('top5-low', 'Top-5 lowest available mint (#' + firstPublic + '–#' + (firstPublic + 4) + ')', 'epic', ['low']);
     } else if (opts.inferredLpm && mint === Number(opts.inferredLpm) && mint > 1) {
-      // Reserve not researched — but the collector OWNS a standard reserve boundary (#6/#11/#21/#41…).
-      // Owning it proves it's in public circulation, so it's almost certainly THE lowest public mint.
-      add('lowest-public', '🥇 #' + mint + ' — likely THE lowest public mint <span class="small">(standard VeVe reserve · not confirmed for this item)</span>', 'epic', ['historic', 'low']);
+      // Reserve not researched — but this is the LOWEST mint the collector owns and it's within the reserve
+      // range (≤ #51). Owning it proves it's in public circulation, so it's almost certainly THE lowest public mint.
+      add('lowest-public', '🥇 #' + mint + ' — likely THE lowest public mint <span class="small">(your lowest owned · not confirmed for this item)</span>', 'epic', ['historic', 'low']);
     }
 
     if (editionSize > 0 && mint === editionSize) add('highest-public', '🏁 #' + editionSize + ' — THE highest (final) public mint', 'legendary', ['historic', 'high']);
@@ -129,10 +129,11 @@
   }
 
   function scanHoldings(holdings, catalogById, categories, sigLookup, uniLookup, eggLookup) {
-    // For collectibles with NO researched reserve, the lowest mint the collector actually OWNS — when it
-    // lands on a standard VeVe reserve boundary (#6/#11/#16/#21/#26/#31/#41/#51) — is almost certainly THE
-    // lowest public mint (owning it proves it's in circulation). Recovers items never hand-researched.
-    var RESERVE_BLOCKS = { 5: 1, 10: 1, 15: 1, 20: 1, 25: 1, 30: 1, 40: 1, 50: 1 };
+    // For collectibles with NO researched reserve: reserves VARY per item (IG-11 reserves only #1 → LPM #2;
+    // others reserve 10/20/40 → LPM #11/#21/#41), so a fixed boundary set is wrong. But owning a mint PROVES
+    // it's in public circulation — so the lowest mint the collector holds, if it's within the reserve range
+    // (≤ #51; researched reserves top out ~50), is almost certainly THE lowest public mint for that item.
+    var LPM_MAX = 51;
     function mkey(h) { return h.collectibleId + '|' + (h.rarityKey || (h.rarity || '').toLowerCase()); }
     var minMint = {};
     holdings.forEach(function (h) { var k = mkey(h), mn = Number(h.mintNumber); if (mn > 0 && (minMint[k] == null || mn < minMint[k])) minMint[k] = mn; });
@@ -156,7 +157,7 @@
       }
       var researchedLpm = h.lowmint != null ? h.lowmint : (c.lowmint != null ? c.lowmint : c.lowest_public_mint);
       var inferredLpm = null;
-      if (researchedLpm == null && !c.withheld) { var mm = minMint[mkey(h)]; if (mm && Number(h.mintNumber) === mm && RESERVE_BLOCKS[mm - 1]) inferredLpm = mm; }
+      if (researchedLpm == null && !c.withheld) { var mm = minMint[mkey(h)]; if (mm && Number(h.mintNumber) === mm && mm > 1 && mm <= LPM_MAX) inferredLpm = mm; }
       var a = analyzeMint(h.mintNumber, h.editionSize || c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
