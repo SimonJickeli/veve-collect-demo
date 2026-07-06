@@ -116,6 +116,7 @@
     var label = subLabel(uni, slug), s = subInfo(uni, slug);
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: cap(uni), r: 'u/' + uni }, { t: label }]) +
       '<h1>' + esc(label) + ' <span class="small" style="color:var(--muted);text-transform:none">· ' + esc(cap(uni)) + (s && s.cat ? ' · ' + esc(s.cat) : '') + '</span></h1>' +
+      (s && s.desc ? '<div class="prose">' + esc(s.desc) + '</div>' : '') +
       '<p class="small">' + items.length.toLocaleString() + ' collectibles' + (slug === 'artworks' ? ' — artwork-variety pieces (prints & Artist Proofs)' : '') + '</p>' + grid(items, 200);
   }
 
