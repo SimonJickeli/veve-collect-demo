@@ -70,7 +70,7 @@
 <script src="data/floor.js?v=1"></script>
 <script src="data/descriptions.js?v=1"></script>
 <script src="assets/collectscan.js?v=3"></script>
-<script src="assets/ask.js?v=11"></script>
+<script src="assets/ask.js?v=12"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -85,6 +85,7 @@
     'How many Marvel collectibles are there?',
     'What is Alligator Loki?'
   ];
+  // it's a conversation — follow-ups like "why?", "more", "the 2nd one", "and burnt?" work
   $('#examples').innerHTML = EX.map(function (e) { return '<span class="exchip">' + e + '</span>'; }).join('');
 
   function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
@@ -110,7 +111,7 @@
     var r = ASK.ask(text);
     var body = '<div class="answer"><div class="sum">' + r.summary + '</div>';
     if (r.note) body += '<div class="small" style="margin:6px 0">' + r.note + '</div>';
-    if (r.rows && r.rows.length) body += r.rows.map(function (it, i) { return rowHtml(it, i, r.cols); }).join('');
+    if (r.rows && r.rows.length) body += r.rows.map(function (it, i) { return rowHtml(it, (r.startIndex || 0) + i, r.cols); }).join('');
     body += '</div>';
     chat.insertAdjacentHTML('beforeend', '<div class="msg bot">' + body + '</div>');
     window.scrollTo(0, document.body.scrollHeight);
