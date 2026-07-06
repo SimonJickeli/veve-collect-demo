@@ -24,7 +24,7 @@
 
   var CATEGORIES = [
     { key: 'historic',   label: 'Historically significant' },
-    { key: 'low',        label: 'Lowest mints (top 5)' },
+    { key: 'low',        label: 'Lowest public mint' },
     { key: 'high',       label: 'Highest (final) mint' },
     { key: 'palindrome', label: 'Palindromes (5+ digits)' },
     { key: 'repdigit',   label: 'Repeating digits (111, 2222…)' },
@@ -74,7 +74,6 @@
     if (firstPublicKnown) {
       if (mint === 1 && firstPublic > 1) add('ace', '#1 — the first edition ever (VeVe-reserved #1–' + withheld + ')', 'epic', ['historic', 'low']);
       if (mint === firstPublic) add('lowest-public', '🥇 #' + firstPublic + ' — THE lowest public mint', 'legendary', ['historic', 'low']);
-      else if (mint > firstPublic && mint <= firstPublic + 4) add('top5-low', 'Top-5 lowest available mint (#' + firstPublic + '–#' + (firstPublic + 4) + ')', 'epic', ['low']);
     } else if (opts.eraLpm && mint === Number(opts.eraLpm) && mint > 1) {
       // Reserve not researched, but this item dropped in the 2021-23 era when VeVe uniformly reserved 40 → LPM #41.
       add('lowest-public', '🥇 #' + mint + ' — THE lowest public mint <span class="small">(VeVe reserved 40 for its 2021–23 drop era)</span>', 'epic', ['historic', 'low']);

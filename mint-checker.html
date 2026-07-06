@@ -91,7 +91,7 @@
   </div>
 
   <div class="note warn" style="margin-top:20px">
-    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" is a <strong>property of the collectible</strong>: it uses each item's researched reserve where known, and for un-researched <strong>2021–23</strong> drops VeVe uniformly reserved 40 → <strong>#41</strong>. Reserves vary in <strong>2024+</strong> (#21/#41/other), so those show an LPM only where researched. Engine: <span class="mono">app/assets/mints.js</span>.
+    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" is a <strong>property of the collectible</strong>: it uses each item's researched reserve where known, and for un-researched <strong>2021–23</strong> drops VeVe uniformly reserved 40 → <strong>#41</strong>. Reserves vary in <strong>2024+</strong> (#21/#41/other), so those show an LPM only where researched. Engine: <span class="mono">app/assets/mints.js</span>.
   </div>
   <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
 </div>
@@ -101,7 +101,7 @@
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=12"></script>
+<script src="assets/mints.js?v=13"></script>
 <script src="assets/collectscan.js?v=4"></script>
 <script>
 (function () {
@@ -148,7 +148,7 @@
 
   // groups for the scan results — a holding appears under every category it matches
   var SECTIONS = [
-    { title: '🥇 Lowest mints',                match: function (t) { return t === 'lowest-public' || t === 'top5-low' || t === 'ace'; } },
+    { title: '🥇 Lowest public mint',          match: function (t) { return t === 'lowest-public' || t === 'ace'; } },
     { title: '🏁 Highest (final) mint',         match: function (t) { return t === 'highest-public'; } },
     { title: '➡️ Ascending runs',               match: function (t) { return t === 'ascending'; } },
     { title: '⬅️ Descending runs',              match: function (t) { return t === 'descending'; } },
