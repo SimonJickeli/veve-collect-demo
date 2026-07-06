@@ -127,7 +127,8 @@
     if (c.drop) facts.push(['Dropped', c.drop]);
     if (co) facts.push(['Market floor', '💎 ' + Math.round(co.v).toLocaleString() + ' <span class="small">(' + co.s + ')</span>']);
     if (c.lowmint) facts.push(['Lowest public mint', '#' + c.lowmint + (reserve ? ' <span class="small">(VeVe reserves #1–#' + reserve + ')</span>' : '')]);
-    if (c.store) facts.push(['Unsold in Store', c.store.toLocaleString()]);
+    if (c.blind) facts.push(['Distribution', '🎲 Blind box <span class="small">(random pull — no fixed store price)</span>']);
+    else if (c.store) facts.push(['Unsold in Store', c.store.toLocaleString()]);
     if (c.burnt) facts.push(['Burnt', c.burnt.toLocaleString()]);
 
     var related = (c.character ? (byChar[nn(c.character)] || []) : (c.set ? bySet[c.set] : byUni[c.universe] || [])).filter(function (x) { return x.slug !== slug; });

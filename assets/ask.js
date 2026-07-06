@@ -32,7 +32,7 @@
   // (Store stock) and BURNT (removed from supply) — all three are separate on VeVe.
   function reserved(it) { return (it.lowmint && it.lowmint > 1) ? (it.lowmint - 1) : 0; }
   function heldBack(it) { return reserved(it); }
-  function unsold(it) { return it.store || 0; }
+  function unsold(it) { return it.blind ? 0 : (it.store || 0); }   // blind boxes are never sold as singles → no "store/unsold" surface
   function burnt(it) { return it.burnt || 0; }
   function issuedOf(it) { return it.issued || it.edition || 0; }
 
