@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wiki Explorer — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=5" />
+<style>
+  .crumb { font-size:12.5px; color:var(--muted); margin:2px 0 14px; display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+  .crumb a { color:var(--accent-2); } .crumb .sep { opacity:.5; }
+  .exsearch { display:flex; gap:10px; margin:6px 0 4px; } .exsearch input { flex:1; }
+  .exgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+  .excard { display:block; background:linear-gradient(180deg,var(--panel-2),var(--panel)); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; transition:border-color .12s, transform .12s; }
+  .excard:hover { border-color:var(--accent); transform:translateY(-2px); text-decoration:none; }
+  .excard .thumb { width:100%; aspect-ratio:1/1; object-fit:cover; background:#12162a; display:block; }
+  .excard .thumb.noimg { display:flex; align-items:center; justify-content:center; font-size:34px; }
+  .excard .body { padding:9px 11px; }
+  .excard .nm { font-weight:700; font-size:13px; line-height:1.25; }
+  .excard .mt { margin-top:5px; display:flex; gap:6px; flex-wrap:wrap; align-items:center; font-size:11px; color:var(--muted); }
+  .unigrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:12px; }
+  .unitile { background:linear-gradient(135deg,rgba(124,92,255,.14),var(--panel)); border:1px solid var(--border); border-radius:14px; padding:16px; cursor:pointer; transition:border-color .12s, transform .12s; }
+  .unitile:hover { border-color:var(--accent); transform:translateY(-2px); text-decoration:none; }
+  .unitile h3 { margin:0 0 3px; font-size:16px; text-transform:capitalize; }
+  .unitile .c { font-size:12.5px; color:var(--muted); }
+  .cpage { display:grid; grid-template-columns:300px 1fr; gap:26px; align-items:start; }
+  @media (max-width:720px){ .cpage { grid-template-columns:1fr; } }
+  .cpage .hero-img { width:100%; border-radius:14px; border:1px solid var(--border); background:#12162a; aspect-ratio:1/1; object-fit:cover; }
+  .cpage .hero-img.noimg { display:flex; align-items:center; justify-content:center; font-size:70px; }
+  .cpage h1 { font-size:26px; margin:0 0 8px; letter-spacing:-.4px; }
+  .facts { display:grid; grid-template-columns:auto 1fr; gap:7px 14px; font-size:13.5px; margin:14px 0; }
+  .facts dt { color:var(--muted); } .facts dd { margin:0; font-weight:600; }
+  .facts a { color:var(--accent-2); }
+  .prose { font-size:14.5px; line-height:1.6; color:var(--text); margin:10px 0; }
+  .prose h4 { margin:18px 0 4px; font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:var(--muted); }
+  .sec-h { font-size:15px; font-weight:800; margin:26px 0 12px; }
+  .backchip { display:inline-block; font-size:12.5px; color:var(--accent-2); cursor:pointer; margin-bottom:10px; }
+  .tagrow { display:flex; gap:8px; flex-wrap:wrap; margin:6px 0 2px; }
+  .tag { font-size:12px; border:1px solid var(--border); background:var(--bg-2); border-radius:999px; padding:3px 11px; cursor:pointer; }
+  .tag:hover { border-color:var(--accent); }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html" class="active">Explorer</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <div class="exsearch" style="margin-top:22px">
+    <input type="text" id="q" placeholder="🔍 Search 9,000+ pages — a collectible, character (Boba Fett), or universe (Marvel)…" autocomplete="off" />
+  </div>
+  <div id="view" style="margin-top:8px"></div>
+  <footer class="foot">Wiki Explorer · every collectible, character, universe & set — cross-linked. Content from the VeVe Collect wiki; data live from collectscan.</footer>
+</div>
+
+<script src="data/catalog.js?v=9"></script>
+<script src="data/comics.js?v=1"></script>
+<script src="data/floor.js?v=1"></script>
+<script src="data/wiki.js?v=2"></script>
+<script src="assets/collectscan.js?v=3"></script>
+<script src="assets/explorer.js?v=2"></script>
+</body>
+</html>
