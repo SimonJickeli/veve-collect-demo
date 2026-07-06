@@ -31,10 +31,10 @@
         <label class="field" for="wallet">Wallet address</label>
         <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
         <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
-          <li>Your VeVe <strong>OMI / Collect Chain address</strong> (starts <span class="mono">0x…</span>).</li>
-          <li>In the <strong>VeVe app</strong> → menu → <strong>Wallet / OMI</strong> (Android shows the address directly).</li>
-          <li>Or the Web Wallet — <a href="https://omi.veve.me" target="_blank" rel="noopener">omi.veve.me</a> → log in → copy the <span class="mono">0x…</span> address <em>(needs a VeVe login; if it won't load, retry or use the app)</em>.</li>
-          <li>Paste it above. <span style="color:var(--muted)">— soon: connect StackR to auto-fill.</span></li>
+          <li>It's your VeVe <strong>Collect Chain (OMI) address</strong> — starts <span class="mono">0x…</span>, 42 characters. VeVe manages it for you (self-custody isn't live yet), so you only need to <em>read</em> it.</li>
+          <li><strong>Web wallet — most reliable:</strong> open <a href="https://omi.veve.me" target="_blank" rel="noopener">omi.veve.me</a> in a browser → log in with your VeVe account → copy the <span class="mono">0x…</span> address. <em>(Needs your VeVe login; if it won't load, try incognito or another browser.)</em></li>
+          <li><strong>Or from collectscan:</strong> if your wallet page is already open on <a href="https://collectscan.com" target="_blank" rel="noopener">collectscan.com</a>, the <span class="mono">0x…</span> in the address bar is it.</li>
+          <li>Paste it above — <strong>we remember it on this device</strong>, so you only enter it once. <span style="color:var(--muted)">Coming: connect StackR to auto-fill.</span></li>
         </ol></details>
       </div>
       <div style="flex:0 0 150px">
@@ -238,6 +238,7 @@
   async function track() {
     var addr = $('#wallet').value.trim();
     if (!COLLECTSCAN.isAddress(addr)) { $('#status').innerHTML = 'Enter a valid <span class="mono">0x…</span> Collect Chain wallet address.'; return; }
+    try { localStorage.setItem('veve_wallet', addr); } catch (e) {}   // remember once entered
     $('#track').disabled = true; $('#status').textContent = 'Fetching holdings from collectscan…';
     try {
       var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#status').textContent = 'Fetched ' + n + ' editions…'; } });
@@ -265,6 +266,7 @@
   $('#universe').addEventListener('change', render);
   $('#view').addEventListener('change', render);
   $('#show').addEventListener('change', render);
+  (function () { var s = ''; try { s = localStorage.getItem('veve_wallet') || ''; } catch (e) {} if (COLLECTSCAN.isAddress(s) && !$('#wallet').value) { $('#wallet').value = s; track(); } })();   // auto-restore remembered wallet
 })();
 </script>
 </body>
