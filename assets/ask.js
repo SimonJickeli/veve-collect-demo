@@ -188,6 +188,26 @@
     return fin(q, meta, { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + ' <span class="small">Pinpointing which needs VeVe\'s app / a full on-chain owner scan; only mints below #' + lpm + ' are certainly held back.</span>', rows: [] });
   }
 
+  // Precise per-item answer for "what does VeVe hold back / burn / leave unsold on <a specific item>?"
+  // States the exact reserved mint range (#1 → lowest-public−1), not a ranked list — and is honest
+  // when the reserve for that item hasn't been researched.
+  function itemMetricAnswer(q, list, intent) {
+    var lines = list.slice(0, 8).map(function (it) {
+      var head = '<strong>' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition ' + it.edition.toLocaleString() : '') + ')</span>';
+      if (intent === 'held') {
+        var lpm = it.lowmint, res = reserved(it);
+        if (!lpm || lpm <= 1) return head + ' — the reserve for this one <strong>hasn\'t been researched yet</strong>, so the exact held-back mints aren\'t recorded. <span class="small">(Anything below its lowest public mint is held back — we just don\'t have that number for this item.)</span>';
+        var extra = []; if (burnt(it)) extra.push(burnt(it).toLocaleString() + ' burnt'); if (unsold(it)) extra.push(unsold(it).toLocaleString() + ' unsold');
+        return head + ' — VeVe holds back <strong>' + res + '</strong> edition' + (res === 1 ? '' : 's') + ': <strong>#1–#' + (lpm - 1) + '</strong>, every mint below the lowest public mint (#' + lpm + ').' + (extra.length ? ' <span class="small">(also ' + extra.join(' · ') + ')</span>' : '');
+      }
+      if (intent === 'burnt') { var b = burnt(it); return head + (b ? ' — <strong>' + b.toLocaleString() + '</strong> edition' + (b === 1 ? '' : 's') + ' burnt from supply.' : ' — no burns recorded.'); }
+      var s = unsold(it); return head + (s ? ' — <strong>' + s.toLocaleString() + '</strong> unsold in VeVe\'s Store.' : (it.blind ? ' — a blind box (sold as sealed boxes, not singles).' : ' — none unsold.'));
+    });
+    var verb = intent === 'held' ? 'holds back' : intent === 'burnt' ? 'burnt' : 'has unsold on';
+    return fin(q, { topic: 'what VeVe ' + verb + ' on ' + (list.length === 1 ? list[0].name : (list[0].character || 'this')), item: list.length === 1 ? list[0] : null },
+      { summary: (list.length > 1 ? '<div class="small" style="margin-bottom:8px">' + list.length + ' matching collectibles:</div>' : '') + lines.join('<br><br>'), rows: [] });
+  }
+
   // ---- the query engine (stateless core) ----------------------------------
   function engine(q, intent, N, pIn) {
     var p = pIn || parse(q); CURP = p;
@@ -211,6 +231,8 @@
     }
 
     if (intent === 'held' || intent === 'burnt' || intent === 'unsold') {
+      // a specific collectible ("what does VeVe hold back on <item>?") → precise per-item answer, not a ranked list
+      if (p.subj && items.length && items.length <= 8) return itemMetricAnswer(q, items, intent);
       var metricFn = intent === 'held' ? heldBack : (intent === 'burnt' ? burnt : unsold);
       var full = items.filter(function (it) { return metricFn(it) > 0; }).sort(function (a, b) { return metricFn(b) - metricFn(a); });
       var word = intent === 'held' ? 'held back (reserved low mints, #1 → lowest-public)' : (intent === 'burnt' ? 'burnt (removed from supply)' : 'unsold (still in VeVe\'s Store)');
