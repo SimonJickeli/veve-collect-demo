@@ -60,6 +60,9 @@
     // withheld = editions VeVe retained (excluded from the "public" low-mint pool).
     var withheld = opts.withheld != null ? Number(opts.withheld)
                  : (opts.reservedCount != null ? Number(opts.reservedCount) : 0);
+    // We only "know" the reserve when it's researched (firstPublicMint) or explicitly given (reservedCount).
+    // Without it, DON'T assume #1 is public (that wrongly flagged #1 as the lowest public mint and hid #21).
+    var firstPublicKnown = opts.firstPublicMint != null || withheld > 0;
     var firstPublic = opts.firstPublicMint != null ? Number(opts.firstPublicMint) : (withheld + 1);
     var s = digits(mint);
     var flags = [];
@@ -68,9 +71,15 @@
     if (!mint || mint < 1) return { flags: [], topTier: null, score: 0, special: false };
 
     // ── position: lowest / top-5-lowest / highest — PUBLIC-focused (the core "special" mints) ──
-    if (mint === 1 && firstPublic > 1) add('ace', '#1 — the first edition ever (VeVe-reserved #1–' + withheld + ')', 'epic', ['historic', 'low']);
-    if (mint === firstPublic) add('lowest-public', '🥇 #' + firstPublic + ' — THE lowest public mint', 'legendary', ['historic', 'low']);
-    else if (mint > firstPublic && mint <= firstPublic + 4) add('top5-low', 'Top-5 lowest available mint (#' + firstPublic + '–#' + (firstPublic + 4) + ')', 'epic', ['low']);
+    if (firstPublicKnown) {
+      if (mint === 1 && firstPublic > 1) add('ace', '#1 — the first edition ever (VeVe-reserved #1–' + withheld + ')', 'epic', ['historic', 'low']);
+      if (mint === firstPublic) add('lowest-public', '🥇 #' + firstPublic + ' — THE lowest public mint', 'legendary', ['historic', 'low']);
+      else if (mint > firstPublic && mint <= firstPublic + 4) add('top5-low', 'Top-5 lowest available mint (#' + firstPublic + '–#' + (firstPublic + 4) + ')', 'epic', ['low']);
+    } else if (opts.inferredLpm && mint === Number(opts.inferredLpm) && mint > 1) {
+      // Reserve not researched — but the collector OWNS a standard reserve boundary (#6/#11/#21/#41…).
+      // Owning it proves it's in public circulation, so it's almost certainly THE lowest public mint.
+      add('lowest-public', '🥇 #' + mint + ' — likely THE lowest public mint <span class="small">(standard VeVe reserve · not confirmed for this item)</span>', 'epic', ['historic', 'low']);
+    }
 
     if (editionSize > 0 && mint === editionSize) add('highest-public', '🏁 #' + editionSize + ' — THE highest (final) public mint', 'legendary', ['historic', 'high']);
 
@@ -120,6 +129,13 @@
   }
 
   function scanHoldings(holdings, catalogById, categories, sigLookup, uniLookup, eggLookup) {
+    // For collectibles with NO researched reserve, the lowest mint the collector actually OWNS — when it
+    // lands on a standard VeVe reserve boundary (#6/#11/#16/#21/#26/#31/#41/#51) — is almost certainly THE
+    // lowest public mint (owning it proves it's in circulation). Recovers items never hand-researched.
+    var RESERVE_BLOCKS = { 5: 1, 10: 1, 15: 1, 20: 1, 25: 1, 30: 1, 40: 1, 50: 1 };
+    function mkey(h) { return h.collectibleId + '|' + (h.rarityKey || (h.rarity || '').toLowerCase()); }
+    var minMint = {};
+    holdings.forEach(function (h) { var k = mkey(h), mn = Number(h.mintNumber); if (mn > 0 && (minMint[k] == null || mn < minMint[k])) minMint[k] = mn; });
     return holdings.map(function (h) {
       var c = catalogById[h.collectibleId] || {};
       var uni = c.universe || h.universe;
@@ -138,12 +154,16 @@
           (chi.ch || []).forEach(function (cc) { var fy = cfa[cc]; if (fy) sy.push({ year: fy, reason: cc + ' first appeared' }); });
         }
       }
+      var researchedLpm = h.lowmint != null ? h.lowmint : (c.lowmint != null ? c.lowmint : c.lowest_public_mint);
+      var inferredLpm = null;
+      if (researchedLpm == null && !c.withheld) { var mm = minMint[mkey(h)]; if (mm && Number(h.mintNumber) === mm && RESERVE_BLOCKS[mm - 1]) inferredLpm = mm; }
       var a = analyzeMint(h.mintNumber, h.editionSize || c.editionSize, {
         firstAppearanceYear: c.firstAppearanceYear,
         withheld: c.withheld,
-        // prefer the per-holding reserve (set by the live scan via a normName+rarity catalog match),
-        // then the catalog entry's — so #21/#41 lowest-public mints are recognised per rarity.
-        firstPublicMint: h.lowmint != null ? h.lowmint : (c.lowmint != null ? c.lowmint : c.lowest_public_mint),
+        // researched reserve first (per-holding via the live normName+rarity match, else the catalog entry);
+        // when none is researched, fall back to the owned-reserve-boundary inference (inferredLpm).
+        firstPublicMint: researchedLpm,
+        inferredLpm: inferredLpm,
         categories: categories,
         significantYears: sy,
         universeYears: (uniLookup && uni) ? uniLookup(uni) : [],

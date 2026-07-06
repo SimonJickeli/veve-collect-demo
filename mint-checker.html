@@ -91,7 +91,7 @@
   </div>
 
   <div class="note warn" style="margin-top:20px">
-    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve (e.g. #21 when VeVe holds #1–20). Engine: <span class="mono">app/assets/mints.js</span>.
+    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, the <strong>top-5 lowest available</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" uses each item's researched reserve (e.g. #21 when VeVe holds #1–20); where a reserve isn't researched, a mint you <em>own</em> on a standard VeVe reserve boundary (#21/#41…) is flagged as the <strong>likely</strong> lowest public mint. Engine: <span class="mono">app/assets/mints.js</span>.
   </div>
   <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
 </div>
@@ -101,7 +101,7 @@
 <script src="data/historic-years.js?v=1"></script>
 <script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=9"></script>
+<script src="assets/mints.js?v=10"></script>
 <script src="assets/collectscan.js?v=4"></script>
 <script>
 (function () {
@@ -232,15 +232,20 @@
       // (was a plain toLowerCase name-only match, which missed variants + curly-apostrophe/zero-width names.)
       if (typeof CATALOG !== 'undefined' && CATALOG.items) {
         var nn = window.normName || function (s) { return (s || '').toLowerCase(); };
-        var idx = {};
+        var idx = {}, bareKeys = [];
         CATALOG.items.forEach(function (it) {
           var r = nn(it.rarity || '');
           [nn(it.name), it.aka ? nn(it.aka) : null].forEach(function (k) {
-            if (!k) return; var key = k + '|' + r; if (!idx[key]) idx[key] = it; if (!idx[k]) idx[k] = it;
+            if (!k) return; var key = k + '|' + r; if (!idx[key]) idx[key] = it; if (!idx[k]) { idx[k] = it; bareKeys.push(k); }
           });
         });
+        // tolerate a differing LEADING prefix (on-chain names sometimes carry an artist/brand prefix the
+        // catalog name lacks) — ≥3 shared trailing tokens + word-aligned suffix, so no false match.
+        function suffixMatch(a, b) { if (a === b) return true; if (a.length > b.length) { var t = a; a = b; b = t; } return a.split(' ').length >= 3 && b.length > a.length && b.slice(-(a.length + 1)) === ' ' + a; }
         holdings.forEach(function (h) {
-          var it = idx[(h.nameKey || nn(h.name)) + '|' + (h.rarityKey || nn(h.rarity))] || idx[h.nameKey || nn(h.name)];
+          var nk = h.nameKey || nn(h.name), rk = h.rarityKey || nn(h.rarity);
+          var it = idx[nk + '|' + rk] || idx[nk];
+          if (!it && nk.length >= 3) { for (var i = 0; i < bareKeys.length; i++) if (suffixMatch(nk, bareKeys[i])) { it = idx[bareKeys[i]]; break; } }
           if (it) { if (it.lowmint) h.lowmint = it.lowmint; if (it.edition && !h.editionSize) h.editionSize = it.edition; }
         });
       }
