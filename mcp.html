@@ -141,12 +141,11 @@
         stat('From sets', d.setPoints.toFixed(2), 'accent') +
         stat('Editions held', holdings.length.toLocaleString()) +
         (liveMode && portfolioValue > 0
-          ? stat('Collection value', '💎 ' + Math.round(portfolioValue).toLocaleString()) +
-            stat('MCP/day · 💎1k', (d.total / portfolioValue * 1000).toFixed(2), 'accent')
+          ? stat('Collection value', '💎 ' + Math.round(portfolioValue).toLocaleString())
           : '') +
       '</div>' +
       (d.setBreakdown.length
-        ? '<p class="small" style="margin:14px 0 0">🧩 Completed sets: ' + d.setBreakdown.map(function (b) { return b.name + ' <span style="color:var(--good)">(' + b.daily.toFixed(1) + '/day)</span>'; }).join(' · ') + '</p>'
+        ? '<p class="small" style="margin:14px 0 0">🧩 <strong>' + d.setBreakdown.length + '</strong> completed set' + (d.setBreakdown.length > 1 ? 's' : '') + ' earning <strong>' + d.setPoints.toFixed(1) + ' MCP/day</strong> in set points.</p>'
         : '') +
       '</div>';
   }
@@ -248,8 +247,10 @@
             // so different-rarity covers/variants of the same title are NOT wrongly merged as duplicates
             var base = (h.format === 'comic') ? nk : nk;   // nameKey already includes the comic number
             var id = base + '|' + nN(rar);
-            // accrue this edition's market-floor value (VeVe gem floor, else StackR floor) for MCP-per-$
-            portfolioValue += (ci && ci.floor) || ((floorRec(h.name) || {}).usd) || 0;
+            // accrue this edition's value: StackR live TRADED floor, else a SANITIZED VeVe ask
+            // (raw floor can be a troll listing — see saneVeveFloor — so never sum it directly).
+            var _fr = floorRec(h.name), _sv = ci ? (window.saneVeveFloor ? window.saneVeveFloor(ci.floor) : ci.floor) : 0;
+            portfolioValue += (_fr && _fr.usd > 0) ? _fr.usd : (_sv > 0 ? _sv : 0);
             return { collectibleId: id, nameKey: nk, rarity: rar, format: h.format, lowMint: low };
           });
         // build set-completion sets from the catalog, keyed by normalized member name+rarity (matches the holding key)

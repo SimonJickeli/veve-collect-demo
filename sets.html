@@ -80,7 +80,7 @@
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var rClass = function (r) { return 'chip r-' + (r||'').replace(/ /g, ''); };
-  var ownedNames = null, mode = null; // Set of lowercased owned names
+  var ownedNames = null, ownedArr = null, mode = null; // Set + Array of normalized owned name-keys
 
   // ---- StackR floor lookup (live on-chain snapshot, app/data/floor.js) ----
   // normName (not parens-stripping fnorm) so variant names like "(Water Element)" don't collide
@@ -99,6 +99,11 @@
   var nN = window.normName || function (s) { return (s||'').toLowerCase(); };
   // canonical key: prefer the on-chain alias (`aka`) over the embellished display name
   function ck(o){ return nN((o && (o.aka || o.name)) || ''); }
+  // owns(m): exact name-key match, else tolerate a differing LEADING prefix — on-chain names sometimes
+  // carry an artist/brand prefix the catalog name lacks (e.g. "Ron English Record #1 …" vs "Record #1 …").
+  // Requires ≥3 shared trailing tokens + a word-aligned suffix, so it can't produce a false "owned".
+  function suffixMatch(a, b){ if (a === b) return true; if (a.length > b.length){ var t=a; a=b; b=t; } return a.split(' ').length >= 3 && b.length > a.length && b.slice(-(a.length + 1)) === ' ' + a; }
+  function owns(m){ var k = ck(m); if (!k) return false; if (ownedNames.has(k)) return true; if (ownedArr) for (var i=0;i<ownedArr.length;i++) if (suffixMatch(k, ownedArr[i])) return true; return false; }
   // catalog index keyed by normalized name + alias — so owned (on-chain canonical) names match catalog members
   var byNameN = {};
   (CATALOG.items || []).forEach(function (it) { var k = nN(it.name); if (k && !byNameN[k]) byNameN[k] = it; if (it.aka){ var a = nN(it.aka); if (a && !byNameN[a]) byNameN[a] = it; } });
@@ -131,7 +136,7 @@
       if (uni !== 'all' && it.universe !== uni) return;
       var b = bySeason[it.season] || (bySeason[it.season] = { owned: [], total: 0 });
       b.total++;
-      if (ownedNames.has(ck(it))) b.owned.push(it);
+      if (owns(it)) b.owned.push(it);
     });
     var seasons = Object.keys(bySeason).map(Number)
       .filter(function (s) { return mode === 'sample' ? bySeason[s].total : bySeason[s].owned.length; })
@@ -173,8 +178,8 @@
       var base = s.members.filter(function (m) { return !m.sp; });
       if (!base.length) base = s.members;                                  // guard: all-special series
       var special = s.members.filter(function (m) { return m.sp; });
-      var owned = base.filter(function (m) { return ownedNames.has(ck(m)); });
-      var ownedSpecial = special.filter(function (m) { return ownedNames.has(ck(m)); });
+      var owned = base.filter(function (m) { return owns(m); });
+      var ownedSpecial = special.filter(function (m) { return owns(m); });
       return { s: s, base: base, special: special, owned: owned, ownedSpecial: ownedSpecial,
                pct: Math.round(owned.length / base.length * 100) };
     }).filter(function (x) { return mode === 'sample' ? true : (x.owned.length > 0 || x.ownedSpecial.length > 0); })
@@ -203,7 +208,7 @@
     });
     var pvBanner = (mode==='live' && pvN) ? '<div class="note" style="margin-bottom:14px">💰 <strong>Floor value of your collection ≈ 💎 ' + Math.round(portfolio).toLocaleString() + '</strong> <span class="small">(' + pvN + ' items with a trustworthy floor · StackR ⛓ traded / VeVe 💠 ask' + (pvExcluded ? ' · <strong>' + pvExcluded + '</strong> item' + (pvExcluded>1?'s':'') + ' excluded — their only VeVe listing is an implausible “troll” ask, not a real value' : '') + ')</span></div>' : '';
     function tileHtml(m, special) {
-      var has = ownedNames.has(ck(m));
+      var has = owns(m);
       return '<div class="tile ' + (has ? '' : 'missing') + '">' +
         '<div class="own">' + (has ? '✅' : '➕') + '</div>' +
         (special ? '<div class="own" style="left:8px;right:auto" title="special edition — master set only">✨</div>' : '') +
@@ -218,9 +223,9 @@
         var s = x.s, size = x.base.length, complete = x.pct === 100;
         var daily = MCP.setBaseBySize(size);
         var baseTiles = x.base.map(function (m) { return tileHtml(m, false); }).join('');
-        var missingSpecial = x.special.filter(function (m) { return !ownedNames.has(ck(m)); }).length;
+        var missingSpecial = x.special.filter(function (m) { return !owns(m); }).length;
         // cost to finish the BASE set (specials excluded)
-        var missing = x.base.filter(function (m) { return !ownedNames.has(ck(m)); });
+        var missing = x.base.filter(function (m) { return !owns(m); });
         var costSum = 0, costKnown = 0, costFloor = 0;
         missing.forEach(function (m) { var c = itemCost(m); if (c) { costSum += c.v; costKnown++; if (c.src!=='drop') costFloor++; } });
         var masterNote = '';
@@ -254,6 +259,7 @@
     try {
       var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#status').textContent = 'Fetched ' + n + ' editions…'; } });
       ownedNames = new Set(holdings.map(function (h) { return h.nameKey || nN(h.name); }));
+      ownedArr = Array.from(ownedNames);
       mode = 'live';
       $('#status').innerHTML = '✓ <strong>' + ownedNames.size + '</strong> distinct collectibles owned by <span class="mono">' + addr.slice(0,6) + '…' + addr.slice(-4) + '</span>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — list is partial</strong>' : '');
       render();
@@ -267,6 +273,7 @@
     ownedNames = new Set(CATALOG.items
       .filter(function (c) { return ['Common','Uncommon','Rare'].indexOf(c.rarity) >= 0; })
       .map(function (c) { return nN(c.name); }));
+    ownedArr = Array.from(ownedNames);
     $('#status').innerHTML = 'Sample: you own every Common/Uncommon/Rare — chasing the Ultra Rares &amp; Secret Rares.';
     render();
   }
