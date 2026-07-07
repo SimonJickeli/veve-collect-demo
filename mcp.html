@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>MCP Optimizer — VeVe Collect</title>
 <link rel="stylesheet" href="assets/style.css?v=6" />
+<style>
+  .rectabs { display:flex; gap:8px; margin-bottom:14px; }
+  .rtab { background:var(--bg-2); color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:8px 16px; font-weight:600; font-size:14px; cursor:pointer; }
+  .rtab:hover { color:var(--text); }
+  .rtab.on { color:#fff; border-color:var(--accent); background:linear-gradient(135deg, var(--accent), #50abff); }
+</style>
 </head>
 <body>
 <header class="topbar"><div class="wrap">
@@ -62,6 +68,7 @@
 <script src="assets/collectscan.js?v=4"></script>
 <script src="data/catalog.js?v=12"></script>
 <script src="data/floor.js?v=1"></script>
+<script src="data/comics_mcp.js?v=1"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -71,6 +78,7 @@
   var liveSets = null; // set-completion sets built from the catalog, matched to live holdings by name
   var portfolioValue = 0; // total market-floor value (💎) of held items, for the MCP-per-$ stat
   var ownedFilter = 'new'; // recs owned/unowned toggle: 'new' (hide owned) | 'all' | 'owned'
+  var recTab = 'collectibles'; // recs tab: 'collectibles' | 'comics'
   function setStatus(html) { $('#mcpstatus').innerHTML = html; }
 
   function ownedCount(id) { return holdings.filter(function (h) { return h.collectibleId === id; }).length; }
@@ -153,7 +161,29 @@
   function stat(k, v, cls) { return '<div class="stat"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div></div>'; }
   function heroStat(k, v) { return '<div class="stat hero-stat" style="flex:0 0 100%;min-width:220px"><div class="k">' + k + '</div><div class="v accent">' + v + '</div></div>'; }
 
-  function renderRecs() {
+  // ---- recs tab bar (Collectibles / Comics) + shared control wiring ----
+  function tabBar() {
+    return '<div class="rectabs">' +
+      '<button class="rtab' + (recTab==='collectibles'?' on':'') + '" data-tab="collectibles">🎴 Collectibles</button>' +
+      '<button class="rtab' + (recTab==='comics'?' on':'') + '" data-tab="comics">📖 Comics</button></div>';
+  }
+  function filterCtlHtml() {
+    return '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 12px">' +
+      '<span class="small">Show</span>' +
+      '<select id="ownedsel" style="width:auto; min-width:180px; padding:8px 11px">' +
+        '<option value="new">New to me (unowned)</option>' +
+        '<option value="all">All — include duplicates</option>' +
+        '<option value="owned">Only items I own</option>' +
+      '</select>' +
+      '<span class="small" style="color:var(--muted)">' + (ownedFilter==='new'?'hiding items already in your wallet' : ownedFilter==='owned'?'only items you already hold' : 'includes items you own') + '</span></div>';
+  }
+  function wireRecControls() {
+    [].forEach.call(document.querySelectorAll('#recs .rtab'), function (b) { b.addEventListener('click', function () { recTab = b.getAttribute('data-tab'); renderRecs(); }); });
+    var os = $('#ownedsel'); if (os) { os.value = ownedFilter; os.addEventListener('change', function () { ownedFilter = this.value; renderRecs(); }); }
+  }
+  function renderRecs() { if (recTab === 'comics') renderComicRecs(); else renderCollectibleRecs(); }
+
+  function renderCollectibleRecs() {
     catIndex();   // ensure the normalized catalog index exists (for pull-cost set lookups) in sample mode too
     var src = (typeof CATALOG !== 'undefined' && CATALOG.items) ? CATALOG.items : [];
     var sets = (typeof CATALOG !== 'undefined' && CATALOG.sets) ? CATALOG.sets : {};
@@ -213,24 +243,64 @@
       '</div>';
     }).join('');
 
-    var filterCtl = '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 12px">' +
-      '<span class="small">Show</span>' +
-      '<select id="ownedsel" style="width:auto; min-width:180px; padding:8px 11px">' +
-        '<option value="new">New to me (unowned)</option>' +
-        '<option value="all">All — include duplicates</option>' +
-        '<option value="owned">Only items I own</option>' +
-      '</select>' +
-      '<span class="small" style="color:var(--muted)">' + (ownedFilter==='new'?'hiding items already in your wallet' : ownedFilter==='owned'?'only duplicates you could add' : 'includes owned duplicates (diminished)') + '</span></div>';
     var empty = '<div class="note">' + (ownedFilter==='new'
         ? 'Every priceable pick here is already in your wallet. Switch to <strong>All</strong> to see duplicate value, or <strong>Only items I own</strong>.'
         : ownedFilter==='owned' ? 'No owned items have a usable market price right now.' : 'Nothing to show.') + '</div>';
-    $('#recs').innerHTML = '<div class="card"><h3>💰 Cheapest points to add</h3>' +
+    $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>💰 Cheapest collectible points to add</h3>' +
       '<p class="sub">Ranked by <strong>💎 per MCP/day</strong> (lower = better value), factoring your holdings &amp; duplicates. Venue: 💎 VeVe ask · <span class="omidot"></span> StackR floor.</p>' +
-      filterCtl +
+      filterCtlHtml() +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (isFinite(best.cpp)?' at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
       (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
       '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. Duplicates you own earn <strong>diminished</strong> points (a 2nd copy of a Common = +0.75/day), so they rank below new items.</p></div>';
-    var os = $('#ownedsel'); if (os) { os.value = ownedFilter; os.addEventListener('change', function () { ownedFilter = this.value; renderRecs(); }); }
+    wireRecControls();
+  }
+
+  // ---- Comics recs: comic covers ranked by 💎 per MCP/day (COMIC_BASE by rarity; comics stack FULL) ----
+  function comicOwned() {
+    var m = {};
+    holdings.forEach(function (h) { if (h.format === 'comic') { var k = (h.nameKey || nN(h.name)) + '|' + nN(h.rarity || ''); m[k] = (m[k] || 0) + 1; } });
+    return m;
+  }
+  function renderComicRecs() {
+    var src = (window.COMICS_MCP && COMICS_MCP.items) ? COMICS_MCP.items : [];
+    var owned = comicOwned();
+    var rows = src.map(function (c) {
+      var daily = MCP.comicIntrinsic(c.r, false);                 // COMIC_BASE by rarity (fresh copy → not low-mint)
+      if (!(daily > 0)) return null;
+      var cost = window.saneVeveFloor ? window.saneVeveFloor(c.f) : (c.f > 0 ? c.f : 0);
+      if (!(cost > 0)) return null;
+      var own = owned[nN(c.t) + ' ' + c.n + '|' + nN(c.r)] || 0;  // match on-chain comic holding: normName(title)+' '+issue+'|'+rarity
+      return { c: c, daily: daily, cost: cost, cpp: cost / daily, owned: own };
+    }).filter(Boolean)
+      .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
+      .sort(function (a, b) { return a.cpp - b.cpp; }).slice(0, 60);   // strict best 💎/point first
+
+    var best = rows.length ? rows[0] : null;
+    var body = rows.map(function (r, i) {
+      var c = r.c, name = c.t + (c.n ? ' #' + c.n : '');
+      var badges = '<span class="' + rClass(c.r) + '">' + c.r + '</span>' +
+        (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
+        (c.s && nN(c.s) !== nN(c.t) ? '<span class="pill" style="white-space:normal;max-width:100%">' + c.s + '</span>' : '') +
+        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' (comics earn full value per copy)">×' + r.owned + ' owned</span>' : '');
+      var cppNum = r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString();
+      return '<div class="rankrow' + (i===0?' top':'') + '">' +
+        '<div class="rank">' + (i+1) + '</div>' +
+        '<span class="rthumb noimg" style="background:#1b1b2f;display:flex;align-items:center;justify-content:center;font-size:20px">📖</span>' +
+        '<div style="min-width:0"><div class="rname">' + name + '</div><div class="rmeta">' + badges + '</div></div>' +
+        '<div class="rval"><div class="big">💎 ' + cppNum + ' <span class="u">/ MCP·day</span></div>' +
+          '<div class="sub"><span class="gemico">💎</span> ' + Math.round(r.cost).toLocaleString() + ' → +' + r.daily.toFixed(2) + '/day</div></div>' +
+      '</div>';
+    }).join('');
+
+    var asof = (window.COMICS_MCP && COMICS_MCP.asOf) ? new Date(COMICS_MCP.asOf*1000).toISOString().slice(0,10) : null;
+    var empty = '<div class="note">' + (ownedFilter==='new' ? 'No unowned comic covers priced right now — switch <strong>Show</strong> to All.' : ownedFilter==='owned' ? 'No comics you own have a market price right now.' : (src.length? 'No priced comic covers.' : 'Comic data not loaded.')) + '</div>';
+    $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>📖 Cheapest comic points to add</h3>' +
+      '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = VeVe cover floor' + (asof?' · as of '+asof:'') + '.</p>' +
+      filterCtlHtml() +
+      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point.</div>' : '') +
+      (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
+      '<p class="small" style="margin-top:12px">Cover floors are VeVe market lows (troll/vanity listings filtered). A comic\'s Common cover earns little; the value is in Rare+ covers priced low.</p></div>';
+    wireRecControls();
   }
   function rthumb(c){ return c.img ? '<img class="rthumb" src="' + c.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">' : '<span class="rthumb noimg"></span>'; }
 
