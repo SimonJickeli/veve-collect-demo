@@ -295,7 +295,7 @@
     var asof = (window.COMICS_MCP && COMICS_MCP.asOf) ? new Date(COMICS_MCP.asOf*1000).toISOString().slice(0,10) : null;
     var empty = '<div class="note">' + (ownedFilter==='new' ? 'No unowned comic covers priced right now — switch <strong>Show</strong> to All.' : ownedFilter==='owned' ? 'No comics you own have a market price right now.' : (src.length? 'No priced comic covers.' : 'Comic data not loaded.')) + '</div>';
     $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>📖 Cheapest comic points to add</h3>' +
-      '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = VeVe cover floor' + (asof?' · as of '+asof:'') + '.</p>' +
+      '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = live VeVe cover floor — only covers <strong>currently listed for sale</strong> appear' + (asof?', as of '+asof:'') + '.</p>' +
       filterCtlHtml() +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point.</div>' : '') +
       (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
