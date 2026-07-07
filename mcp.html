@@ -51,7 +51,7 @@
   <div id="recs" style="margin-top:18px"></div>
 
   <div class="note warn" style="margin-top:20px">
-    <strong>How it works.</strong> MCP/day uses VeVe's published formula (rarity, low-mint, duplicate diminishing, set completion). <strong>💎/point</strong> = cost ÷ points added — lower is cheaper, priced at the cheaper of the StackR ⛓ traded floor or a sanitized VeVe 💠 ask. Blind boxes appear only with a real secondary floor. Not financial advice.
+    <strong>How it works.</strong> MCP/day uses VeVe's published formula (rarity, low-mint, duplicate diminishing, set completion). <strong>💎/point</strong> = cost ÷ points added — lower is cheaper, priced at the cheaper of the StackR ⛓ traded floor or a sanitized VeVe 💠 ask. Blind-box items are priced from a real secondary-market floor only — never the sealed-box price. Not financial advice.
   </div>
   <footer class="foot">Not financial advice. VeVe may change the MCP formula or act against system-gaming — see the program FAQ.</footer>
 </div>
@@ -181,8 +181,9 @@
       var cpp = total > 0 ? (cost.v / total) : Infinity;
       return { c: c, delta: m.delta, setBonus: setBonus, completes: completes, total: total, cost: cost.v, costSrc: cost.src, cpp: cpp, owned: ownedByName[ck(c)] || 0 };
     }).filter(function (r) { return r.total > 0.0001 && isFinite(r.cpp); })
-      // rank by 💎/point, but push BLIND-box items down — you can't buy a specific rarity from a sealed
-      // box, so a low-odds blind pull shouldn't out-rank a guaranteed single you can just buy.
+      // rank by 💎/point, but push BLIND-box items down — a blind single is priced from a real
+      // secondary floor (honest) but is thinner to acquire than a store single, so it shouldn't
+      // out-rank a guaranteed buy. (De-prioritized silently; the loud per-row tag was removed.)
       .sort(function (a, b) { return (a.cpp * (a.c.blind ? 1.6 : 1)) - (b.cpp * (b.c.blind ? 1.6 : 1)); }).slice(0, 60);
 
     var best = rows.length ? rows[0] : null;
@@ -191,9 +192,7 @@
       var badges = '<span class="' + rClass(r.c.rarity) + '">' + r.c.rarity + '</span>' +
         (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
         (r.completes ? '<span class="setbadge" title="Completing the base set &quot;' + setName + '&quot; adds +' + r.setBonus.toFixed(1) + ' MCP/day in set points (special editions not required).">🧩 completes set +' + r.setBonus.toFixed(1) + '/day</span>' : '') +
-        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '') +
-        (r.c.blind ? '<span class="dupwarn" title="Blind box — there\'s no guaranteed pull of this specific item; price shown is a secondary-market floor.">🎲 blind pull</span>' : '') +
-        (r.c.burnt ? '<span class="dupwarn" title="' + r.c.burnt.toLocaleString() + ' editions were burnt from supply — scarcer to acquire.">🔥 burnt</span>' : '');
+        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '');
       var cppNum = isFinite(r.cpp) ? (r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString()) : '—';
       return '<div class="rankrow' + (i===0?' top':'') + '">' +
         '<div class="rank">' + (i+1) + '</div>' +
@@ -205,7 +204,7 @@
     }).join('');
 
     $('#recs').innerHTML = '<div class="card"><h3>💰 Cheapest points to add</h3>' +
-      '<p class="sub">Ranked by <strong>💎 per MCP/day</strong> (lower = better value), factoring your holdings &amp; duplicates. Venue: 💎 VeVe ask · <span class="omidot"></span> StackR floor. 🎲 blind pulls are de-prioritized.</p>' +
+      '<p class="sub">Ranked by <strong>💎 per MCP/day</strong> (lower = better value), factoring your holdings &amp; duplicates. Venue: 💎 VeVe ask · <span class="omidot"></span> StackR floor.</p>' +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (isFinite(best.cpp)?' at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
       '<div class="ranklist">' + body + '</div>' +
       '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. The one-time +100-MCP first-completion bonus isn\'t included.</p></div>';
