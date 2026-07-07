@@ -33,6 +33,8 @@
   function subInfo(uni, slug) { var u = SUBS.uni[uni]; if (!u) return null; for (var i = 0; i < u.subs.length; i++) if (u.subs[i].slug === slug) return u.subs[i]; return null; }
   function subLabel(uni, slug) { var s = subInfo(uni, slug); return s ? s.label : cap(slug); }
   function byEd(a, b) { return (a.edition || 1e9) - (b.edition || 1e9); }
+  var uniHero = {};   // representative image per universe (scarcest item with one) — front-door cards
+  Object.keys(byUni).forEach(function (u) { var it = byUni[u].filter(function (c) { return c.img; }).sort(byEd)[0]; if (it) uniHero[u] = it.img; });
 
   // ---- helpers ----
   function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
@@ -68,11 +70,49 @@
   }
   function crumb(parts) { return '<div class="crumb">' + parts.map(function (p, i) { return (i ? '<span class="sep">›</span>' : '') + (p.r ? '<a onclick="' + href(p.r) + '">' + esc(p.t) + '</a>' : '<span>' + esc(p.t) + '</span>'); }).join('') + '</div>'; }
 
+  // ---- filter + sort bar for list grids ----
+  function costV(c) { var co = cost(c); return co ? co.v : null; }
+  var gridState = { rar: '', sort: 'scarce' };
+  window.exGrid = function (k, v) { gridState[k] = v; route(); };
+  function applyGS(items) {
+    var out = gridState.rar ? items.filter(function (c) { return (c.rarity || '') === gridState.rar; }) : items.slice();
+    var s = gridState.sort;
+    out.sort(
+      s === 'new'    ? function (a, b) { return (b.drop || '').localeCompare(a.drop || ''); } :
+      s === 'cheap'  ? function (a, b) { var x = costV(a), y = costV(b); return (x == null ? 1e12 : x) - (y == null ? 1e12 : y); } :
+      s === 'pricey' ? function (a, b) { var x = costV(a), y = costV(b); return (y == null ? -1 : y) - (x == null ? -1 : x); } :
+      byEd);
+    return out;
+  }
+  function controls(n) {
+    var RAR = ['', 'Common', 'Uncommon', 'Rare', 'Ultra Rare', 'Secret Rare'];
+    var SORT = [['scarce', 'Scarcest'], ['new', 'Newest'], ['cheap', 'Cheapest'], ['pricey', 'Priciest']];
+    return '<div class="exctl"><span class="cnt">' + n.toLocaleString() + ' items</span>' +
+      '<label>Rarity <select onchange="exGrid(\'rar\',this.value)">' + RAR.map(function (r) { return '<option value="' + r + '"' + (gridState.rar === r ? ' selected' : '') + '>' + (r || 'All') + '</option>'; }).join('') + '</select></label>' +
+      '<label>Sort <select onchange="exGrid(\'sort\',this.value)">' + SORT.map(function (o) { return '<option value="' + o[0] + '"' + (gridState.sort === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>';
+  }
+  function mainGrid(items, limit) {
+    var f = applyGS(items);
+    return controls(items.length) + (f.length ? grid(f, limit || 120) : '<p class="small" style="margin-top:6px">No ' + (gridState.rar || '') + ' items in this view — try another rarity.</p>');
+  }
+  // ---- StackR / VeVe buy links for the collectible page (both keyed by collect_id) ----
+  function buyRow(c) {
+    if (!c.tid) return '';
+    var co = cost(c), isS = co && /StackR/.test(co.s);
+    var veve = 'https://www.veve.me/en/collectibles/' + c.tid, st = 'https://www.stackr.world/collections/veve/collectible/' + c.tid;
+    var pr = isS ? ['🛒 View on StackR', st] : ['🛒 View on VeVe', veve];
+    var se = isS ? ['VeVe', veve] : ['StackR', st];
+    return '<div class="exbuy"><a class="btn" href="' + pr[1] + '" target="_blank" rel="noopener">' + pr[0] + ' ↗</a>' +
+      '<a class="buylink" href="' + se[1] + '" target="_blank" rel="noopener">also on ' + se[0] + ' ↗</a></div>';
+  }
+
   // ---- views ----
   function home() {
     var tiles = uniList.map(function (u) {
       var info = SUBS.uni[u], nsub = info ? info.subs.filter(function (s) { return s.slug !== 'other' && s.slug !== 'artworks'; }).length : 0;
-      return '<a class="unitile" onclick="' + href('u/' + u) + '"><h3>' + esc(cap(u)) + '</h3><div class="c">' + byUni[u].length.toLocaleString() + ' collectibles' + (nsub ? ' · ' + nsub + ' sections' : '') + '</div></a>';
+      return '<a class="unitile" onclick="' + href('u/' + u) + '">' +
+        (uniHero[u] ? '<img class="uhero" src="' + uniHero[u] + '" loading="lazy" onerror="exImgErr(this,\'uhero\')">' : '<div class="uhero noimg">🎴</div>') +
+        '<div class="ubody"><h3>' + esc(cap(u)) + '</h3><div class="c">' + byUni[u].length.toLocaleString() + ' collectibles' + (nsub ? ' · ' + nsub + ' sections' : '') + '</div></div></a>';
     }).join('');
     view.innerHTML =
       '<section class="hero" style="padding:6px 0 14px"><h1>The <span class="grad">VeVe Wiki</span>, explorable.</h1>' +
@@ -107,7 +147,7 @@
       '<p class="small">' + all.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets</p>' +
       (hasSubs ? '<div class="sec-h">Explore ' + esc(cap(u)) + '</div>' + subTiles(u, info.subs) : '') +
       (ents.length && !hasSubs ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.slice(0, 60).map(function (s) { return '<span class="tag" onclick="' + href('e/' + s) + '">' + esc(W.ent[s].t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + grid(mainItems, 120);
+      '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + mainGrid(mainItems, 120);
   }
   function subPage(uni, slug) {
     var items = (bySub[uni + '/' + slug] || []).slice().sort(byEd);
@@ -116,7 +156,7 @@
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: cap(uni), r: 'u/' + uni }, { t: label }]) +
       '<h1>' + esc(label) + ' <span class="small" style="color:var(--muted);text-transform:none">· ' + esc(cap(uni)) + (s && s.cat ? ' · ' + esc(s.cat) : '') + '</span></h1>' +
       (s && s.desc ? '<div class="prose">' + esc(s.desc) + '</div>' : '') +
-      '<p class="small">' + items.length.toLocaleString() + ' collectibles' + (slug === 'artworks' ? ' — artwork-variety pieces (prints & Artist Proofs)' : '') + '</p>' + grid(items, 200);
+      '<p class="small">' + items.length.toLocaleString() + ' collectibles' + (slug === 'artworks' ? ' — artwork-variety pieces (prints & Artist Proofs)' : '') + '</p>' + mainGrid(items, 200);
   }
 
   function entity(slug) {
@@ -126,7 +166,7 @@
       '<h1>' + esc(e.t) + '</h1>' +
       '<div class="tagrow">' + (e.u ? '<span class="tag" onclick="' + href('u/' + e.u) + '">' + esc(cap(e.u)) + '</span>' : '') + '</div>' +
       '<div class="prose">' + esc(e.ov) + '</div>' +
-      (items.length ? '<div class="sec-h">' + items.length + ' collectible' + (items.length === 1 ? '' : 's') + '</div>' + grid(items) : '<p class="small">No collectibles indexed for this character yet.</p>');
+      (items.length ? '<div class="sec-h">' + items.length + ' collectible' + (items.length === 1 ? '' : 's') + '</div>' + mainGrid(items) : '<p class="small">No collectibles indexed for this character yet.</p>');
   }
 
   function setPage(name) {
@@ -137,7 +177,7 @@
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }].concat(uni ? [{ t: cap(uni), r: 'u/' + uni }] : []).concat([{ t: name }])) +
       '<h1>' + esc(name) + '</h1>' +
       (d ? '<div class="prose">' + esc(d.ov) + '</div>' : '') +
-      '<p class="small">' + items.length + ' collectibles in this set' + (uni ? ' · ' + cap(uni) : '') + '</p>' + grid(items, 200);
+      '<p class="small">' + items.length + ' collectibles in this set' + (uni ? ' · ' + cap(uni) : '') + '</p>' + mainGrid(items, 200);
   }
 
   function seasonPage(n) {
@@ -146,7 +186,7 @@
     var m = SM[n];
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: 'Season ' + n }]) +
       '<h1>🗓️ Season ' + n + (m ? ' <span class="small" style="color:var(--muted)">· ~' + m.year + '</span>' : '') + '</h1>' +
-      '<p class="small">' + items.length.toLocaleString() + ' collectibles dropped in VeVe Season ' + n + '</p>' + grid(items, 200);
+      '<p class="small">' + items.length.toLocaleString() + ' collectibles dropped in VeVe Season ' + n + '</p>' + mainGrid(items, 200);
   }
 
   // ---- historically significant mints: the edition whose NUMBER matches a milestone year ----
@@ -198,6 +238,7 @@
       '<div class="cpage"><div>' + thumb(c, 'hero-img') + '</div><div>' +
       '<h1>' + esc(c.name) + '</h1>' +
       '<dl class="facts">' + facts.map(function (f) { return '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>'; }).join('') + '</dl>' +
+      buyRow(c) +
       (w.ov ? '<div class="prose">' + esc(w.ov) + '</div>' : '') +
       (w.ab ? '<div class="prose"><h4>About</h4>' + esc(w.ab) + '</div>' : '') +
       '</div></div>' +
@@ -215,7 +256,7 @@
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: 'Search: ' + q }]) +
       (unis.length ? '<div class="sec-h">Universes</div><div class="tagrow">' + unis.map(function (u) { return '<span class="tag" onclick="' + href('u/' + u) + '">' + esc(cap(u)) + ' (' + byUni[u].length + ')</span>'; }).join('') + '</div>' : '') +
       (ents.length ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.map(function (k) { return '<span class="tag" onclick="' + href('e/' + k) + '">' + esc(W.ent[k].t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="sec-h">Collectibles <span class="small">(' + items.length.toLocaleString() + ')</span></div>' + (items.length ? grid(items, 120) : '<p class="small">No collectibles match “' + esc(q) + '”.</p>');
+      '<div class="sec-h">Collectibles <span class="small">(' + items.length.toLocaleString() + ')</span></div>' + (items.length ? mainGrid(items, 120) : '<p class="small">No collectibles match “' + esc(q) + '”.</p>');
   }
 
   function notfound(what) { view.innerHTML = '<div class="note">Nothing found for ' + esc(what) + '. <a onclick="' + href('') + '">Back to Explorer</a>.</div>'; }
