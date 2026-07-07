@@ -10,6 +10,8 @@
   .rtab { background:var(--bg-2); color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:8px 16px; font-weight:600; font-size:14px; cursor:pointer; }
   .rtab:hover { color:var(--text); }
   .rtab.on { color:#fff; border-color:var(--accent); background:linear-gradient(135deg, var(--accent), #50abff); }
+  .buylink { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; border:1px solid var(--border); color:var(--accent-2); background:var(--bg-2); margin:2px 2px 2px 0; white-space:nowrap; }
+  .buylink:hover { border-color:var(--accent); text-decoration:none; }
 </style>
 </head>
 <body>
@@ -66,9 +68,9 @@
 <script src="assets/data.js"></script>
 <script src="assets/mcp.js?v=4"></script>
 <script src="assets/collectscan.js?v=4"></script>
-<script src="data/catalog.js?v=12"></script>
+<script src="data/catalog.js?v=13"></script>
 <script src="data/floor.js?v=1"></script>
-<script src="data/comics_mcp.js?v=1"></script>
+<script src="data/comics_mcp.js?v=2"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -114,9 +116,20 @@
   function venueCell(c){
     var co = costOf(c); if(!co) return '<span class="small">—</span>';
     var n = Math.round(co.v).toLocaleString();
-    if (co.src==='veve')   return '<span class="gemico" title="cheaper on VeVe (Gem market floor)">💎</span> ' + n;
-    if (co.src==='stackr') return '<span class="omidot" title="cheaper on StackR (live OMI market floor)"></span> ' + n;
+    if (co.src==='veve')   return '<span class="gemico" title="VeVe Gem market floor">💎</span> ' + n;
+    if (co.src==='stackr') { var fr=floorRec(c.name); var omi=(fr&&fr.omi>0)?' <span class="small">· '+Math.round(fr.omi).toLocaleString()+' OMI</span>':''; return '<span class="omidot" title="StackR live OMI market floor"></span> ' + n + omi; }
     return '<span class="small est" title="Original drop/primary price (non-blind-box fixed price) — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
+  }
+  // item link: StackR page (public) for StackR-sourced floors, VeVe page (login-gated) otherwise. Both keyed by collect_id.
+  function itemUrl(tid, kind, src){
+    if(!tid) return null;
+    if(src==='stackr') return 'https://www.stackr.world/collections/veve/' + (kind==='comic'?'comic':'collectible') + '/' + tid;
+    return 'https://www.veve.me/en/' + (kind==='comic'?'comics':'collectibles') + '/' + tid;
+  }
+  function buyLink(tid, src, kind){
+    var url = itemUrl(tid, kind||'collectible', src); if(!url) return '';
+    var isS = src==='stackr';
+    return '<a class="buylink" href="' + url + '" target="_blank" rel="noopener" title="View this item on ' + (isS?'StackR':'VeVe') + '">' + (isS?'🛒 StackR':'🛒 VeVe') + ' ↗</a>';
   }
   function thumb(c){
     return c.img
@@ -232,7 +245,8 @@
       var badges = '<span class="' + rClass(r.c.rarity) + '">' + r.c.rarity + '</span>' +
         (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
         (r.completes ? '<span class="setbadge" title="Completing the base set &quot;' + setName + '&quot; adds +' + r.setBonus.toFixed(1) + ' MCP/day in set points (special editions not required).">🧩 completes set +' + r.setBonus.toFixed(1) + '/day</span>' : '') +
-        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '');
+        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '') +
+        buyLink(r.c.tid, r.costSrc, 'collectible');
       var cppNum = isFinite(r.cpp) ? (r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString()) : '—';
       return '<div class="rankrow' + (i===0?' top':'') + '">' +
         '<div class="rank">' + (i+1) + '</div>' +
@@ -281,7 +295,8 @@
       var badges = '<span class="' + rClass(c.r) + '">' + c.r + '</span>' +
         (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
         (c.s && nN(c.s) !== nN(c.t) ? '<span class="pill" style="white-space:normal;max-width:100%">' + c.s + '</span>' : '') +
-        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' (comics earn full value per copy)">×' + r.owned + ' owned</span>' : '');
+        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' (comics earn full value per copy)">×' + r.owned + ' owned</span>' : '') +
+        buyLink(c.tid, 'veve', 'comic');
       var cppNum = r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString();
       return '<div class="rankrow' + (i===0?' top':'') + '">' +
         '<div class="rank">' + (i+1) + '</div>' +
