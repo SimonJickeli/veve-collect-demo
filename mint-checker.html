@@ -39,7 +39,7 @@
 <div class="wrap">
   <section class="hero" style="padding:36px 0 18px">
     <h1>Mint Checker</h1>
-    <p>Scan your VeVe / Collect Chain wallet to surface your <strong>significant mints</strong> and the cheapest sets you can still complete.</p>
+    <p>Scan your VeVe / Collect Chain wallet to surface your <strong>significant mints</strong> — lowest public mints, palindromes, meme numbers, historic years and more.</p>
   </section>
 
   <!-- Wallet scan -->
@@ -65,9 +65,7 @@
     <div id="scan" style="margin-top:14px"></div>
   </div>
 
-  <div id="setscomplete" style="margin-top:18px"></div>
-
-  <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
+  <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation. Chasing cheap set completions? That moved to the <a href="sets.html">Set Tracker → <strong>Cheapest to complete</strong></a>.</footer>
 </div>
 
 <script src="assets/data.js?v=2"></script>
@@ -111,97 +109,12 @@
       '</div></div>';
   }
 
-  // ---------- Cheapest sets to complete (wallet-based) ----------
-  var _sn = window.normName || function (s) { return (s || '').toLowerCase(); };
-  function escH(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  // daily set-completion MCP by base-set size (VeVe: 1→1 · 2→2 · 3→3 · 4→4 · 5+→5)
-  function setDaily(n){ return n<=0 ? 0 : n>=5 ? 5.0 : [0,1,2,3,4][n]; }
-  // cost to buy ONE edition today: cheaper of VeVe gem floor / StackR floor, else the in-store drop
-  // price — never a sold-out drop price and never a blind-box sealed price (mirrors the MCP optimizer).
-  function buyCost(c){
-    if(!c) return null;
-    var sv = window.saneVeveFloor ? window.saneVeveFloor(c.floor) : (c.floor>0?c.floor:0);
-    var veve = sv>0 ? sv : null;
-    var fr = (window.FLOOR && FLOOR.byName) ? (FLOOR.byName[c.name] || null) : null;
-    var stackr = (fr && fr.usd>0) ? fr.usd : null;
-    if(veve!=null && stackr!=null) return Math.min(veve, stackr);
-    if(veve!=null) return veve;
-    if(stackr!=null) return stackr;
-    if(c.blind) return null;                                 // blind box, no real floor → not priceable
-    if(Number(c.price)>0 && Number(c.store)>0) return Number(c.price);  // drop price only while still in store
-    return null;
-  }
-  // resolve a set member to its full catalog item (members carry no `store`; byName does)
-  function catItem(m){
-    var bn = (typeof CATALOG!=='undefined' && CATALOG.byName) ? CATALOG.byName : {};
-    return (m.name && bn[m.name.toLowerCase()]) || (m.aka && bn[m.aka.toLowerCase()]) || m;
-  }
-  function renderSetsToComplete(holdings, byId, isSample){
-    var host = $('#setscomplete'); if(!host) return;
-    if(typeof CATALOG==='undefined' || !CATALOG.sets){ host.innerHTML=''; return; }
-    // name-keys the wallet owns (live: h.name; sample: resolve via byId)
-    var owned={};
-    holdings.forEach(function(h){
-      var nm = h.name || (byId && byId[h.collectibleId] && byId[h.collectibleId].name) || '';
-      var k=_sn(nm); if(k) owned[k]=1;
-    });
-    var cand=[];
-    Object.keys(CATALOG.sets).forEach(function(sid){
-      var s=CATALOG.sets[sid];
-      var base=(s.members||[]).filter(function(m){ return !m.sp; });   // base set = specials not required
-      if(base.length<2) return;
-      var have=0, missing=[];
-      base.forEach(function(m){ if(owned[_sn(m.name)] || (m.aka && owned[_sn(m.aka)])) have++; else missing.push(m); });
-      if(!missing.length) return;                                       // skip already-complete; INCLUDE not-yet-started (may be cheaper to build from scratch)
-      var total=0, priced=0, unpriced=0, mrows=[];
-      missing.forEach(function(m){ var c=buyCost(catItem(m)); if(c!=null){ total+=c; priced++; } else unpriced++; mrows.push({m:m,c:c}); });
-      cand.push({ sid:sid, uni:s.universe, size:base.length, have:have, missN:missing.length, total:total, priced:priced, unpriced:unpriced, daily:setDaily(base.length), mrows:mrows });
-    });
-    if(!cand.length){
-      host.innerHTML = '<div class="card"><h3>🧩 Cheapest sets to complete</h3><div class="note">' +
-        (isSample ? 'The sample wallet uses placeholder items — <strong>scan your real wallet</strong> to see sets you could complete.'
-                  : 'No priceable sets to complete right now.') + '</div></div>';
-      return;
-    }
-    // fully-priceable & cheapest first, then fewest editions missing
-    cand.sort(function(a,b){
-      var af=a.unpriced===0?0:1, bf=b.unpriced===0?0:1;
-      if(af!==bf) return af-bf;
-      if(af===0 && a.total!==b.total) return a.total-b.total;
-      return a.missN-b.missN;
-    });
-    var body = cand.slice(0,15).map(function(x){
-      var pct=Math.round(100*x.have/x.size);
-      var pills = x.mrows.slice(0,10).map(function(r){
-        return '<span class="pill" style="white-space:normal;max-width:100%">'+escH(r.m.name)+(r.c!=null?' <strong>💎'+Math.round(r.c)+'</strong>':' <span class="small">—</span>')+'</span>';
-      }).join('') + (x.mrows.length>10 ? ' <span class="small">+'+(x.mrows.length-10)+' more</span>' : '');
-      var verb = x.have>0 ? 'to finish' : 'to complete';
-      var cost = x.priced
-        ? '💎 <strong>'+Math.round(x.total).toLocaleString()+'</strong> '+verb+(x.unpriced?' <span class="small">('+x.unpriced+' of '+x.missN+' not priceable)</span>':'')
-        : '<span class="small">'+x.missN+' missing — none currently priceable</span>';
-      var newtag = x.have===0 ? ' <span class="pill" style="background:rgba(80,171,255,.14);border-color:rgba(80,171,255,.4)">🆕 not started</span>' : '';
-      return '<div style="border:1px solid var(--border);border-radius:11px;background:var(--bg-2);padding:13px;margin-bottom:9px">'+
-        '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">'+
-          '<div style="font-weight:700">'+escH(x.sid)+' <span class="small" style="font-weight:400">'+escH(x.uni||'')+'</span>'+newtag+'</div>'+
-          '<span class="setbadge">🧩 +'+x.daily.toFixed(1)+'/day on completion</span>'+
-        '</div>'+
-        '<div class="progress" style="margin:9px 0 7px"><span style="width:'+pct+'%"></span></div>'+
-        '<div class="small" style="margin-bottom:7px"><strong>'+x.have+'/'+x.size+'</strong> owned · '+x.missN+' to go · '+cost+'</div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:5px">'+pills+'</div>'+
-      '</div>';
-    }).join('');
-    host.innerHTML = '<div class="card"><h3>🧩 Cheapest sets to complete</h3>'+
-      '<p class="sub">Base sets ranked by the 💎 cost to complete them (cheapest first) — whether you <strong>finish</strong> one you\'ve started or <strong>build a cheap one from scratch</strong> (🆕 not started). Shows the daily MCP you\'d earn on completion. Editions are priced at their real market floor or in-store price; blind-box / sold-out editions with no market floor show as not priceable.</p>'+
-      body+'</div>';
-  }
-
   function renderScan() {
     var holdings, byId, total;
     if (scanMode === 'live') { holdings = liveHoldings; byId = liveById; }
     else if (scanMode === 'sample') { holdings = DATA.sampleHoldings; byId = DATA.byId; }
     else return;
     total = holdings.length;
-    renderSetsToComplete(holdings, byId, scanMode === 'sample');
     var scannable = holdings.filter(function (h) { return h.mintNumber && (byId[h.collectibleId] || {}).editionSize; });
     var rows = MINTS.scanHoldings(scannable, byId, selectedCats(), SIG.lookup, SIG.lookupUniverse, SIG.lookupEggs);
     if (!rows.length) { $('#scan').innerHTML = '<div class="note">No significant mints found in this wallet.</div>'; return; }

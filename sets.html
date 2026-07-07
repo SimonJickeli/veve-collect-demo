@@ -32,7 +32,7 @@
 <div class="wrap">
   <section class="hero" style="padding:36px 0 18px">
     <h1>Set Tracker</h1>
-    <p>What am I missing? Paste your Collect Chain wallet, pick a universe, and see every set's completion against the full catalog — plus what finishing it earns.</p>
+    <p>What am I missing? Paste your Collect Chain wallet and see every set's completion — or switch to <strong>Cheapest to complete</strong> to rank the cheapest sets (collectibles <em>and</em> comic cover-sets) you could finish or build from scratch, even ones you own none of yet.</p>
   </section>
 
   <div class="card">
@@ -59,6 +59,7 @@
         <label class="field" for="view">View</label>
         <select id="view">
           <option value="set">By set</option>
+          <option value="cheapest">Cheapest to complete</option>
           <option value="season">By season</option>
         </select>
       </div>
@@ -93,11 +94,13 @@
 <script src="data/floor.js?v=1"></script>
 <script src="assets/collectscan.js?v=5"></script>
 <script src="assets/mcp.js?v=4"></script>
+<script src="data/comics.js?v=1"></script>
+<script src="data/comics_mcp.js?v=2"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var rClass = function (r) { return 'chip r-' + (r||'').replace(/ /g, ''); };
-  var ownedNames = null, ownedArr = null, mode = null; // Set + Array of normalized owned name-keys
+  var ownedNames = null, ownedArr = null, ownedCover = null, mode = null; // owned name-keys (Set+Array); ownedCover = comic (issue|rarity) cover keys
 
   // ---- StackR floor lookup (live on-chain snapshot, app/data/floor.js) ----
   // normName (not parens-stripping fnorm) so variant names like "(Water Element)" don't collide
@@ -142,7 +145,7 @@
 
   function seasonLabel(s) { var m = CATALOG.seasonMeta && CATALOG.seasonMeta[s]; return 'Season ' + s + (m ? ' <span class="small" style="color:var(--muted)">· ~' + m.year + '</span>' : ''); }
 
-  function render() { if ($('#view').value === 'season') renderSeason(); else renderSets(); }
+  function render() { var v = $('#view').value; if (v === 'season') renderSeason(); else if (v === 'cheapest') renderCheapest(); else renderSets(); }
 
   function renderSeason() {
     if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your collectibles by season.</div>'; return; }
@@ -288,6 +291,105 @@
     $('#results').innerHTML = html;
   }
 
+  // ---- Cheapest to complete: comic pricing index + universe guess + escape ----
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  // cheapest currently-listed floor per comic cover (title #issue | rarity), from the live COMICS_MCP feed
+  var COMICF = {};
+  ((window.COMICS_MCP && COMICS_MCP.items) || []).forEach(function (r) {
+    if (!(r.f > 0)) return;
+    var k = nN(r.t) + ' ' + r.n + '|' + nN(r.r);
+    if (!(k in COMICF) || r.f < COMICF[k]) COMICF[k] = r.f;
+  });
+  function comicCoverCost(t, n, rar){ var f = COMICF[nN(t) + ' ' + n + '|' + nN(rar)]; return (f > 0) ? f : null; }
+  // best-effort comic → collectible-universe (for the universe filter); null = show only under "All"
+  function comicUni(rec){
+    var l = (rec.l || '').toLowerCase();
+    var s = ((rec.s || '') + ' ' + (rec.t || '') + ' ' + l).toLowerCase();
+    if (/star wars|lucasfilm|mandalorian|jedi|sith|skywalker/.test(s)) return 'star-wars';
+    if (l === 'marvel' || /spider-?man|avengers|x-men|wolverine|deadpool|venom|\bhulk\b|\bthor\b|silver surfer|fantastic four|daredevil/.test(s)) return 'marvel';
+    if (l === 'dc' || l === 'dc comics' || /batman|superman|wonder woman|harley quinn|justice league|gotham|aquaman|the flash/.test(s)) return 'dc';
+    if (/star trek/.test(s)) return 'star-trek';
+    return null;
+  }
+
+  // Cheapest to complete — ranks BOTH collectible base sets and comic cover-sets by 💎 cost to
+  // complete, cheapest first, INCLUDING sets you own none of yet (build-from-scratch).
+  function renderCheapest() {
+    if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to rank the cheapest sets you could complete — collectibles <em>and</em> comic cover-sets, including ones you own none of yet.</div>'; return; }
+    var uni = $('#universe').value;
+    var cand = [];
+    // (1) collectible base sets — include not-started (own 0)
+    setsForUniverse(uni).forEach(function (s) {
+      var base = s.members.filter(function (m) { return !m.sp; });
+      if (base.length < 2) return;
+      var have = 0, mrows = [], total = 0, priced = 0, unpriced = 0;
+      base.forEach(function (m) {
+        if (owns(m)) { have++; return; }
+        var c = itemCost(m);
+        if (c) { total += c.v; priced++; mrows.push({ name: m.name, c: c.v }); }
+        else { unpriced++; mrows.push({ name: m.name, c: null }); }
+      });
+      if (!mrows.length) return;                                   // already complete
+      cand.push({ kind: 'collectible', id: s.id, uni: s.universe || '', size: base.length, have: have,
+        missN: mrows.length, total: total, priced: priced, unpriced: unpriced,
+        gain: MCP.setBaseBySize(base.length), gainLbl: 'complete', mrows: mrows });
+    });
+    // (2) comic cover-sets — every rarity cover of an issue; include not-started
+    (window.COMICS || []).forEach(function (rec) {
+      var covers = rec.r || [];
+      if (covers.length < 2) return;
+      var cu = comicUni(rec);
+      if (uni !== 'all' && cu !== uni) return;
+      var have = 0, mrows = [], total = 0, priced = 0, unpriced = 0, gain = 0;
+      covers.forEach(function (rar) {
+        var key = nN(rec.t) + ' ' + rec.n + '|' + nN(rar);
+        if (ownedCover && ownedCover.has(key)) { have++; return; }
+        gain += (MCP.comicIntrinsic ? MCP.comicIntrinsic(rar, false) : 0);
+        var c = comicCoverCost(rec.t, rec.n, rar);
+        if (c != null) { total += c; priced++; mrows.push({ name: rar + ' cover', c: c }); }
+        else { unpriced++; mrows.push({ name: rar + ' cover', c: null }); }
+      });
+      if (!mrows.length) return;                                   // own every cover
+      cand.push({ kind: 'comic', id: rec.t + ' #' + rec.n, uni: rec.l || cu || 'comics', size: covers.length,
+        have: have, missN: mrows.length, total: total, priced: priced, unpriced: unpriced,
+        gain: gain, gainLbl: 'covers', mrows: mrows });
+    });
+    if (!cand.length) { $('#results').innerHTML = '<div class="note">No priceable sets to complete ' + (uni !== 'all' ? 'in this universe ' : '') + 'right now.</div>'; return; }
+    // cheapest first: fully-priceable, then lowest 💎 total, then fewest missing
+    cand.sort(function (a, b) {
+      var af = a.unpriced === 0 ? 0 : 1, bf = b.unpriced === 0 ? 0 : 1;
+      if (af !== bf) return af - bf;
+      if (af === 0 && a.total !== b.total) return a.total - b.total;
+      return a.missN - b.missN;
+    });
+    var shown = cand.slice(0, 60);
+    var nColl = 0, nCom = 0; cand.forEach(function (x) { if (x.kind === 'comic') nCom++; else nColl++; });
+    var html = '<p class="small">Ranked by 💎 <strong>cost to complete</strong>, cheapest first — <strong>' + cand.length + '</strong> sets you could finish or build from scratch (<strong>' + nColl + '</strong> collectible · <strong>' + nCom + '</strong> comic cover-set' + (nCom === 1 ? '' : 's') + ')' + (uni !== 'all' ? ' in <strong>' + uni + '</strong>' : ' across all universes') + '. Showing top ' + shown.length + ' · 🆕 = you own none yet · 💎 = cheapest listed floor.</p>';
+    html += shown.map(function (x) {
+      var pct = Math.round(100 * x.have / x.size);
+      var badge = x.kind === 'comic' ? '📖 comic covers' : '🎴 set';
+      var newtag = x.have === 0 ? ' <span class="pill" style="background:rgba(80,171,255,.14);border-color:rgba(80,171,255,.4)">🆕 not started</span>' : '';
+      var pills = x.mrows.slice(0, 10).map(function (r) {
+        return '<span class="pill" style="white-space:normal;max-width:100%">' + esc(r.name) + (r.c != null ? ' <strong>💎' + Math.round(r.c).toLocaleString() + '</strong>' : ' <span class="small">—</span>') + '</span>';
+      }).join('') + (x.mrows.length > 10 ? ' <span class="small">+' + (x.mrows.length - 10) + ' more</span>' : '');
+      var verb = x.have > 0 ? 'to finish' : 'to build';
+      var cost = x.priced
+        ? '💎 <strong>' + Math.round(x.total).toLocaleString() + '</strong> ' + verb + (x.unpriced ? ' <span class="small">(' + x.unpriced + ' of ' + x.missN + ' not listed)</span>' : '')
+        : '<span class="small">' + x.missN + ' missing — none currently listed</span>';
+      var gainTxt = x.gain > 0 ? '🧩 +' + (Math.round(x.gain * 100) / 100) + '/day ' + (x.gainLbl === 'covers' ? 'in covers' : 'on completion') : '';
+      return '<div class="card" style="margin-bottom:12px">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">' +
+          '<div style="font-weight:700">' + esc(x.id) + ' <span class="small" style="font-weight:400">' + badge + ' · ' + esc(x.uni) + '</span>' + newtag + '</div>' +
+          (gainTxt ? '<span class="setbadge">' + gainTxt + '</span>' : '') +
+        '</div>' +
+        '<div class="progress" style="margin:9px 0 7px"><span style="width:' + pct + '%"></span></div>' +
+        '<div class="small" style="margin-bottom:7px"><strong>' + x.have + '/' + x.size + '</strong> owned · ' + x.missN + ' to go · ' + cost + '</div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">' + pills + '</div>' +
+      '</div>';
+    }).join('');
+    $('#results').innerHTML = html;
+  }
+
   async function track() {
     var addr = $('#wallet').value.trim();
     if (!COLLECTSCAN.isAddress(addr)) { $('#status').innerHTML = 'Enter a valid <span class="mono">0x…</span> Collect Chain wallet address.'; return; }
@@ -297,6 +399,7 @@
       var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#status').textContent = 'Fetched ' + n + ' editions…'; } });
       ownedNames = new Set(holdings.map(function (h) { return h.nameKey || nN(h.name); }));
       ownedArr = Array.from(ownedNames);
+      ownedCover = new Set(); holdings.forEach(function (h) { if (h.format === 'comic') ownedCover.add((h.nameKey || nN(h.name)) + '|' + (h.rarityKey || nN(h.rarity || ''))); });
       mode = 'live';
       $('#status').innerHTML = '✓ <strong>' + ownedNames.size + '</strong> distinct collectibles owned by <span class="mono">' + addr.slice(0,6) + '…' + addr.slice(-4) + '</span>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — list is partial</strong>' : '');
       render();
@@ -311,6 +414,7 @@
       .filter(function (c) { return ['Common','Uncommon','Rare'].indexOf(c.rarity) >= 0; })
       .map(function (c) { return nN(c.name); }));
     ownedArr = Array.from(ownedNames);
+    ownedCover = new Set(); // sample owns no comics → comic cover-sets show as not-started
     $('#status').innerHTML = 'Sample: you own every Common/Uncommon/Rare — chasing the Ultra Rares &amp; Secret Rares.';
     render();
   }
@@ -319,7 +423,7 @@
   $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') track(); });
   $('#sample').addEventListener('click', useSample);
   $('#universe').addEventListener('change', render);
-  $('#view').addEventListener('change', render);
+  $('#view').addEventListener('change', function () { if ($('#view').value === 'cheapest') $('#universe').value = 'all'; render(); });
   $('#show').addEventListener('change', render);
   $('#layout').addEventListener('change', render);
   (function () { var s = ''; try { s = localStorage.getItem('veve_wallet') || ''; } catch (e) {} if (COLLECTSCAN.isAddress(s) && !$('#wallet').value) { $('#wallet').value = s; track(); } })();   // auto-restore remembered wallet
