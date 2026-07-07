@@ -307,6 +307,28 @@
     });
   }
 
+  // "is/why isn't X a Y collectible?" — look up the SPECIFIC named item and state its real universe,
+  // instead of falling through to a generic "scarcest Y" list (the Millennium Falcon case).
+  function ucap(u) { return (u || '').replace(/-/g, ' ').replace(/\b\w/g, function (m) { return m.toUpperCase(); }); }
+  function itemBelongs(q) {
+    var s = q.toLowerCase();
+    var shape = /\b(is|isn'?t|isnt|are|aren'?t|arent)\b/.test(s) || /\bwhy\b/.test(s);
+    var belongs = /collectible|belong|from |part of|listed|considered|counted|classif|categor|which (universe|franchise|licens)|\b(a|an) (star ?wars|marvel|dc|disney|pixar|street ?fighter|jurassic|transformers)\b/.test(s);
+    if (!shape || !belongs) return null;
+    var qs = sq(q), found = null, flen = 0;
+    C.forEach(function (it) { var n = sq(it.name); if (n.length >= 5 && qs.indexOf(n) >= 0 && n.length > flen) { found = it; flen = n.length; } });
+    if (!found) return null;
+    var claimed = detectUni(qs), uni = found.universe || '';
+    var art = function (w) { return /^[aeiou]/i.test(w) ? 'an' : 'a'; };
+    var un = ucap(uni), lead;
+    if (claimed && claimed === uni) lead = '✅ Yes — <strong>' + esc(found.name) + '</strong> IS ' + art(un) + ' ' + esc(un) + ' collectible.';
+    else if (claimed && claimed !== uni) lead = '❕ In our catalog <strong>' + esc(found.name) + '</strong> is ' + art(un) + ' <strong>' + esc(un) + '</strong> collectible' + (found.license ? ' (licensor: ' + esc(found.license) + ')' : '') + ' — not ' + esc(ucap(claimed)) + '.';
+    else lead = '<strong>' + esc(found.name) + '</strong> is ' + art(un) + ' <strong>' + esc(un) + '</strong> collectible' + (found.license ? ' (licensor: ' + esc(found.license) + ')' : '') + '.';
+    var c = cost(found);
+    var facts = (found.rarity || '?') + (found.edition ? ' · edition ' + found.edition.toLocaleString() : '') + (c ? ' · 💎 ' + Math.round(c.v).toLocaleString() : '') + (found.season ? ' · Season ' + found.season : '');
+    return fin(q, { item: found, topic: found.name }, { summary: lead + '<br><span class="small">' + esc(facts) + (DESC.coll[found.slug] ? ' — ' + esc(DESC.coll[found.slug]) : '') + '</span>', rows: [] });
+  }
+
   // follow-up handler — returns a result, or null to fall through to a fresh query
   function followUp(q) {
     if (!LAST) return null;
@@ -377,6 +399,9 @@
     // follow-up to the previous answer?
     var fu = followUp(q);
     if (fu) return fu;
+    // "is/why isn't <named item> a <franchise> collectible?" → answer about that specific item
+    var belong = itemBelongs(q);
+    if (belong) return belong;
     // fresh query (engine remembers the parse in LAST for later refine follow-ups)
     return engine(q, intentOf(q), topN(q), parse(q));
   }
