@@ -191,10 +191,10 @@
       // owned/unowned toggle — 'new' hides items already in your wallet (what most people want:
       // "what should I BUY next"); 'owned' shows only duplicates you could add; 'all' shows both.
       .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
-      // rank by 💎/point, but push BLIND-box items down — a blind single is priced from a real
-      // secondary floor (honest) but is thinner to acquire than a store single, so it shouldn't
-      // out-rank a guaranteed buy. (De-prioritized silently; the loud per-row tag was removed.)
-      .sort(function (a, b) { return (a.cpp * (a.c.blind ? 1.6 : 1)) - (b.cpp * (b.c.blind ? 1.6 : 1)); }).slice(0, 60);
+      // STRICT best-deal-per-💎 first: sort by raw 💎-per-MCP/day ascending, so the displayed
+      // 💎/point column is monotonic (best value on top). The old blind-box 1.6× de-prioritization
+      // pushed well-priced blind singles BELOW worse deals, which read as "not sorted by best deal".
+      .sort(function (a, b) { return a.cpp - b.cpp; }).slice(0, 60);
 
     var best = rows.length ? rows[0] : null;
     var body = rows.map(function (r, i) {
