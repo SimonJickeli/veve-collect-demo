@@ -42,8 +42,8 @@
         <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
         <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
           <li>It's your VeVe <strong>Collect Chain (OMI) address</strong> — starts <span class="mono">0x…</span>, 42 characters. VeVe manages it for you (self-custody isn't live yet), so you only need to <em>read</em> it.</li>
-          <li><strong>Web wallet — most reliable:</strong> open <a href="https://www.veve.me/wallet/" target="_blank" rel="noopener">veve.me/wallet</a> → log in with your VeVe account → copy the <span class="mono">0x…</span> address. <em>(This is where <span class="mono">omi.veve.me</span> now redirects — the old link is retired. Needs your VeVe login; if it won't load, try incognito or another browser.)</em></li>
-          <li><strong>Or from collectscan:</strong> if your wallet page is already open on <a href="https://collectscan.com" target="_blank" rel="noopener">collectscan.com</a>, the <span class="mono">0x…</span> in the address bar is it.</li>
+          <li><strong>Where it is:</strong> in the VeVe app (or on <a href="https://www.veve.me/en/wallet/" target="_blank" rel="noopener">veve.me/en/wallet</a>, log in) open <strong>Wallet → Send / Receive OMI → Receive</strong> — the <span class="mono">0x…</span> shown there with the QR code is your address; tap to copy.</li>
+          <li><strong>It's on the <em>Receive</em> screen, not the balance view.</strong> The main wallet page shows your OMI / Gems balance but no address — the <span class="mono">0x…</span> only appears under <strong>Receive OMI</strong>. It's the same wallet that holds your collectibles on-chain. <span style="color:var(--muted)">(<span class="mono">omi.veve.me</span> is retired.)</span></li>
           <li>Paste it above — <strong>we remember it on this device</strong>, so you only enter it once. <span style="color:var(--muted)">Coming: connect StackR to auto-fill.</span></li>
         </ol></details>
       </div>
@@ -91,7 +91,7 @@
 
 <script src="data/catalog.js?v=13"></script>
 <script src="data/floor.js?v=1"></script>
-<script src="assets/collectscan.js?v=4"></script>
+<script src="assets/collectscan.js?v=5"></script>
 <script src="assets/mcp.js?v=4"></script>
 <script>
 (function () {

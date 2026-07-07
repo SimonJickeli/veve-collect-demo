@@ -112,7 +112,8 @@
       var data = await res.json();
       (data.items || []).forEach(function (it) {
         var tok = it.token || {};
-        if (tok.address && tok.address.toLowerCase() !== CONTRACT.toLowerCase()) return; // VeVe only
+        var tokAddr = tok.address_hash || tok.address; // Blockscout renamed the field address → address_hash
+        if (tokAddr && tokAddr.toLowerCase() !== CONTRACT.toLowerCase()) return; // VeVe only
         holdings.push(parseInstance(it));
       });
       next = data.next_page_params || null;
