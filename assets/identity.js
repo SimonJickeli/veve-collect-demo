@@ -28,7 +28,7 @@
     isAddress: isAddress,
     resolve: resolve,
     profileUrl: profileUrl,
-    webWalletUrl: 'https://omi.veve.me',     // where a user copies their own address
+    webWalletUrl: 'https://www.veve.me/wallet/',  // where a user copies their own address (omi.veve.me now redirects here)
     explorer: 'https://collectscan.com'      // address/tx/block/token search only — no username
   };
 })(typeof window !== 'undefined' ? window : this);
