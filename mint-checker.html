@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Mint Checker — VeVe Collect</title>
 <link rel="stylesheet" href="assets/style.css?v=6" />
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.className+=' embed';</script>
 <style>
+  html.embed nav.main{display:none!important;}
   .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
   .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
   .t-epic      { color:#c79bff; background:#1e1633; border-color:#46306e; }
@@ -37,35 +39,8 @@
 <div class="wrap">
   <section class="hero" style="padding:36px 0 18px">
     <h1>Mint Checker</h1>
-    <p>Is your mint <strong>special</strong>? Choose what you're hunting for, then check a single mint or scan a whole collection.</p>
+    <p>Scan your VeVe / Collect Chain wallet to surface your <strong>significant mints</strong> and the cheapest sets you can still complete.</p>
   </section>
-
-  <!-- Selectable filter (shared) -->
-  <div class="card">
-    <label class="field">What counts as special? <span class="small">(applies to both tools below)</span></label>
-    <div class="filters" id="filters"></div>
-  </div>
-
-  <!-- Single check -->
-  <div class="card" style="margin-top:18px">
-    <h3>Check a mint</h3>
-    <div class="row" style="margin-top:8px">
-      <div style="flex:0 0 260px">
-        <label class="field" for="pick">Pick a collectible (optional)</label>
-        <select id="pick"></select>
-      </div>
-      <div style="flex:0 0 140px">
-        <label class="field" for="mint">Mint #</label>
-        <input type="number" id="mint" min="1" placeholder="e.g. 41" />
-      </div>
-      <div style="flex:0 0 140px">
-        <label class="field" for="edition">Edition size</label>
-        <input type="number" id="edition" min="1" placeholder="e.g. 5000" />
-      </div>
-      <div style="flex:0 0 auto"><button class="btn" id="analyze">Analyze</button></div>
-    </div>
-    <div id="single" style="margin-top:16px"></div>
-  </div>
 
   <!-- Wallet scan -->
   <div class="card" style="margin-top:18px">
@@ -92,9 +67,6 @@
 
   <div id="setscomplete" style="margin-top:18px"></div>
 
-  <div class="note warn" style="margin-top:20px">
-    <strong>What counts as special (lean):</strong> 🥇 <strong>THE lowest public mint</strong> &amp; 🏁 <strong>THE highest (final) mint</strong>, <strong>ascending runs</strong> starting 0/1 (#123, #1234 — prized above Rare), descending ending in 1 (#321, #4321), <strong>5+ digit palindromes</strong> (#12321), <strong>repeating digits</strong> (#111 / #2222 / #5555 — a lower tier), meme numbers (#69 / #420 / #1337), and historically-significant years (character/grail/easter-egg). The "lowest public mint" is a <strong>property of the collectible</strong>: it uses each item's researched reserve where known, and for un-researched <strong>2021–23</strong> drops VeVe uniformly reserved 40 → <strong>#41</strong>. Reserves vary in <strong>2024+</strong> (#21/#41/other), so those show an LPM only where researched. Engine: <span class="mono">app/assets/mints.js</span>.
-  </div>
   <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation.</footer>
 </div>
 
@@ -102,7 +74,6 @@
 <script src="data/catalog.js?v=12"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="data/historic-years.js?v=1"></script>
-<script src="data/comic-historic.js?v=4"></script>
 <script src="assets/significant-years.js?v=3"></script>
 <script src="assets/mints.js?v=13"></script>
 <script src="assets/collectscan.js?v=4"></script>
@@ -112,41 +83,9 @@
   var tier = function (t) { return '<span class="tchip t-' + t + '">' + t + '</span>'; };
   var scanMode = null, liveHoldings = null, liveById = null;  // 'sample' | 'live'
 
-  // build filter checkboxes (all on by default)
-  $('#filters').innerHTML = MINTS.CATEGORIES.map(function (c) {
-    return '<label><input type="checkbox" value="' + c.key + '" checked> ' + c.label + '</label>';
-  }).join('');
-
+  // the wallet scan surfaces EVERY significant-mint category (the category picker was removed)
   function selectedCats() {
-    return Array.prototype.slice.call(document.querySelectorAll('#filters input:checked')).map(function (i) { return i.value; });
-  }
-
-  // collectible picker
-  $('#pick').innerHTML = '<option value="">— manual —</option>' +
-    DATA.collectibles.map(function (c) { return '<option value="' + c.id + '">' + c.img + ' ' + c.name + ' (/' + c.editionSize + ')</option>'; }).join('');
-  $('#pick').addEventListener('change', function () { var c = DATA.byId[this.value]; if (c) $('#edition').value = c.editionSize; });
-
-  function flagsHtml(a) {
-    if (!a.special) return '<span class="small">No match for the selected categories.</span>';
-    return a.flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join('<br>');
-  }
-
-  function analyze() {
-    var mint = +$('#mint').value, ed = +$('#edition').value, c = DATA.byId[$('#pick').value];
-    if (!mint) { $('#single').innerHTML = '<div class="note">Enter a mint number.</div>'; return; }
-    var a = MINTS.analyzeMint(mint, ed, {
-      firstAppearanceYear: c ? c.firstAppearanceYear : null,
-      withheld: c ? c.withheld : 0,
-      significantYears: c ? SIG.lookup(c.character || c.name) : [],
-      universeYears: c ? SIG.lookupUniverse(c.universe) : [],
-      universeEggs: c ? SIG.lookupEggs(c.universe) : [],
-      categories: selectedCats()
-    });
-    var headline = a.special
-      ? '<span class="verdict" style="color:var(--accent-2)">✨ ' + (a.topTier ? a.topTier.toUpperCase() : '') + '</span> <span class="small">(score ' + a.score + ')</span>'
-      : '<span class="verdict" style="color:var(--muted)">Nothing matching</span>';
-    $('#single').innerHTML = '<div class="note"><div style="margin-bottom:8px">#' + mint + (ed ? ' of ' + ed.toLocaleString() : '') + (c ? ' — ' + c.name : '') + '</div>' +
-      headline + '<div style="margin-top:10px">' + flagsHtml(a) + '</div></div>';
+    return MINTS.CATEGORIES.map(function (c) { return c.key; });
   }
 
   // groups for the scan results — a holding appears under every category it matches
@@ -170,29 +109,6 @@
       '<div class="sub2">#' + r.holding.mintNumber + ' / ' + (r.collectible.editionSize || '?') + ageChip + '</div>' +
       '<div class="flagline">' + flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join('') + '</div>' +
       '</div></div>';
-  }
-
-  // VeVe "comic ages" collection-view category — a distribution over the holder's comics.
-  var AGE_ORDER = ['Platinum', 'Golden', 'Silver', 'Bronze', 'Copper', 'Modern'];
-  var AGE_EMOJI = { Platinum: '⚪', Golden: '🟡', Silver: '⚙️', Bronze: '🥉', Copper: '🟤', Modern: '🟦' };
-  function comicAgePanel(holdings) {
-    if (!window.COMIC_HISTORIC) return '';
-    var ages = {}, nComics = 0;
-    holdings.forEach(function (h) {
-      if (h.format !== 'comic' || !h.nameKey) return;
-      var chi = COMIC_HISTORIC.issues[h.nameKey];
-      if (!chi) return;
-      nComics++;
-      if (chi.age) ages[chi.age] = (ages[chi.age] || 0) + 1;
-    });
-    if (!nComics) return '';
-    var chips = AGE_ORDER.filter(function (a) { return ages[a]; }).map(function (a) {
-      return '<span class="pill">' + AGE_EMOJI[a] + ' ' + a + ' <strong>' + ages[a] + '</strong></span>';
-    }).join(' ');
-    return '<div class="note" style="margin-bottom:14px">' +
-      '<div style="margin-bottom:6px"><strong>🗂️ Comics by age</strong> <span class="small">(' + nComics + ' comic editions · VeVe Collection-View category · age by original series year)</span></div>' +
-      chips +
-      '</div>';
   }
 
   // ---------- Cheapest sets to complete (wallet-based) ----------
@@ -286,10 +202,9 @@
     renderSetsToComplete(holdings, byId, scanMode === 'sample');
     var scannable = holdings.filter(function (h) { return h.mintNumber && (byId[h.collectibleId] || {}).editionSize; });
     var rows = MINTS.scanHoldings(scannable, byId, selectedCats(), SIG.lookup, SIG.lookupUniverse, SIG.lookupEggs);
-    var agePanel = comicAgePanel(holdings);
-    if (!rows.length) { $('#scan').innerHTML = agePanel + '<div class="note">No holdings match the selected categories.</div>'; return; }
+    if (!rows.length) { $('#scan').innerHTML = '<div class="note">No significant mints found in this wallet.</div>'; return; }
 
-    var html = agePanel + '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
+    var html = '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
     SECTIONS.forEach(function (sec) {
       var hits = [];
       rows.forEach(function (r) {
@@ -346,13 +261,6 @@
     } finally { $('#scanlive').disabled = false; }
   }
 
-  // re-run live when filters change
-  $('#filters').addEventListener('change', function () {
-    if ($('#mint').value) analyze();
-    renderScan();
-  });
-  $('#analyze').addEventListener('click', analyze);
-  $('#mint').addEventListener('keydown', function (e) { if (e.key === 'Enter') analyze(); });
   $('#scanlive').addEventListener('click', scanLive);
   $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') scanLive(); });
   $('#sample').addEventListener('click', function () { scanMode = 'sample'; $('#scanstatus').textContent = 'Scanning the sample wallet (mock data).'; renderScan(); });
