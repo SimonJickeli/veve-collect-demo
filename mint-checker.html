@@ -152,15 +152,15 @@
       if(base.length<2) return;
       var have=0, missing=[];
       base.forEach(function(m){ if(owned[_sn(m.name)] || (m.aka && owned[_sn(m.aka)])) have++; else missing.push(m); });
-      if(have<1 || !missing.length) return;                             // only sets you've started but not finished
+      if(!missing.length) return;                                       // skip already-complete; INCLUDE not-yet-started (may be cheaper to build from scratch)
       var total=0, priced=0, unpriced=0, mrows=[];
       missing.forEach(function(m){ var c=buyCost(catItem(m)); if(c!=null){ total+=c; priced++; } else unpriced++; mrows.push({m:m,c:c}); });
       cand.push({ sid:sid, uni:s.universe, size:base.length, have:have, missN:missing.length, total:total, priced:priced, unpriced:unpriced, daily:setDaily(base.length), mrows:mrows });
     });
     if(!cand.length){
       host.innerHTML = '<div class="card"><h3>🧩 Cheapest sets to complete</h3><div class="note">' +
-        (isSample ? 'The sample wallet uses placeholder items — <strong>scan your real wallet</strong> to see sets you could finish.'
-                  : 'No partially-complete base sets in this wallet — you\'ve either finished them or not started any yet.') + '</div></div>';
+        (isSample ? 'The sample wallet uses placeholder items — <strong>scan your real wallet</strong> to see sets you could complete.'
+                  : 'No priceable sets to complete right now.') + '</div></div>';
       return;
     }
     // fully-priceable & cheapest first, then fewest editions missing
@@ -175,12 +175,14 @@
       var pills = x.mrows.slice(0,10).map(function(r){
         return '<span class="pill" style="white-space:normal;max-width:100%">'+escH(r.m.name)+(r.c!=null?' <strong>💎'+Math.round(r.c)+'</strong>':' <span class="small">—</span>')+'</span>';
       }).join('') + (x.mrows.length>10 ? ' <span class="small">+'+(x.mrows.length-10)+' more</span>' : '');
+      var verb = x.have>0 ? 'to finish' : 'to complete';
       var cost = x.priced
-        ? '💎 <strong>'+Math.round(x.total).toLocaleString()+'</strong> to finish'+(x.unpriced?' <span class="small">('+x.unpriced+' of '+x.missN+' not priceable)</span>':'')
+        ? '💎 <strong>'+Math.round(x.total).toLocaleString()+'</strong> '+verb+(x.unpriced?' <span class="small">('+x.unpriced+' of '+x.missN+' not priceable)</span>':'')
         : '<span class="small">'+x.missN+' missing — none currently priceable</span>';
+      var newtag = x.have===0 ? ' <span class="pill" style="background:rgba(80,171,255,.14);border-color:rgba(80,171,255,.4)">🆕 not started</span>' : '';
       return '<div style="border:1px solid var(--border);border-radius:11px;background:var(--bg-2);padding:13px;margin-bottom:9px">'+
         '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">'+
-          '<div style="font-weight:700">'+escH(x.sid)+' <span class="small" style="font-weight:400">'+escH(x.uni||'')+'</span></div>'+
+          '<div style="font-weight:700">'+escH(x.sid)+' <span class="small" style="font-weight:400">'+escH(x.uni||'')+'</span>'+newtag+'</div>'+
           '<span class="setbadge">🧩 +'+x.daily.toFixed(1)+'/day on completion</span>'+
         '</div>'+
         '<div class="progress" style="margin:9px 0 7px"><span style="width:'+pct+'%"></span></div>'+
@@ -189,7 +191,7 @@
       '</div>';
     }).join('');
     host.innerHTML = '<div class="card"><h3>🧩 Cheapest sets to complete</h3>'+
-      '<p class="sub">Base sets you\'ve started — ranked by the 💎 cost to buy the editions you\'re still missing (cheapest first), with the daily MCP you\'d earn on completion. Missing editions are priced at their real market floor or in-store price; blind-box / sold-out editions with no market floor show as not priceable.</p>'+
+      '<p class="sub">Base sets ranked by the 💎 cost to complete them (cheapest first) — whether you <strong>finish</strong> one you\'ve started or <strong>build a cheap one from scratch</strong> (🆕 not started). Shows the daily MCP you\'d earn on completion. Editions are priced at their real market floor or in-store price; blind-box / sold-out editions with no market floor show as not priceable.</p>'+
       body+'</div>';
   }
 
