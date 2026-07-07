@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Edition Locator — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=6" />
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.className+=' embed';</script>
+<style>
+  html.embed nav.main{display:none!important;}
+  .lz-thumb{ width:46px; height:46px; border-radius:9px; object-fit:cover; background:#1b1b2f; flex:0 0 auto; }
+  .lz-thumb.noimg{ background:#1b1b2f url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22'><text y='17' x='2' font-size='16'>🎴</text></svg>") center/22px no-repeat; }
+  .lz-res{ display:flex; align-items:center; gap:12px; padding:10px 12px; border:1px solid var(--border); border-radius:11px; background:var(--bg-2); cursor:pointer; margin-bottom:8px; transition:border-color .12s, transform .12s; }
+  .lz-res:hover{ border-color:var(--accent); transform:translateY(-1px); }
+  .lz-own{ color:var(--accent-2); font-weight:700; }
+  .lz-own:hover{ text-decoration:underline; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="locator.html" class="active">Locator</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:36px 0 18px">
+    <h1>Edition <span class="grad">Locator</span></h1>
+    <p>Find who's selling a specific <strong>edition</strong> of a collectible and open their VeVe profile — the public way to tie a mint number to an owner.</p>
+  </section>
+
+  <div class="card">
+    <label class="field" for="q">Search a collectible</label>
+    <input type="text" id="q" placeholder="e.g. Tinker Bell Poster, Sung Jinwoo, Todd McFarlane Batman…" autocomplete="off" />
+    <div id="results" style="margin-top:12px"></div>
+  </div>
+
+  <div id="detail" style="margin-top:18px"></div>
+
+  <div class="note" style="margin-top:18px">
+    <strong>How it works.</strong> Owner = the VeVe user currently <strong>selling</strong> that edition on VeVe's market — the only edition→owner link VeVe exposes publicly (an edition that isn't listed for sale has no discoverable owner). Names link to <span class="mono">veve.me/profile/…</span> and open in VeVe (you may need to be logged in). Snapshot refreshes daily; <span id="asof"></span>.
+  </div>
+  <footer class="foot">Listings move constantly — treat this as a recent snapshot, not a live order book. Not affiliated with VeVe.</footer>
+</div>
+
+<script src="data/listings.js?v=1"></script>
+<script>
+(function(){
+  var $=function(s){return document.querySelector(s);};
+  var IDX=(window.LISTINGS&&LISTINGS.items)||[];
+  var norm=function(s){return (window.normName?window.normName(s):(s||'').toLowerCase());};
+  function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+  function rClass(r){return 'chip r-'+String(r||'').replace(/ /g,'');}
+  function profileUrl(id){return 'https://www.veve.me/profile/'+encodeURIComponent(id||'');}
+
+  var asof=(window.LISTINGS&&LISTINGS.asOf)?new Date(LISTINGS.asOf*1000).toISOString().slice(0,10):null;
+  $('#asof').textContent = asof ? ('last synced '+asof+' · '+IDX.length.toLocaleString()+' collectibles with listings') : 'no snapshot loaded';
+
+  var selected=null;
+  function thumb(it){return it.img?('<img class="lz-thumb" src="'+esc(it.img)+'" loading="lazy" onerror="this.classList.add(\'noimg\')">'):'<span class="lz-thumb noimg"></span>';}
+
+  function renderResults(term){
+    var host=$('#results');
+    term=norm(term);
+    if(term.length<2){ host.innerHTML='<div class="small">Type at least 2 letters…</div>'; return; }
+    var hits=IDX.filter(function(it){return norm(it.name).indexOf(term)>=0;});
+    hits.sort(function(a,b){ // exact/prefix first, then most listed
+      var ap=norm(a.name).indexOf(term)===0?0:1, bp=norm(b.name).indexOf(term)===0?0:1;
+      return ap-bp || b.ed.length-a.ed.length;
+    });
+    if(!hits.length){ host.innerHTML='<div class="note">No <strong>listed</strong> editions match "'+esc(term)+'". Only collectibles with an active listing appear here.</div>'; return; }
+    host.innerHTML=hits.slice(0,30).map(function(it,i){
+      return '<div class="lz-res" data-i="'+IDX.indexOf(it)+'">'+thumb(it)+
+        '<div style="min-width:0;flex:1"><div style="font-weight:700">'+esc(it.name)+'</div>'+
+        '<div class="rmeta" style="margin-top:3px"><span class="'+rClass(it.rarity)+'">'+esc(it.rarity||'')+'</span> <span class="small">'+it.ed.length+' edition'+(it.ed.length===1?'':'s')+' listed</span></div></div>'+
+        '<div class="small">→</div></div>';
+    }).join('') + (hits.length>30?'<div class="small" style="margin-top:4px">+'+(hits.length-30)+' more — refine your search</div>':'');
+    [].forEach.call(host.querySelectorAll('.lz-res'),function(el){
+      el.addEventListener('click',function(){ selectItem(IDX[+el.getAttribute('data-i')]); });
+    });
+  }
+
+  function renderDetail(edFilter){
+    if(!selected){ $('#detail').innerHTML=''; return; }
+    var it=selected;
+    var rows=it.ed.slice();
+    if(edFilter){ var f=String(edFilter).replace(/[^0-9]/g,''); if(f) rows=rows.filter(function(r){return String(r[0])===f;}); }
+    rows.sort(function(a,b){return (a[0]||0)-(b[0]||0);});
+    var body=rows.map(function(r){
+      var ed=r[0], seller=r[1], sid=r[2], price=r[3];
+      return '<tr><td class="num" style="font-variant-numeric:tabular-nums">#'+esc(ed)+'</td>'+
+        '<td><a class="lz-own" href="'+profileUrl(sid)+'" target="_blank" rel="noopener">'+esc(seller)+' ↗</a></td>'+
+        '<td class="num">'+(price!=null?('💎 '+Math.round(price).toLocaleString()):'—')+'</td></tr>';
+    }).join('');
+    $('#detail').innerHTML='<div class="card"><div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">'+
+      thumb(it).replace('lz-thumb','lz-thumb" style="width:60px;height:60px')+
+      '<div><h3 style="margin:0">'+esc(it.name)+'</h3><div class="rmeta" style="margin-top:4px"><span class="'+rClass(it.rarity)+'">'+esc(it.rarity||'')+'</span> <span class="small">'+it.ed.length+' edition'+(it.ed.length===1?'':'s')+' listed for sale</span></div></div></div>'+
+      '<div class="row" style="margin-top:14px"><div style="flex:0 0 220px"><label class="field" for="edf">Jump to an edition #</label>'+
+        '<input type="number" id="edf" min="1" placeholder="e.g. 221" value="'+(edFilter?esc(String(edFilter).replace(/[^0-9]/g,'')):'')+'"></div></div>'+
+      (rows.length? '<table style="margin-top:12px"><thead><tr><th>Edition</th><th>Owner (seller)</th><th class="num">Price</th></tr></thead><tbody>'+body+'</tbody></table>'
+                  : '<div class="note" style="margin-top:12px">No listing for edition #'+esc(String(edFilter))+' right now — that edition isn\'t for sale, so its owner isn\'t publicly discoverable. Try another edition or clear the filter.</div>')+
+      '</div>';
+    var edf=$('#edf'); if(edf){ edf.addEventListener('input',function(){ renderDetail(this.value); this.focus(); }); }
+  }
+  function selectItem(it){ selected=it; renderDetail(null); $('#detail').scrollIntoView({behavior:'smooth',block:'start'}); }
+
+  var t=null;
+  $('#q').addEventListener('input',function(){ var v=this.value; clearTimeout(t); t=setTimeout(function(){renderResults(v);},120); });
+  renderResults('');
+  // deep link: ?q=name&edition=221
+  var p=new URLSearchParams(location.search);
+  if(p.get('q')){ $('#q').value=p.get('q'); renderResults(p.get('q'));
+    var m=IDX.filter(function(it){return norm(it.name).indexOf(norm(p.get('q')))>=0;});
+    if(m.length){ selected=m[0]; renderDetail(p.get('edition')||null); } }
+})();
+</script>
+</body>
+</html>
