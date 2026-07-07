@@ -70,6 +70,7 @@
   var liveMode = false;
   var liveSets = null; // set-completion sets built from the catalog, matched to live holdings by name
   var portfolioValue = 0; // total market-floor value (💎) of held items, for the MCP-per-$ stat
+  var ownedFilter = 'new'; // recs owned/unowned toggle: 'new' (hide owned) | 'all' | 'owned'
   function setStatus(html) { $('#mcpstatus').innerHTML = html; }
 
   function ownedCount(id) { return holdings.filter(function (h) { return h.collectibleId === id; }).length; }
@@ -158,6 +159,9 @@
     var sets = (typeof CATALOG !== 'undefined' && CATALOG.sets) ? CATALOG.sets : {};
     var ownedByName = {}, ownedNames = {};
     holdings.forEach(function (h) { var nk = h.nameKey || nN(h.collectibleId); ownedByName[nk] = (ownedByName[nk] || 0) + 1; ownedNames[nk] = 1; });
+    // how many of this catalog item you own — match on the on-chain alias (ck) AND the display name,
+    // so an item counts as owned whichever form the wallet stored (fixes owned items showing as "new").
+    function ownCount(c){ return ownedByName[ck(c)] || (c.aka ? (ownedByName[nN(c.name)] || 0) : 0); }
     // candidate = acquire one more of any catalog item; cost = live StackR floor if listed, else drop price
     var floorHits = 0;
     var rows = src.filter(function (c) { return c.rarity && costOf(c); }).map(function (c) {
@@ -182,8 +186,11 @@
       if (cost.src !== 'drop') floorHits++;
       var total = m.delta + setBonus;  // ranking value (item + first-completion set bonus)
       var cpp = total > 0 ? (cost.v / total) : Infinity;
-      return { c: c, delta: m.delta, setBonus: setBonus, completes: completes, total: total, cost: cost.v, costSrc: cost.src, cpp: cpp, owned: ownedByName[ck(c)] || 0 };
+      return { c: c, delta: m.delta, setBonus: setBonus, completes: completes, total: total, cost: cost.v, costSrc: cost.src, cpp: cpp, owned: ownCount(c) };
     }).filter(function (r) { return r.total > 0.0001 && isFinite(r.cpp); })
+      // owned/unowned toggle — 'new' hides items already in your wallet (what most people want:
+      // "what should I BUY next"); 'owned' shows only duplicates you could add; 'all' shows both.
+      .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
       // rank by 💎/point, but push BLIND-box items down — a blind single is priced from a real
       // secondary floor (honest) but is thinner to acquire than a store single, so it shouldn't
       // out-rank a guaranteed buy. (De-prioritized silently; the loud per-row tag was removed.)
@@ -206,11 +213,24 @@
       '</div>';
     }).join('');
 
+    var filterCtl = '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 12px">' +
+      '<span class="small">Show</span>' +
+      '<select id="ownedsel" style="width:auto; min-width:180px; padding:8px 11px">' +
+        '<option value="new">New to me (unowned)</option>' +
+        '<option value="all">All — include duplicates</option>' +
+        '<option value="owned">Only items I own</option>' +
+      '</select>' +
+      '<span class="small" style="color:var(--muted)">' + (ownedFilter==='new'?'hiding items already in your wallet' : ownedFilter==='owned'?'only duplicates you could add' : 'includes owned duplicates (diminished)') + '</span></div>';
+    var empty = '<div class="note">' + (ownedFilter==='new'
+        ? 'Every priceable pick here is already in your wallet. Switch to <strong>All</strong> to see duplicate value, or <strong>Only items I own</strong>.'
+        : ownedFilter==='owned' ? 'No owned items have a usable market price right now.' : 'Nothing to show.') + '</div>';
     $('#recs').innerHTML = '<div class="card"><h3>💰 Cheapest points to add</h3>' +
       '<p class="sub">Ranked by <strong>💎 per MCP/day</strong> (lower = better value), factoring your holdings &amp; duplicates. Venue: 💎 VeVe ask · <span class="omidot"></span> StackR floor.</p>' +
+      filterCtl +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (isFinite(best.cpp)?' at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
-      '<div class="ranklist">' + body + '</div>' +
-      '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. The one-time +100-MCP first-completion bonus isn\'t included.</p></div>';
+      (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
+      '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. Duplicates you own earn <strong>diminished</strong> points (a 2nd copy of a Common = +0.75/day), so they rank below new items.</p></div>';
+    var os = $('#ownedsel'); if (os) { os.value = ownedFilter; os.addEventListener('change', function () { ownedFilter = this.value; renderRecs(); }); }
   }
   function rthumb(c){ return c.img ? '<img class="rthumb" src="' + c.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">' : '<span class="rthumb noimg"></span>'; }
 
