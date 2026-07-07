@@ -32,7 +32,7 @@
 <div class="wrap">
   <section class="hero" style="padding:36px 0 18px">
     <h1>Set Tracker</h1>
-    <p>What am I missing? Paste your Collect Chain wallet and see every set's completion — or switch to <strong>Cheapest to complete</strong> to rank the cheapest sets (collectibles <em>and</em> comic cover-sets) you could finish or build from scratch, even ones you own none of yet.</p>
+    <p>What am I missing? Paste your Collect Chain wallet and see every collectible set's completion, the <strong>Cheapest to complete</strong> ranking (collectibles <em>and</em> comic cover-sets, including ones you own none of yet), or the <strong>Comics</strong> view — every comic cover in a universe, for full-universe completionists who can't lack a single variant.</p>
   </section>
 
   <div class="card">
@@ -60,6 +60,7 @@
         <select id="view">
           <option value="set">By set</option>
           <option value="cheapest">Cheapest to complete</option>
+          <option value="comics">Comics</option>
           <option value="season">By season</option>
         </select>
       </div>
@@ -145,7 +146,7 @@
 
   function seasonLabel(s) { var m = CATALOG.seasonMeta && CATALOG.seasonMeta[s]; return 'Season ' + s + (m ? ' <span class="small" style="color:var(--muted)">· ~' + m.year + '</span>' : ''); }
 
-  function render() { var v = $('#view').value; if (v === 'season') renderSeason(); else if (v === 'cheapest') renderCheapest(); else renderSets(); }
+  function render() { var v = $('#view').value; if (v === 'season') renderSeason(); else if (v === 'cheapest') renderCheapest(); else if (v === 'comics') renderComics(); else renderSets(); }
 
   function renderSeason() {
     if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see your collectibles by season.</div>'; return; }
@@ -301,14 +302,28 @@
     if (!(k in COMICF) || r.f < COMICF[k]) COMICF[k] = r.f;
   });
   function comicCoverCost(t, n, rar){ var f = COMICF[nN(t) + ' ' + n + '|' + nN(rar)]; return (f > 0) ? f : null; }
-  // best-effort comic → collectible-universe (for the universe filter); null = show only under "All"
+  // comic → collectible-universe slug. Title/series FIRST — Star Wars comics carry licensor "Marvel",
+  // so the SW (and other licensed-by-Marvel) title checks MUST precede the Marvel licensor fallback.
+  // null = not mapped to a collectible universe → shown only under "All".
   function comicUni(rec){
-    var l = (rec.l || '').toLowerCase();
-    var s = ((rec.s || '') + ' ' + (rec.t || '') + ' ' + l).toLowerCase();
-    if (/star wars|lucasfilm|mandalorian|jedi|sith|skywalker/.test(s)) return 'star-wars';
-    if (l === 'marvel' || /spider-?man|avengers|x-men|wolverine|deadpool|venom|\bhulk\b|\bthor\b|silver surfer|fantastic four|daredevil/.test(s)) return 'marvel';
-    if (l === 'dc' || l === 'dc comics' || /batman|superman|wonder woman|harley quinn|justice league|gotham|aquaman|the flash/.test(s)) return 'dc';
-    if (/star trek/.test(s)) return 'star-trek';
+    var t = ((rec.s || '') + ' ' + (rec.t || '')).toLowerCase(), l = (rec.l || '').toLowerCase();
+    var R = [
+      ['star-wars', /star wars|darth|vader|skywalker|jedi|sith|mandalor|boba fett|grogu|obi-?wan|\byoda\b|clone wars|ahsoka|thrawn|jango|inquisitor/],
+      ['star-trek', /star trek/], ['tmnt', /teenage mutant|tmnt|ninja turtles/], ['transformers', /transformers|optimus|megatron/],
+      ['gi-joe', /g\.?i\.?\s*joe/], ['voltron', /voltron/], ['ultraman', /ultraman/],
+      ['red-sonja', /red sonja|army of darkness/], ['vampirella', /vampirella/], ['tarzan', /tarzan|lord of the jungle/],
+      ['john-carter', /john carter|warlord of mars|barsoom|dejah thoris/], ['battlestar-galactica', /battlestar/],
+      ['james-bond', /james bond|\b007\b/], ['assassins-creed', /assassin.?s creed/], ['robocop', /robocop/], ['rambo', /rambo/],
+      ['chucky', /chucky|child.?s play/], ['pink-panther', /pink panther/], ['the-simpsons', /simpsons/], ['ghostbusters', /ghostbusters/],
+      ['predator', /predator/], ['alien', /\balien|xenomorph|aliens/], ['jurassic-park', /jurassic/], ['back-to-the-future', /back to the future/],
+      ['street-fighter', /street fighter/], ['knight-rider', /knight rider/], ['stargate', /stargate/], ['astro-boy', /astro boy/],
+      ['solo-leveling', /solo leveling/], ['project-superpowers', /project superpowers|black terror|death-defying/],
+      ['dc', /batman|superman|wonder woman|harley|justice league|gotham|aquaman|the flash|green lantern/],
+      ['marvel', /spider-?man|avenger|x-men|wolverine|deadpool|venom|\bhulk\b|\bthor\b|silver surfer|fantastic four|daredevil|captain america|iron man|black panther|moon knight|scarlet witch|doctor strange|ghost rider|\bblade\b|punisher|\bnyx\b|dracula|blood hunt|elektra|gwen/]
+    ];
+    for (var i = 0; i < R.length; i++) if (R[i][1].test(t)) return R[i][0];
+    if (l === 'dc') return 'dc';
+    if (l === 'marvel') return 'marvel';
     return null;
   }
 
@@ -385,6 +400,58 @@
         '<div class="progress" style="margin:9px 0 7px"><span style="width:' + pct + '%"></span></div>' +
         '<div class="small" style="margin-bottom:7px"><strong>' + x.have + '/' + x.size + '</strong> owned · ' + x.missN + ' to go · ' + cost + '</div>' +
         '<div style="display:flex;flex-wrap:wrap;gap:5px">' + pills + '</div>' +
+      '</div>';
+    }).join('');
+    $('#results').innerHTML = html;
+  }
+
+  // Comics view — every comic in a universe, cover by cover, so a full-universe completionist
+  // can spot any missing variant. Completing a universe = its collectible sets + all its comic covers.
+  function renderComics() {
+    if (!ownedNames) { $('#results').innerHTML = '<div class="note">Paste a wallet (or <strong>Use sample</strong>) to see comic completion — every cover, so a universe completionist can spot any missing variant.</div>'; return; }
+    var uni = $('#universe').value;
+    var show = ($('#show') && $('#show').value) || 'missing';
+    var issues = (window.COMICS || []).filter(function (rec) { return (rec.r || []).length >= 1 && (uni === 'all' || comicUni(rec) === uni); });
+    if (!issues.length) { $('#results').innerHTML = '<div class="note">No comics catalogued for ' + (uni === 'all' ? 'any universe' : ('<strong>' + uni + '</strong>')) + ' yet. <span class="small">(Comics are mapped to a universe by title — indie titles with no collectible universe appear under <strong>All universes</strong>.)</span></div>'; return; }
+    var rows = issues.map(function (rec) {
+      var covers = rec.r || [], have = 0, total = 0, cost = 0, priced = 0, unpriced = 0, cchips = [];
+      covers.forEach(function (rar) {
+        total++;
+        if (ownedCover && ownedCover.has(nN(rec.t) + ' ' + rec.n + '|' + nN(rar))) { have++; cchips.push({ rar: rar, owned: true, c: null }); return; }
+        var c = comicCoverCost(rec.t, rec.n, rar);
+        if (c != null) { cost += c; priced++; } else unpriced++;
+        cchips.push({ rar: rar, owned: false, c: c });
+      });
+      return { rec: rec, have: have, total: total, cost: cost, priced: priced, unpriced: unpriced, pct: total ? Math.round(100 * have / total) : 0, cchips: cchips, uni: comicUni(rec) || rec.l || '' };
+    });
+    var totCov = 0, ownCov = 0, fullIssues = 0;
+    rows.forEach(function (r) { totCov += r.total; ownCov += r.have; if (r.pct === 100) fullIssues++; });
+    var list = rows.slice();
+    if (show === 'missing') list = list.filter(function (r) { return r.pct < 100; });
+    else if (show === 'complete') list = list.filter(function (r) { return r.pct === 100; });
+    // incomplete & fully-priceable cheapest-to-finish first; complete last; then by series + issue
+    list.sort(function (a, b) {
+      var ac = a.pct === 100 ? 2 : (a.unpriced === 0 ? 0 : 1), bc = b.pct === 100 ? 2 : (b.unpriced === 0 ? 0 : 1);
+      if (ac !== bc) return ac - bc;
+      if (ac === 0 && a.cost !== b.cost) return a.cost - b.cost;
+      return (a.rec.s || a.rec.t).localeCompare(b.rec.s || b.rec.t) || ((parseInt(a.rec.n, 10) || 0) - (parseInt(b.rec.n, 10) || 0));
+    });
+    var cap = 150, shown = list.slice(0, cap), pct = totCov ? Math.round(100 * ownCov / totCov) : 0, uniLbl = uni === 'all' ? 'All universes' : uni;
+    var html = '<div class="note" style="margin-bottom:14px">📖 <strong>' + esc(uniLbl) + ' comics</strong>: you own <strong>' + ownCov + '</strong> of <strong>' + totCov + '</strong> covers across <strong>' + rows.length + '</strong> issue' + (rows.length === 1 ? '' : 's') + ' — <strong>' + pct + '%</strong> complete · ' + fullIssues + ' issue' + (fullIssues === 1 ? '' : 's') + ' fully owned. A universe completionist needs every cover.</div>';
+    html += '<p class="small">' + (show === 'missing' ? '<strong>' + list.length + '</strong> incomplete issue' + (list.length === 1 ? '' : 's') + ' — cheapest to finish first' : (show === 'complete' ? '<strong>' + list.length + '</strong> fully-owned issue' + (list.length === 1 ? '' : 's') : '<strong>' + list.length + '</strong> issues')) + (list.length > cap ? ' · showing top ' + cap : '') + ' · ✅ owned · ➕ missing · 💎 cheapest listed floor.</p>';
+    html += shown.map(function (r) {
+      var chips = r.cchips.map(function (cc) {
+        return '<span class="pill" style="white-space:normal' + (cc.owned ? ';border-color:rgba(80,200,120,.4);background:rgba(80,200,120,.12)' : '') + '">' + (cc.owned ? '✅ ' : '➕ ') + esc(cc.rar) + (cc.owned ? '' : (cc.c != null ? ' <strong>💎' + Math.round(cc.c).toLocaleString() + '</strong>' : ' <span class="small">—</span>')) + '</span>';
+      }).join('');
+      var complete = r.pct === 100;
+      var cost = complete ? '<span style="color:var(--good)">complete ✓</span>' : (r.priced ? '💎 <strong>' + Math.round(r.cost).toLocaleString() + '</strong> to finish' + (r.unpriced ? ' <span class="small">(' + r.unpriced + ' not listed)</span>' : '') : '<span class="small">' + (r.total - r.have) + ' missing — none listed</span>');
+      return '<div class="card" style="margin-bottom:10px">' +
+        '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">' +
+          '<div style="font-weight:700">📖 ' + esc(r.rec.t) + ' <span class="small" style="font-weight:400">#' + esc(r.rec.n) + ' · ' + esc(r.uni) + (r.rec.y ? ' · ' + esc(r.rec.y) : '') + '</span></div>' +
+          '<span class="small"><strong>' + r.have + '/' + r.total + '</strong> covers · ' + cost + '</span>' +
+        '</div>' +
+        '<div class="progress" style="margin:8px 0 8px"><span style="width:' + r.pct + '%"></span></div>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:5px">' + chips + '</div>' +
       '</div>';
     }).join('');
     $('#results').innerHTML = html;
