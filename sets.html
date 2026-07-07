@@ -198,10 +198,23 @@
       var special = s.members.filter(function (m) { return m.sp; });
       var owned = base.filter(function (m) { return owns(m); });
       var ownedSpecial = special.filter(function (m) { return owns(m); });
+      var missing = base.filter(function (m) { return !owns(m); });
+      // cost to FINISH the base set = sum of the market cost of every missing member
+      var cost = 0, costKnown = 0, costFloor = 0, unpriced = 0;
+      missing.forEach(function (m) { var c = itemCost(m); if (c) { cost += c.v; costKnown++; if (c.src !== 'drop') costFloor++; } else unpriced++; });
       return { s: s, base: base, special: special, owned: owned, ownedSpecial: ownedSpecial,
+               missing: missing, cost: cost, costKnown: costKnown, costFloor: costFloor, unpriced: unpriced,
                pct: Math.round(owned.length / base.length * 100) };
     }).filter(function (x) { return mode === 'sample' ? true : (x.owned.length > 0 || x.ownedSpecial.length > 0); })
-      .sort(function (a, b) { return (b.pct - a.pct) || (b.base.length - a.base.length); });
+      // CHEAPEST TO COMPLETE FIRST: fully-priceable incomplete sets by 💎 cost ascending; then sets whose
+      // missing members can't all be priced (by known cost, closest first); completed sets last.
+      .sort(function (a, b) {
+        var ar = a.pct === 100 ? 2 : (a.unpriced === 0 ? 0 : 1);
+        var br = b.pct === 100 ? 2 : (b.unpriced === 0 ? 0 : 1);
+        if (ar !== br) return ar - br;
+        if (ar === 2) return (b.base.length - a.base.length);      // complete sets → biggest first
+        return (a.cost - b.cost) || (b.pct - a.pct);               // incomplete → cheapest to finish first
+      });
 
     var doneAll = sets.filter(function(x){return x.pct===100;}).length, totalSets = sets.length;
     // Show filter: this tool is "what am I missing" → default to incomplete sets.
@@ -245,16 +258,14 @@
     var layout = ($('#layout') && $('#layout').value) || 'cards';
     var renderItem = layout === 'list' ? listRow : tileHtml;
     var wrapCls = layout === 'list' ? 'lst' : 'tiles';
-    var html = pvBanner + '<p class="small">' + (show==='missing'?'<strong>'+sets.length+'</strong> incomplete set'+(sets.length===1?'':'s')+' — closest first':(show==='complete'?'<strong>'+sets.length+'</strong> complete set'+(sets.length===1?'':'s'):'<strong>'+sets.length+'</strong> sets')) + ' · ' + done + ' of ' + totalSets + ' complete on VeVe · ✨ = special edition (master set, optional) · 💎 = market floor.</p>' +
+    var html = pvBanner + '<p class="small">' + (show==='missing'?'<strong>'+sets.length+'</strong> incomplete set'+(sets.length===1?'':'s')+' — cheapest to complete first':(show==='complete'?'<strong>'+sets.length+'</strong> complete set'+(sets.length===1?'':'s'):'<strong>'+sets.length+'</strong> sets')) + ' · ' + done + ' of ' + totalSets + ' complete on VeVe · ✨ = special edition (master set, optional) · 💎 = market floor.</p>' +
       sets.slice(0, 60).map(function (x) {
         var s = x.s, size = x.base.length, complete = x.pct === 100;
         var daily = MCP.setBaseBySize(size);
         var baseTiles = x.base.map(function (m) { return renderItem(m, false); }).join('');
         var missingSpecial = x.special.filter(function (m) { return !owns(m); }).length;
-        // cost to finish the BASE set (specials excluded)
-        var missing = x.base.filter(function (m) { return !owns(m); });
-        var costSum = 0, costKnown = 0, costFloor = 0;
-        missing.forEach(function (m) { var c = itemCost(m); if (c) { costSum += c.v; costKnown++; if (c.src!=='drop') costFloor++; } });
+        // cost to finish the BASE set (computed once at sort time)
+        var costSum = x.cost, costKnown = x.costKnown, costFloor = x.costFloor;
         var masterNote = '';
         if (x.special.length) {
           if (missingSpecial > 0) masterNote = ' · ✨ Master set: <strong>' + missingSpecial + '</strong> special edition' + (missingSpecial>1?'s':'') + ' available (optional, not required)';
