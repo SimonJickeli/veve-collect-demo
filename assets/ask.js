@@ -260,9 +260,11 @@
         if (!lpm || lpm <= 1) return head + ' — the reserve for this one <strong>hasn\'t been researched yet</strong>, so the exact held-back mints aren\'t recorded. <span class="small">(Anything below its lowest public mint is held back — we just don\'t have that number for this item.)</span>';
         var rnd = randomHeld(it), theld = totalHeld(it);
         var extra = []; if (burnt(it)) extra.push(burnt(it).toLocaleString() + ' burnt'); if (unsold(it)) extra.push(unsold(it).toLocaleString() + ' unsold');
+        // Not in the on-chain reserve index: we can only state the reserve BELOW the lowest public
+        // mint (definitely held), as a floor — not the exact edition list, and not the random withholds.
         var core = rnd
-          ? ' — VeVe withholds <strong>' + theld.toLocaleString() + '</strong> editions in total: the <strong>#1–#' + (lpm - 1) + '</strong> reserve <em>plus ~' + rnd.toLocaleString() + ' more held back at random above #' + lpm + '</em>, so some public-range mints are VeVe\'s too.'
-          : ' — VeVe holds back <strong>' + res + '</strong> edition' + (res === 1 ? '' : 's') + ': <strong>#1–#' + (lpm - 1) + '</strong>, every mint below the lowest public mint (#' + lpm + ').';
+          ? ' — VeVe withholds <strong>≥' + theld.toLocaleString() + '</strong> editions: the <strong>#1–#' + (lpm - 1) + '</strong> reserve (below the lowest public mint) <em>plus ~' + rnd.toLocaleString() + ' more held back at random</em>. <span class="small">The exact edition list isn\'t on-chain-indexed for this item, so I can\'t name the specific mints.</span>'
+          : ' — at least <strong>#1–#' + (lpm - 1) + '</strong> (' + res + ' edition' + (res === 1 ? '' : 's') + ') are held back — every mint below the lowest public mint (#' + lpm + '). <span class="small">That exact range isn\'t on-chain-indexed for this item, but anything below the lowest public mint was never sold.</span>';
         return head + core + (extra.length ? ' <span class="small">(also ' + extra.join(' · ') + ')</span>' : '');
       }
       if (intent === 'burnt') { var b = burnt(it); return head + (b ? ' — <strong>' + b.toLocaleString() + '</strong> edition' + (b === 1 ? '' : 's') + ' burnt from supply.' : ' — no burns recorded.'); }
@@ -299,7 +301,9 @@
     var rows = [];
     if (ed) rows.push('📦 Edition — <strong>' + fmtN(ed) + '</strong> total minted');
     if (circ) rows.push('👥 In circulation — <strong>' + fmtN(circ) + '</strong> <span class="small">(in collectors\' hands)</span>');
-    if (res) rows.push('🔒 Held back by VeVe — <strong>' + fmtN(res) + '</strong> <span class="small">(#1–#' + (lpm - 1) + ', the reserve)</span>');
+    var dhl = heldList(it);
+    if (dhl) rows.push('🔒 Held back by VeVe — <strong>' + fmtN(heldCount(dhl)) + '</strong> <span class="small">(confirmed on-chain in the reserve wallet)</span>');
+    else if (res) rows.push('🔒 Held back by VeVe — <strong>≥' + fmtN(res) + '</strong> <span class="small">(#1–#' + (lpm - 1) + ' reserve, below the lowest public mint — exact set not on-chain-indexed)</span>');
     if (st) rows.push('🏪 Unsold in Store — <strong>' + fmtN(st) + '</strong>');
     if (bn) rows.push('🔥 Burnt — <strong>' + fmtN(bn) + '</strong>');
     if (lpm) rows.push('🥇 Lowest public mint — <strong>#' + lpm + '</strong>');
@@ -430,7 +434,13 @@
     if (it.lowmint) rows.push(kv('Lowest public mint', '#' + it.lowmint));
     var hl = heldList(it);
     if (hl) rows.push(kv('🔒 Held back by VeVe', heldCount(hl).toLocaleString() + ' <span class="small">(on-chain: #' + esc(hl).replace(/,/g, ', #') + ')</span>'));
-    else if (reserved(it)) rows.push(kv('🔒 Held back by VeVe', randomHeld(it) ? totalHeld(it).toLocaleString() + ' <span class="small">(#1–#' + (it.lowmint - 1) + ' + ~' + randomHeld(it) + ' random)</span>' : reserved(it).toLocaleString() + ' <span class="small">(#1–#' + (it.lowmint - 1) + ')</span>'));
+    else if (reserved(it)) rows.push(kv('🔒 Held back by VeVe',
+      // NOT in the on-chain reserve index → show the reserve below the lowest public mint as a FLOOR
+      // (those editions were never publicly sold, so are definitely held) — never as an exact figure.
+      '≥ ' + (randomHeld(it) ? totalHeld(it).toLocaleString() : reserved(it).toLocaleString()) +
+      ' <span class="small">(#1–#' + (it.lowmint - 1) + ' reserve, below the lowest public mint' +
+      (randomHeld(it) ? ' + ~' + randomHeld(it).toLocaleString() + ' more' : '') +
+      ' — exact on-chain set not indexed for this item)</span>'));
     if (it.circ) rows.push(kv('👥 In circulation', it.circ.toLocaleString()));
     if (burnt(it)) rows.push(kv('🔥 Burnt', burnt(it).toLocaleString()));
     if (!it.blind && unsold(it)) rows.push(kv('📦 Unsold in Store', unsold(it).toLocaleString()));
