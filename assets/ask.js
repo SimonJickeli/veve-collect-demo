@@ -82,12 +82,14 @@
     for (var i = 0; i < uniList.length; i++) { if (UNI_BLOCK[uniList[i]]) continue; var u = sq(uniList[i]); if (u.length >= 4 && qs.indexOf(u) >= 0) return uniList[i]; }
     return null;
   }
+  // VeVe collector shorthand: SR = Secret Rare, UR = Ultra Rare, UC = Uncommon, AP = Artist Proof.
+  // Matched anywhere ("SR yoda", "yoda SR", "spiderman UR"); these tokens are also stripped from the subject.
   function detectRarity(q) {
     var s = ' ' + q.toLowerCase() + ' ';
-    if (/secret ?rare/.test(s)) return 'Secret Rare';
-    if (/ultra ?rare/.test(s)) return 'Ultra Rare';
-    if (/artist ?proof/.test(s)) return 'Artist Proof';
-    if (/uncommon/.test(s)) return 'Uncommon';
+    if (/secret ?rare|\bsr\b/.test(s)) return 'Secret Rare';
+    if (/ultra ?rare|\bur\b/.test(s)) return 'Ultra Rare';
+    if (/artist ?proof|\bap\b/.test(s)) return 'Artist Proof';
+    if (/uncommon|\buc\b/.test(s)) return 'Uncommon';
     if (/\brares?\b/.test(s)) return 'Rare';
     if (/\bcommons?\b/.test(s)) return 'Common';
     return null;
@@ -115,6 +117,7 @@
     'figures piece pieces item items thing things veve collect chain stackr drop drops dropped set sets series ' +
     'season seasons universe universes brand brands franchise character characters ' +
     'scarce scarcest rare rares rarest rarer common commons uncommon uncommons secret ultra proof artist floor floors ' +
+    'sr ur uc ap fe variant variants version drop chase grail ' +
     'price prices priced pricing worth value valuable priciest cheap cheapest expensive count counted counting ' +
     'number numbers how many much top best good better great highest lowest smallest biggest largest fewest ' +
     'own owns owned owning holder holders where locate located sitting has have got ' +
@@ -319,6 +322,16 @@
     }
 
     if (!items.length) {
+      // rarity-aware: "UR ant-man" with no UR Ant-Man → say so and show which rarities DO exist
+      if (p.rarity && p.subj) {
+        var noRar = selectItems({ uni: p.uni, subj: p.subj, rarity: null, useComics: p.useComics });
+        if (noRar.length) {
+          var rc = {}; noRar.forEach(function (it) { rc[it.rarity || '?'] = (rc[it.rarity || '?'] || 0) + 1; });
+          var avail = Object.keys(rc).sort(function (a, b) { return rc[b] - rc[a]; }).map(function (r) { return r + ' (' + rc[r] + ')'; }).join(', ');
+          return fin(q, { topic: L(lbl) + kind, full: topBy(noRar, 'scarce'), cols: 'scarce' },
+            { summary: 'No <strong>' + esc(p.rarity) + '</strong> ' + esc(p.subj) + ' in the catalog — it comes as: <strong>' + avail + '</strong>.', note: 'Here it is (scarcest first):', rows: topBy(noRar, 'scarce').slice(0, N), cols: 'scarce' });
+        }
+      }
       var toks = (p.subj || '').split(/\s+/).filter(function (t) { return t.length >= 4; });
       var sugg = toks.length ? C.filter(function (it) { var n = sq(it.name) + ' ' + sq(it.character); return toks.some(function (t) { return n.indexOf(sq(t)) >= 0; }); }).sort(function (a, b) { return (a.edition || 1e9) - (b.edition || 1e9); }).slice(0, 6) : [];
       var sg = sugg.length ? ' Did you mean: ' + sugg.map(function (it) { return '<span class="exchip" onclick="ASKUI(\'' + esc(it.name).replace(/'/g, '') + '\')">' + esc(it.name) + '</span>'; }).join(' ') : ' Try a universe (Marvel, Star Wars, Disney…) or a character (Boba Fett).';
@@ -434,14 +447,19 @@
     var subjq = sq(pp.subj); if (COMIC_ABBR[subjq]) subjq = sq(COMIC_ABBR[subjq]);
     if (subjq.length < 3) return null;
     var matches = selectItems(pp);
-    if (!matches.length || matches.length > 8) return null;               // broad category / nothing → list handler
+    // a rarity makes it a specific-VARIANT query ("SR yoda", "spiderman SR") → allow more matches and
+    // pick the FIRST drop; without a rarity, only fire on a tight name match (else it's a browse → list).
+    var cap = pp.rarity ? 40 : 8;
+    if (!matches.length || matches.length > cap) return null;
     var best = matches.slice().sort(function (a, b) {
       var ax = (sq(a.name) === subjq || sq(a.aka || '') === subjq) ? 0 : 1, bx = (sq(b.name) === subjq || sq(b.aka || '') === subjq) ? 0 : 1;
-      if (ax !== bx) return ax - bx;
+      if (ax !== bx) return ax - bx;                                      // exact name/aka first
+      var ad = a.drop || '9999', bd = b.drop || '9999';                  // then the FIRST drop (VeVe collectors mean the original)
+      if (ad !== bd) return ad < bd ? -1 : 1;
       return Math.abs(sq(a.name).length - subjq.length) - Math.abs(sq(b.name).length - subjq.length);
     })[0];
     var bn = sq(best.name), ba = sq(best.aka || '');
-    if (!(bn.indexOf(subjq) >= 0 || ba.indexOf(subjq) >= 0 || subjq.indexOf(bn) >= 0 || matches.length <= 3)) return null;   // must clearly BE the subject, not a loose concept hit
+    if (!(bn.indexOf(subjq) >= 0 || ba.indexOf(subjq) >= 0 || subjq.indexOf(bn) >= 0 || matches.length <= 3 || pp.rarity)) return null;   // must clearly BE the subject (a rarity already scopes it)
     return itemCard(best, q, matches);
   }
 
