@@ -25,6 +25,43 @@
   Object.keys(W.ent).forEach(function (slug) { var e = W.ent[slug]; if (e.t) charToEnt[nn(e.t)] = slug; });
   var uniList = Object.keys(byUni).sort(function (a, b) { return byUni[b].length - byUni[a].length; });
 
+  // ---- comics: title-first universe classifier + indices (comics.js / comics_mcp.js / comic-historic.js) ----
+  function cslug(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  var COMIC_UNI = [
+    ['star-wars', /star wars|darth|vader|skywalker|jedi|sith|mandalor|boba fett|grogu|obi-?wan|\byoda\b|clone wars|ahsoka|thrawn|jango|inquisitor/],
+    ['star-trek', /star trek/], ['tmnt', /teenage mutant|tmnt|ninja turtles/], ['transformers', /transformers|optimus|megatron/],
+    ['gi-joe', /g\.?i\.?\s*joe/], ['voltron', /voltron/], ['ultraman', /ultraman/],
+    ['red-sonja', /red sonja|army of darkness/], ['vampirella', /vampirella/], ['tarzan', /tarzan|lord of the jungle/],
+    ['john-carter', /john carter|warlord of mars|barsoom|dejah thoris/], ['battlestar-galactica', /battlestar/],
+    ['james-bond', /james bond|\b007\b/], ['assassins-creed', /assassin.?s creed/], ['robocop', /robocop/], ['rambo', /rambo/],
+    ['chucky', /chucky|child.?s play/], ['pink-panther', /pink panther/], ['the-simpsons', /simpsons/], ['ghostbusters', /ghostbusters/],
+    ['predator', /predator/], ['alien', /\balien|xenomorph|aliens/], ['jurassic-park', /jurassic/], ['back-to-the-future', /back to the future/],
+    ['street-fighter', /street fighter/], ['knight-rider', /knight rider/], ['stargate', /stargate/], ['astro-boy', /astro boy/],
+    ['solo-leveling', /solo leveling/], ['project-superpowers', /project superpowers|black terror|death-defying/],
+    ['dc', /batman|superman|wonder woman|harley|justice league|gotham|aquaman|the flash|green lantern/],
+    ['marvel', /spider-?man|avenger|x-men|wolverine|deadpool|venom|\bhulk\b|\bthor\b|silver surfer|fantastic four|daredevil|captain america|iron man|black panther|moon knight|scarlet witch|doctor strange|ghost rider|\bblade\b|punisher|\bnyx\b|dracula|blood hunt|elektra|gwen/]
+  ];
+  function comicUni(rec) {
+    var hay = ((rec.s || '') + ' ' + (rec.t || '')).toLowerCase(), l = (rec.l || '').toLowerCase();
+    for (var i = 0; i < COMIC_UNI.length; i++) if (COMIC_UNI[i][1].test(hay)) return COMIC_UNI[i][0];
+    if (l === 'dc') return 'dc'; if (l === 'marvel') return 'marvel'; return null;
+  }
+  var CHIST = (window.COMIC_HISTORIC && COMIC_HISTORIC.issues) || {};
+  function chGet(t, n) { return CHIST[nn(t) + ' ' + n] || null; }
+  var CMCP = {};
+  ((window.COMICS_MCP && COMICS_MCP.items) || []).forEach(function (r) { var k = nn(r.t) + '|' + r.n; var o = CMCP[k] || (CMCP[k] = { tid: r.tid, cov: {} }); if (r.tid) o.tid = r.tid; o.cov[r.r] = { f: r.f, e: r.e }; });
+  function cmGet(rec) { return CMCP[nn(rec.t) + '|' + rec.n] || CMCP[nn(rec.s) + '|' + rec.n] || {}; }
+  var comicsBySlug = {}, comicsByUni = {}, comicsBySeries = {};
+  COMICS.forEach(function (rec) {
+    var base = cslug((rec.s || rec.t) + '-' + rec.n), slug = base, i = 1;
+    while (comicsBySlug[slug]) slug = base + '-' + (++i);
+    rec._slug = slug; rec._uni = comicUni(rec);
+    comicsBySlug[slug] = rec;
+    if (rec._uni) (comicsByUni[rec._uni] = comicsByUni[rec._uni] || []).push(rec);
+    (comicsBySeries[rec.s] = comicsBySeries[rec.s] || []).push(rec);
+  });
+  function comicSort(a, b) { return (a.s || '').localeCompare(b.s || '') || ((parseInt(a.n, 10) || 0) - (parseInt(b.n, 10) || 0)); }
+
   // ---- subdomains (franchise / brand layer, from subdomains.js) ----
   var SUBS = window.SUBS || { uni: {}, item: {} };
   var subOf = SUBS.item || {};
@@ -68,6 +105,15 @@
     var shown = items.slice(0, limit).map(card).join('');
     return '<div class="exgrid">' + shown + '</div>' + (items.length > limit ? '<p class="small" style="margin-top:10px">Showing ' + limit + ' of ' + items.length.toLocaleString() + '.</p>' : '');
   }
+  function comicCard(rec) {
+    var covers = (rec.r || []).length;
+    return '<a class="excard" onclick="' + href('comic/' + rec._slug) + '"><div class="thumb noimg">📖</div>' +
+      '<div class="body"><div class="nm">' + esc(rec.t) + ' #' + esc(String(rec.n)) + '</div>' +
+      '<div class="mt"><span>' + covers + ' cover' + (covers === 1 ? '' : 's') + '</span>' +
+      (rec.y ? '<span>' + esc(String(rec.y)) + '</span>' : '') +
+      (rec.f ? '<span>💎' + rec.f + '</span>' : '') + '</div></div></a>';
+  }
+  function comicGrid(list, limit) { limit = limit || 60; return '<div class="exgrid">' + list.slice(0, limit).map(comicCard).join('') + '</div>' + (list.length > limit ? '<p class="small" style="margin-top:10px">Showing ' + limit + ' of ' + list.length.toLocaleString() + ' issues.</p>' : ''); }
   function crumb(parts) { return '<div class="crumb">' + parts.map(function (p, i) { return (i ? '<span class="sep">›</span>' : '') + (p.r ? '<a onclick="' + href(p.r) + '">' + esc(p.t) + '</a>' : '<span>' + esc(p.t) + '</span>'); }).join('') + '</div>'; }
 
   // ---- filter + sort bar for list grids ----
@@ -116,7 +162,7 @@
     }).join('');
     view.innerHTML =
       '<section class="hero" style="padding:6px 0 14px"><h1>The <span class="grad">VeVe Wiki</span>, explorable.</h1>' +
-      '<p>' + C.length.toLocaleString() + ' collectibles · ' + Object.keys(W.ent).length.toLocaleString() + ' characters · ' + uniList.length + ' universes · ' + Object.keys(bySet).length.toLocaleString() + ' sets — every one a page, all cross-linked. Search above, or start with a universe.</p></section>' +
+      '<p>' + C.length.toLocaleString() + ' collectibles · ' + COMICS.length.toLocaleString() + ' comics · ' + Object.keys(W.ent).length.toLocaleString() + ' characters · ' + uniList.length + ' universes · ' + Object.keys(bySet).length.toLocaleString() + ' sets — every one a page, all cross-linked. Search above, or start with a universe.</p></section>' +
       '<div class="sec-h">Universes</div><div class="unigrid">' + tiles + '</div>';
   }
 
@@ -141,13 +187,15 @@
     var artCount = all.length - mainItems.length;
     var ents = Object.keys(W.ent).filter(function (s) { return W.ent[s].u === u; }).sort(function (a, b) { return W.ent[a].t > W.ent[b].t ? 1 : -1; });
     var sets = Object.keys(bySet).filter(function (s) { return (bySet[s][0] || {}).universe === u; });
+    var ucomics = (comicsByUni[u] || []).slice().sort(comicSort);
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: cap(u) }]) +
       '<h1 style="text-transform:capitalize;margin:0 0 6px">' + esc(cap(u)) + '</h1>' +
       (d ? '<div class="prose">' + esc(d.ov) + '</div>' : '') +
-      '<p class="small">' + all.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets</p>' +
+      '<p class="small">' + all.length.toLocaleString() + ' collectibles · ' + ents.length + ' characters · ' + sets.length + ' sets' + (ucomics.length ? ' · ' + ucomics.length.toLocaleString() + ' comics' : '') + '</p>' +
       (hasSubs ? '<div class="sec-h">Explore ' + esc(cap(u)) + '</div>' + subTiles(u, info.subs) : '') +
       (ents.length && !hasSubs ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.slice(0, 60).map(function (s) { return '<span class="tag" onclick="' + href('e/' + s) + '">' + esc(W.ent[s].t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + mainGrid(mainItems, 120);
+      '<div class="sec-h">' + (hasSubs ? 'All collectibles' : 'Collectibles') + ' <span class="small">(scarcest first' + (artCount ? ' · ' + artCount + ' artworks in their own section above' : '') + ')</span></div>' + mainGrid(mainItems, 120) +
+      (ucomics.length ? '<div class="sec-h">📖 Comics <span class="small">(' + ucomics.length.toLocaleString() + ' issue' + (ucomics.length === 1 ? '' : 's') + ' — every cover a page)</span></div>' + comicGrid(ucomics, 60) : '');
   }
   function subPage(uni, slug) {
     var items = (bySub[uni + '/' + slug] || []).slice().sort(byEd);
@@ -248,15 +296,51 @@
       '<div style="margin-top:22px"><span class="backchip" onclick="history.back()">← Back</span></div>';
   }
 
+  function comic(slug) {
+    var rec = comicsBySlug[slug]; if (!rec) return notfound('comic “' + slug + '”');
+    var uni = rec._uni, hist = chGet(rec.t, rec.n) || chGet(rec.s, rec.n) || {}, mcp = cmGet(rec), tid = mcp.tid;
+    var covers = rec.r || [];
+    var facts = [];
+    if (uni) facts.push(['Universe', '<a onclick="' + href('u/' + uni) + '">' + esc(cap(uni)) + '</a>']);
+    facts.push(['Series', esc(rec.s || '?')]);
+    facts.push(['Issue', '#' + esc(String(rec.n))]);
+    if (rec.y) facts.push(['Published', esc(String(rec.y)) + (rec.a ? ' <span class="small">· ' + esc(rec.a) + ' age</span>' : '')]);
+    if (rec.l) facts.push(['Publisher', esc(rec.l)]);
+    if (rec.e) facts.push(['Edition (per cover)', (+rec.e).toLocaleString()]);
+    if (rec.d) facts.push(['Dropped on VeVe', esc(rec.d)]);
+    if (rec.fa) facts.push(['Key issue', '🔑 First appearance']);
+    var covRows = covers.map(function (r) {
+      var cc = (mcp.cov || {})[r] || {}, ed = cc.e || rec.e;
+      return '<dt><span class="' + rClass(r) + '">' + r + '</span></dt><dd>edition ' + (ed ? (+ed).toLocaleString() : '?') + (cc.f ? ' · 💎 ' + cc.f + ' <span class="small">listed floor</span>' : '') + '</dd>';
+    }).join('');
+    var chars = (hist.ch || []).map(function (ch) { var es = charToEnt[nn(ch)]; return es ? '<span class="tag" onclick="' + href('e/' + es) + '">' + esc(ch) + '</span>' : '<span class="tag" style="cursor:default;opacity:.7">' + esc(ch) + '</span>'; });
+    var creators = hist.c || [];
+    var series = (comicsBySeries[rec.s] || []).filter(function (x) { return x._slug !== slug; }).sort(comicSort);
+    var veve = tid ? 'https://www.veve.me/en/comics/' + tid : null, st = tid ? 'https://www.stackr.world/collections/veve/comic/' + tid : null;
+    var buy = tid ? '<div class="exbuy"><a class="btn" href="' + st + '" target="_blank" rel="noopener">🛒 View on StackR ↗</a><a class="buylink" href="' + veve + '" target="_blank" rel="noopener">also on VeVe ↗</a></div>' : '';
+    view.innerHTML = crumb([{ t: 'Explorer', r: '' }].concat(uni ? [{ t: cap(uni), r: 'u/' + uni }] : []).concat([{ t: rec.t + ' #' + rec.n }])) +
+      '<h1>📖 ' + esc(rec.t) + ' #' + esc(String(rec.n)) + '</h1>' +
+      '<dl class="facts">' + facts.map(function (f) { return '<dt>' + f[0] + '</dt><dd>' + f[1] + '</dd>'; }).join('') + '</dl>' +
+      buy +
+      '<div class="sec-h">Covers <span class="small">(' + covers.length + ' — a full cover-set)</span></div><dl class="facts">' + covRows + '</dl>' +
+      (creators.length ? '<div class="sec-h">Creators</div><p class="prose">' + creators.map(esc).join(' · ') + '</p>' : '') +
+      (chars.length ? '<div class="sec-h">Characters</div><div class="tagrow">' + chars.join('') + '</div>' : '') +
+      '<div class="prose" style="margin-top:14px"><em># TODO — synopsis / significance in a later research pass.</em></div>' +
+      (series.length ? '<div class="sec-h">More in “' + esc(rec.s) + '”</div>' + comicGrid(series, 24) : '') +
+      '<div style="margin-top:22px"><span class="backchip" onclick="history.back()">← Back</span></div>';
+  }
+
   function search(q) {
     var s = sq(q); if (s.length < 2) { view.innerHTML = '<p class="small">Type at least 2 characters.</p>'; return; }
     var unis = uniList.filter(function (u) { return sq(cap(u)).indexOf(s) >= 0; });
     var ents = Object.keys(W.ent).filter(function (k) { return sq(W.ent[k].t).indexOf(s) >= 0; }).slice(0, 30);
     var items = C.filter(function (c) { return sq(c.name).indexOf(s) >= 0 || sq(c.character).indexOf(s) >= 0; });
+    var comics = COMICS.filter(function (r) { return sq(r.t + ' ' + r.s).indexOf(s) >= 0; });
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }, { t: 'Search: ' + q }]) +
       (unis.length ? '<div class="sec-h">Universes</div><div class="tagrow">' + unis.map(function (u) { return '<span class="tag" onclick="' + href('u/' + u) + '">' + esc(cap(u)) + ' (' + byUni[u].length + ')</span>'; }).join('') + '</div>' : '') +
       (ents.length ? '<div class="sec-h">Characters</div><div class="tagrow">' + ents.map(function (k) { return '<span class="tag" onclick="' + href('e/' + k) + '">' + esc(W.ent[k].t) + '</span>'; }).join('') + '</div>' : '') +
-      '<div class="sec-h">Collectibles <span class="small">(' + items.length.toLocaleString() + ')</span></div>' + (items.length ? mainGrid(items, 120) : '<p class="small">No collectibles match “' + esc(q) + '”.</p>');
+      '<div class="sec-h">Collectibles <span class="small">(' + items.length.toLocaleString() + ')</span></div>' + (items.length ? mainGrid(items, 120) : '<p class="small">No collectibles match “' + esc(q) + '”.</p>') +
+      (comics.length ? '<div class="sec-h">📖 Comics <span class="small">(' + comics.length.toLocaleString() + ')</span></div>' + comicGrid(comics.slice().sort(comicSort), 60) : '');
   }
 
   function notfound(what) { view.innerHTML = '<div class="note">Nothing found for ' + esc(what) + '. <a onclick="' + href('') + '">Back to Explorer</a>.</div>'; }
@@ -269,6 +353,7 @@
     var h = (location.hash || '').replace(/^#\/?/, ''), p = h.split('/'), t = p[0], id = decodeURIComponent(p.slice(1).join('/') || '');
     window.scrollTo(0, 0);
     if (t === 'c') collectible(id);
+    else if (t === 'comic') comic(id);
     else if (t === 'u') universe(id);
     else if (t === 'sub') { var pp = id.split('/'); subPage(pp[0], pp.slice(1).join('/')); }
     else if (t === 'e') entity(id);
