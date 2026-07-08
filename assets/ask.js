@@ -147,7 +147,7 @@
     return COMICS.map(function (c) {
       var rank = { 'Secret Rare': 0, 'Ultra Rare': 1, 'Rare': 2, 'Uncommon': 3, 'Common': 4 };
       var top = (c.r || []).slice().sort(function (a, b) { return (rank[a] == null ? 9 : rank[a]) - (rank[b] == null ? 9 : rank[b]); })[0] || '';
-      return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s, _t: c.t, _n: c.n };
+      return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s, _t: c.t, _n: c.n, _r: c.r || [], tid: (cmByKey[nz(c.t) + '|' + c.n + '|' + nz(top)] || {}).tid };
     });
   }
 
@@ -173,8 +173,9 @@
         if (toks.length) nar = items.filter(function (it) { var hay = sq(it.name) + ' ' + sq(it.aka || '') + ' ' + sq(it.character) + ' ' + sq(it.series || ''); return toks.every(function (t) { return hay.indexOf(sq(t)) >= 0; }); });
       }
       if (nar.length) items = nar;
-      else if (!p.uni) { var b2 = base.filter(function (it) { return sq(it.universe).indexOf(subjq) >= 0 || sq(it.name).indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0; }); if (b2.length) items = b2; }
-      // universe set + no name match → keep the universe list (don't over-narrow)
+      else if (!p.uni) items = base.filter(function (it) { return sq(it.universe).indexOf(subjq) >= 0 || sq(it.name).indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0; });
+      // (no uni + a real subject that matches nothing → items becomes [] → triggers the fuzzy fallback,
+      //  instead of silently listing the whole catalog. A universe query keeps its list — don't over-narrow.)
     }
     if (p.rarity) items = items.filter(function (it) { return it.rarity === p.rarity; });
     return items;
@@ -317,8 +318,13 @@
       intent = 'list';
     }
 
-    if (!items.length) return fin(q, { topic: lbl, empty: true, emptyWhy: 'no ' + kind + ' matched ' + (lbl === 'all' ? 'that' : '“' + lbl + '”') + '.', suggest: 'Try a universe (Marvel, Star Wars, Disney) or a character (Boba Fett).' },
-      { summary: 'No ' + kind + ' found for <strong>' + esc(lbl) + '</strong>. Try a universe (Spider-Man, Star Wars, Disney…) or a character (Boba Fett).', rows: [] });
+    if (!items.length) {
+      var toks = (p.subj || '').split(/\s+/).filter(function (t) { return t.length >= 4; });
+      var sugg = toks.length ? C.filter(function (it) { var n = sq(it.name) + ' ' + sq(it.character); return toks.some(function (t) { return n.indexOf(sq(t)) >= 0; }); }).sort(function (a, b) { return (a.edition || 1e9) - (b.edition || 1e9); }).slice(0, 6) : [];
+      var sg = sugg.length ? ' Did you mean: ' + sugg.map(function (it) { return '<span class="exchip" onclick="ASKUI(\'' + esc(it.name).replace(/'/g, '') + '\')">' + esc(it.name) + '</span>'; }).join(' ') : ' Try a universe (Marvel, Star Wars, Disney…) or a character (Boba Fett).';
+      return fin(q, { topic: lbl, empty: true, emptyWhy: 'no ' + kind + ' matched ' + (lbl === 'all' ? 'that' : '“' + lbl + '”') + '.', suggest: '' },
+        { summary: 'No ' + kind + ' found for <strong>' + esc(lbl) + '</strong>.' + sg, rows: [] });
+    }
 
     if (intent === 'count') {
       var byR = {}; items.forEach(function (it) { byR[rarLabel(it)] = (byR[rarLabel(it)] || 0) + 1; });
@@ -331,7 +337,7 @@
       if (p.subj && items.length && items.length <= 8) return itemMetricAnswer(q, items, intent);
       var metricFn = intent === 'held' ? totalHeld : (intent === 'burnt' ? burnt : unsold);
       var full = items.filter(function (it) { return metricFn(it) > 0; }).sort(function (a, b) { return metricFn(b) - metricFn(a); });
-      var word = intent === 'held' ? 'held back (reserved low mints, #1 → lowest-public)' : (intent === 'burnt' ? 'burnt (removed from supply)' : 'unsold (still in VeVe\'s Store)');
+      var word = intent === 'held' ? 'held back (reserve #1→LPM + random withholds VeVe keeps off-market)' : (intent === 'burnt' ? 'burnt (removed from supply)' : 'unsold (still in VeVe\'s Store)');
       if (!full.length) {
         var why = intent === 'held' ? 'reserved-mint data isn\'t recorded for ' + (L(lbl) || 'these ') + kind + ' — we know the reserve only where the lowest-public mint has been researched' : 'no ' + (intent === 'burnt' ? 'burns' : 'unsold stock') + ' recorded for ' + (L(lbl) || 'these ') + kind;
         return fin(q, { topic: L(lbl) + kind + ' ' + intent, empty: true, emptyWhy: why + '.', suggest: intent === 'held' ? 'I can list what IS researched — ask "which collectibles are held back?" without a filter.' : '' },
@@ -385,22 +391,58 @@
     return null;
   }
 
-  // detail card for one collectible (used by row/pronoun follow-ups)
-  function itemCard(it, q) {
-    var c = cost(it), bits = [];
-    bits.push((it.rarity || '?') + (it.edition ? ' · edition ' + it.edition.toLocaleString() : ''));
-    if (it.universe) bits.push(it.universe);
-    if (it.set) bits.push('set: ' + it.set);
-    var lines = [];
-    lines.push('Floor: ' + (c ? '💎 ' + Math.round(c.v).toLocaleString() + (c.src === 'veve' ? ' (VeVe 💠)' : c.src === 'stackr' ? ' (StackR ⛓)' : ' (drop)') : (it.blind ? '🎲 blind box — no fixed price' : 'unlisted')));
-    if (reserved(it)) lines.push('🔒 ' + reserved(it).toLocaleString() + ' held back (#1–#' + (it.lowmint - 1) + ' reserved)');
-    if (burnt(it)) lines.push('🔥 ' + burnt(it).toLocaleString() + ' burnt');
-    if (unsold(it)) lines.push('📦 ' + unsold(it).toLocaleString() + ' unsold in store');
-    var lore = DESC.coll[it.slug];
+  // RICH item card — the flagship "smart" answer when the user names a specific collectible/comic.
+  // Everything we know: rarity/universe/character/set/season, floor, LPM, EXACT held-back (on-chain),
+  // circulation/burnt/unsold, MCP, lore, and StackR/VeVe buy links. Also used by row/pronoun follow-ups.
+  function kv(l, v) { return '<div style="display:flex;gap:10px;font-size:13.5px;padding:2px 0"><span style="color:var(--muted);flex:0 0 132px">' + l + '</span><span style="font-weight:600;min-width:0">' + v + '</span></div>'; }
+  function itemCard(it, q, matches) {
+    var c = cost(it), isC = !!it._comic, rows = [];
+    rows.push(kv('Rarity', esc(it.rarity || '?') + (it.fe ? ' · First Edition' : '') + (it.sp ? ' · ✨ special' : '')));
+    if (it.universe) rows.push(kv('Universe', esc(ucap(it.universe))));
+    if (it.character) rows.push(kv('Character', esc(it.character)));
+    if (isC && it.series) rows.push(kv('Series', esc(it.series) + (it._n ? ' #' + esc(String(it._n)) : '') + (it.age ? ' <span class="small">· ' + esc(it.age) + ' age</span>' : '')));
+    if (isC && it._r && it._r.length) rows.push(kv('Covers', esc(it._r.join(', '))));
+    if (it.set) rows.push(kv('Set', esc(it.set)));
+    if (it.season) rows.push(kv('Season', 'Season ' + it.season));
+    if (it.edition) rows.push(kv('Edition size', it.edition.toLocaleString()));
+    rows.push(kv('Market floor', c ? '💎 ' + Math.round(c.v).toLocaleString() + (c.src === 'veve' ? ' <span class="small">(VeVe 💠 ask)</span>' : c.src === 'stackr' ? ' <span class="small">(StackR ⛓ traded)</span>' : ' <span class="small">(drop price)</span>') : (it.blind ? '🎲 blind box — no fixed price' : 'unlisted')));
+    if (it.lowmint) rows.push(kv('Lowest public mint', '#' + it.lowmint));
+    var hl = heldList(it);
+    if (hl) rows.push(kv('🔒 Held back by VeVe', heldCount(hl).toLocaleString() + ' <span class="small">(on-chain: #' + esc(hl).replace(/,/g, ', #') + ')</span>'));
+    else if (reserved(it)) rows.push(kv('🔒 Held back by VeVe', randomHeld(it) ? totalHeld(it).toLocaleString() + ' <span class="small">(#1–#' + (it.lowmint - 1) + ' + ~' + randomHeld(it) + ' random)</span>' : reserved(it).toLocaleString() + ' <span class="small">(#1–#' + (it.lowmint - 1) + ')</span>'));
+    if (it.circ) rows.push(kv('👥 In circulation', it.circ.toLocaleString()));
+    if (burnt(it)) rows.push(kv('🔥 Burnt', burnt(it).toLocaleString()));
+    if (!it.blind && unsold(it)) rows.push(kv('📦 Unsold in Store', unsold(it).toLocaleString()));
+    rows.push(kv('MCP', '+' + mcp(it).toFixed(2) + '/day'));
+    var lore = DESC.coll[it.slug] || (isC && it.tid && g.COMIC_DESC && g.COMIC_DESC[it.tid] && g.COMIC_DESC[it.tid].d) || '';
+    var buy = '';
+    if (it.tid) { var seg = isC ? 'comic' : 'collectible', pth = isC ? 'comics' : 'collectibles';
+      buy = '<div class="exchips" style="margin-top:10px"><a class="exchip" href="https://www.stackr.world/collections/veve/' + seg + '/' + it.tid + '" target="_blank" rel="noopener">🛒 StackR ↗</a><a class="exchip" href="https://www.veve.me/collectibles/en/' + pth + '/' + it.tid + '" target="_blank" rel="noopener">VeVe ↗</a></div>'; }
+    var alt = (matches && matches.length > 1) ? '<div class="small" style="margin-top:10px">Also matched: ' + matches.filter(function (m) { return m !== it; }).slice(0, 5).map(function (m) { return '<span class="exchip" onclick="ASKUI(\'' + esc(m.name).replace(/'/g, '') + '\')">' + esc(m.name) + '</span>'; }).join(' ') + '</div>' : '';
     return fin(q, { item: it, topic: it.name }, {
-      summary: '<strong>' + esc(it.name) + '</strong> <span class="small">(' + esc(bits.join(' · ')) + ')</span><br>' +
-        '<span class="small">' + lines.join(' &nbsp;·&nbsp; ') + '</span>' + (lore ? '<br>' + esc(lore) : ''), rows: []
+      summary: '<strong style="font-size:16px">' + esc(it.name) + '</strong>' + (isC ? ' <span class="small">comic</span>' : '') +
+        '<div style="margin-top:8px">' + rows.join('') + '</div>' +
+        (lore ? '<div class="small" style="margin-top:10px;line-height:1.6">' + esc(lore) + '</div>' : '') + buy + alt, rows: []
     });
+  }
+  // route a specific-item query to the rich card (bare item name, "tell me about X", "X floor", …)
+  function maybeItemCard(q) {
+    var io = intentOf(q);
+    if (io !== 'list' && io !== 'about' && io !== 'floor') return null;   // ranked/metric intents keep their own handlers
+    var pp = parse(q);
+    if (!pp.subj || pp.uni) return null;                                  // universe queries → list handler
+    var subjq = sq(pp.subj); if (COMIC_ABBR[subjq]) subjq = sq(COMIC_ABBR[subjq]);
+    if (subjq.length < 3) return null;
+    var matches = selectItems(pp);
+    if (!matches.length || matches.length > 8) return null;               // broad category / nothing → list handler
+    var best = matches.slice().sort(function (a, b) {
+      var ax = (sq(a.name) === subjq || sq(a.aka || '') === subjq) ? 0 : 1, bx = (sq(b.name) === subjq || sq(b.aka || '') === subjq) ? 0 : 1;
+      if (ax !== bx) return ax - bx;
+      return Math.abs(sq(a.name).length - subjq.length) - Math.abs(sq(b.name).length - subjq.length);
+    })[0];
+    var bn = sq(best.name), ba = sq(best.aka || '');
+    if (!(bn.indexOf(subjq) >= 0 || ba.indexOf(subjq) >= 0 || subjq.indexOf(bn) >= 0 || matches.length <= 3)) return null;   // must clearly BE the subject, not a loose concept hit
+    return itemCard(best, q, matches);
   }
 
   // "is/why isn't X a Y collectible?" — look up the SPECIFIC named item and state its real universe,
@@ -471,7 +513,7 @@
       var ni = bareIntent(s);
       if (ni) {
         if (LAST.item && /floor|price|worth|much|blind|held|reserve|burnt|unsold/.test(s)) return itemCard(LAST.item, q);
-        return engine(q, ni, topN(q), { uni: LAST._uni || null, subj: LAST._subj || '', rarity: LAST._rarity || null, useComics: false });
+        return engine(q, ni, topN(q), { uni: detectUni(sq(q)) || LAST._uni || null, subj: LAST._subj || '', rarity: detectRarity(q) || LAST._rarity || null, useComics: /\bcomics?\b/.test(s) || LAST._useComics });
       }
       if (LAST.item && /(it|this|that|its)\b/.test(s)) return itemCard(LAST.item, q);
     }
@@ -501,6 +543,9 @@
     // "is/why isn't <named item> a <franchise> collectible?" → answer about that specific item
     var belong = itemBelongs(q);
     if (belong) return belong;
+    // a specific collectible/comic named (any phrasing) → rich item card
+    var card = maybeItemCard(q);
+    if (card) return card;
     // fresh query (engine remembers the parse in LAST for later refine follow-ups)
     return engine(q, intentOf(q), topN(q), parse(q));
   }

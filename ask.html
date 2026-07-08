@@ -73,20 +73,20 @@
 <script src="data/descriptions.js?v=1"></script>
 <script src="data/held.js?v=1"></script>
 <script src="assets/collectscan.js?v=5"></script>
-<script src="assets/ask.js?v=19"></script>
+<script src="assets/ask.js?v=20"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   $('#stat').textContent = ASK.stats.collectibles.toLocaleString() + ' collectibles · ' + ASK.stats.universes + ' universes · ' + ASK.stats.comics.toLocaleString() + ' comics';
   var EX = [
+    'The Partners Statue',
+    'Which editions of The Partners Statue are held back?',
+    'Where is #78 of the partners statue?',
     'Scarcest 5 Spider-Man collectibles',
-    'Where is #36 of Ant-Man?',
-    'Which Disney collectibles are held back?',
-    'Which Marvel collectibles were burnt?',
     'Cheapest Secret Rares',
-    'Most valuable Star Wars collectibles',
-    'How many Marvel collectibles are there?',
-    'What is Alligator Loki?'
+    'Who owns the most Alligator Loki?',
+    'What is Amazing Fantasy #15?',
+    'Most valuable Star Wars collectibles'
   ];
   // it's a conversation — follow-ups like "why?", "more", "the 2nd one", "and burnt?" work
   $('#examples').innerHTML = EX.map(function (e) { return '<span class="exchip">' + e + '</span>'; }).join('');
@@ -123,6 +123,7 @@
   $('#send').addEventListener('click', function () { var v = $('#q').value.trim(); if (v) { answer(v); $('#q').value = ''; } });
   $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#send').click(); });
   $('#examples').addEventListener('click', function (e) { if (e.target.classList.contains('exchip')) { $('#q').value = e.target.textContent; $('#send').click(); } });
+  window.ASKUI = function (t) { $('#q').value = t; $('#send').click(); };   // clickable chips inside answers (suggestions / "also matched")
 })();
 </script>
 </body>
