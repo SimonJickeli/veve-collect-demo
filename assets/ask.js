@@ -43,6 +43,11 @@
   // HELD BACK = reserved low mints (#1 → lowest-public−1). UNSOLD = Store stock. BURNT = removed. All separate.
   function reserved(it) { return (it.lowmint && it.lowmint > 1) ? (it.lowmint - 1) : 0; }
   function heldBack(it) { return reserved(it); }
+  // VeVe's FULL withhold = the low-mint reserve (#1 → lpm−1) PLUS editions withheld AT RANDOM above it.
+  // `it.held` is VeVe's reported total held-back; when it exceeds the reserve, the surplus is scattered
+  // above the lowest public mint — so a mint ≥ lpm is NOT guaranteed to be in a collector's wallet.
+  function totalHeld(it) { return Math.max(it.held || 0, reserved(it)); }
+  function randomHeld(it) { return Math.max(0, totalHeld(it) - reserved(it)); }
   function unsold(it) { return it.blind ? 0 : (it.store || 0); }   // blind boxes never sold as singles → no store surface
   function burnt(it) { return it.burnt || 0; }
   function issuedOf(it) { return it.issued || it.edition || 0; }
@@ -177,22 +182,29 @@
     CURP = null;
     var sub = q.replace(/(?:#|edition|mint|no\.?|number)\s*#?\s*\d{1,7}/ig, ' ').toLowerCase().replace(/[^a-z0-9\s]+/g, ' ')
       .split(/\s+/).filter(function (w) { return w && !FILLER[w] && !/^\d+$/.test(w); }).join(' ').trim();
+    // "#41 of the above / that / it / previous / same one" → reuse the item from the last answer
+    var refBack = /\b(above|previous|prev|last|earlier|same|that|this|it|one)\b/.test(sub) || /the above|previous|last one|same (one|item)|that one/.test(q.toLowerCase());
     var sj = sq(sub), it = null;
-    if (sj) {
+    if (refBack && LAST && LAST.item) it = LAST.item;
+    if (!it && sj) {
       var m = C.filter(function (x) { return sq(x.name).indexOf(sj) >= 0 || sq(x.character).indexOf(sj) >= 0; });
       if (!m.length) { var toks = sub.split(' ').filter(function (t) { return t.length > 1; }); m = C.filter(function (x) { var nm = sq(x.name) + sq(x.character); return toks.length && toks.every(function (t) { return nm.indexOf(sq(t)) >= 0; }); }); }
       it = m.sort(function (a, b) { return sq(a.name).length - sq(b.name).length; })[0];
     }
+    if (!it && LAST && LAST.item) it = LAST.item;   // last resort: keep talking about the current item
     if (!it) return fin(q, { topic: 'an edition', empty: true, emptyWhy: 'I need to know which collectible.' }, { summary: 'Which collectible? Try e.g. "where is #41 of Alligator Loki?"', rows: [] });
-    var lpm = it.lowmint, iss = issuedOf(it), res = reserved(it), bn = burnt(it), st = unsold(it);
+    var lpm = it.lowmint, iss = issuedOf(it), res = reserved(it), bn = burnt(it), st = unsold(it), rnd = randomHeld(it), theld = totalHeld(it);
     var head = '<strong>#' + N + ' of ' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition of ' + it.edition.toLocaleString() : '') + ')</span> — ';
     var meta = { item: it, topic: '#' + N + ' of ' + it.name };
     if (iss && N > iss) return fin(q, meta, { summary: head + '❔ there is no #' + N + ' — only ' + iss.toLocaleString() + ' editions were minted.', rows: [] });
-    if (lpm && N > 0 && N < lpm) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe</strong> — a reserved mint below the lowest public mint (#' + lpm + '). It sits in VeVe\'s reserve wallet and was never sold to collectors.', rows: [] });
-    var bits = []; if (res) bits.push('#1–#' + (lpm - 1) + ' reserved'); if (bn) bits.push(bn.toLocaleString() + ' burnt'); if (st) bits.push(st.toLocaleString() + ' unsold');
-    var ctx = bits.length ? ' For ' + esc(it.name) + ': ' + bits.join(' · ') + '.' : '';
-    if (!lpm) return fin(q, meta, { summary: head + '❔ the lowest public mint isn\'t recorded for this one, so I can\'t say for certain whether #' + N + ' is reserved.' + ctx + ' <span class="small">Mints below the reserve are held back; the rest are with collectors, unsold, or burnt — exact per-edition owner needs VeVe\'s app.</span>', rows: [] });
-    return fin(q, meta, { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + ' <span class="small">Pinpointing which needs VeVe\'s app / a full on-chain owner scan; only mints below #' + lpm + ' are certainly held back.</span>', rows: [] });
+    if (lpm && N > 0 && N < lpm) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — certain.</strong> A reserved mint below the lowest public mint (#' + lpm + '); it sits in VeVe\'s reserve wallet and was never sold to collectors.', rows: [] });
+    var bits = []; if (res) bits.push('#1–#' + (lpm - 1) + ' reserved'); if (rnd) bits.push('~' + rnd.toLocaleString() + ' more withheld at random above #' + lpm); if (bn) bits.push(bn.toLocaleString() + ' burnt'); if (st) bits.push(st.toLocaleString() + ' unsold');
+    var ctx = bits.length ? ' <span class="small">(' + esc(it.name) + ': ' + bits.join(' · ') + ')</span>' : '';
+    if (!lpm) return fin(q, meta, { summary: head + '❔ the lowest public mint isn\'t recorded for this one, so I can\'t say whether #' + N + ' is reserved.' + ctx, rows: [] });
+    // N ≥ lpm: public range — BUT VeVe also withholds editions AT RANDOM above the reserve, so not certain
+    if (rnd > 0) return fin(q, meta, {
+      summary: head + '👤 <strong>Public range</strong> (#' + lpm + '+) — <em>most likely</em> a collector\'s, <strong>but not certain</strong>. VeVe withholds <strong>' + theld.toLocaleString() + '</strong> of this item in total: the #1–#' + (lpm - 1) + ' reserve <em>plus ~' + rnd.toLocaleString() + ' scattered at random above #' + lpm + '</em> — so #' + N + ' could still be a VeVe hold rather than a collector.' + ctx + ' <span class="small">Confirming a specific edition needs its on-chain owner (VeVe\'s app, or a full chain index like an analytics service runs).</span>', rows: [] });
+    return fin(q, meta, { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + ' <span class="small">Pinpointing the exact owner needs VeVe\'s app / a full on-chain index.</span>', rows: [] });
   }
 
   // Precise per-item answer for "what does VeVe hold back / burn / leave unsold on <a specific item>?"
@@ -204,8 +216,12 @@
       if (intent === 'held') {
         var lpm = it.lowmint, res = reserved(it);
         if (!lpm || lpm <= 1) return head + ' — the reserve for this one <strong>hasn\'t been researched yet</strong>, so the exact held-back mints aren\'t recorded. <span class="small">(Anything below its lowest public mint is held back — we just don\'t have that number for this item.)</span>';
+        var rnd = randomHeld(it), theld = totalHeld(it);
         var extra = []; if (burnt(it)) extra.push(burnt(it).toLocaleString() + ' burnt'); if (unsold(it)) extra.push(unsold(it).toLocaleString() + ' unsold');
-        return head + ' — VeVe holds back <strong>' + res + '</strong> edition' + (res === 1 ? '' : 's') + ': <strong>#1–#' + (lpm - 1) + '</strong>, every mint below the lowest public mint (#' + lpm + ').' + (extra.length ? ' <span class="small">(also ' + extra.join(' · ') + ')</span>' : '');
+        var core = rnd
+          ? ' — VeVe withholds <strong>' + theld.toLocaleString() + '</strong> editions in total: the <strong>#1–#' + (lpm - 1) + '</strong> reserve <em>plus ~' + rnd.toLocaleString() + ' more held back at random above #' + lpm + '</em>, so some public-range mints are VeVe\'s too.'
+          : ' — VeVe holds back <strong>' + res + '</strong> edition' + (res === 1 ? '' : 's') + ': <strong>#1–#' + (lpm - 1) + '</strong>, every mint below the lowest public mint (#' + lpm + ').';
+        return head + core + (extra.length ? ' <span class="small">(also ' + extra.join(' · ') + ')</span>' : '');
       }
       if (intent === 'burnt') { var b = burnt(it); return head + (b ? ' — <strong>' + b.toLocaleString() + '</strong> edition' + (b === 1 ? '' : 's') + ' burnt from supply.' : ' — no burns recorded.'); }
       var s = unsold(it); return head + (s ? ' — <strong>' + s.toLocaleString() + '</strong> unsold in VeVe\'s Store.' : (it.blind ? ' — a blind box (sold as sealed boxes, not singles).' : ' — none unsold.'));
@@ -283,7 +299,7 @@
     if (intent === 'held' || intent === 'burnt' || intent === 'unsold') {
       // a specific collectible ("what does VeVe hold back on <item>?") → precise per-item answer, not a ranked list
       if (p.subj && items.length && items.length <= 8) return itemMetricAnswer(q, items, intent);
-      var metricFn = intent === 'held' ? heldBack : (intent === 'burnt' ? burnt : unsold);
+      var metricFn = intent === 'held' ? totalHeld : (intent === 'burnt' ? burnt : unsold);
       var full = items.filter(function (it) { return metricFn(it) > 0; }).sort(function (a, b) { return metricFn(b) - metricFn(a); });
       var word = intent === 'held' ? 'held back (reserved low mints, #1 → lowest-public)' : (intent === 'burnt' ? 'burnt (removed from supply)' : 'unsold (still in VeVe\'s Store)');
       if (!full.length) {
@@ -462,7 +478,7 @@
   g.ASK = {
     ask: respond,
     reset: function () { LAST = null; },
-    cost: cost, costStr: costStr, mcp: mcp, reserved: reserved, heldBack: heldBack,
+    cost: cost, costStr: costStr, mcp: mcp, reserved: reserved, heldBack: heldBack, totalHeld: totalHeld,
     desc: function (slug) { return DESC.coll[slug] || ''; },
     stats: { collectibles: C.length, universes: uniList.length, comics: COMICS.length }
   };

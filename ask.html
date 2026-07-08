@@ -66,13 +66,13 @@
   <footer class="foot">Ask the Wiki · deterministic answers grounded in the on-chain catalog + wiki knowledge base.</footer>
 </div>
 
-<script src="data/catalog.js?v=14"></script>
+<script src="data/catalog.js?v=15"></script>
 <script src="data/comics.js?v=1"></script>
 <script src="data/comics_mcp.js?v=2"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="data/descriptions.js?v=1"></script>
 <script src="assets/collectscan.js?v=5"></script>
-<script src="assets/ask.js?v=16"></script>
+<script src="assets/ask.js?v=17"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -95,7 +95,7 @@
   function metric(it, cols) {
     if (cols === 'cheap' || cols === 'expensive') return '<div class="metric">' + ASK.costStr(it) + '</div>';
     if (cols === 'mcp') { var c = ASK.cost(it); return '<div class="metric">+' + ASK.mcp(it).toFixed(2) + '<span class="sub">MCP/day · ' + ASK.costStr(it) + '</span></div>'; }
-    if (cols === 'held') return '<div class="metric">' + ASK.reserved(it).toLocaleString() + '<span class="sub">reserved #1–#' + ((it.lowmint || 1) - 1) + '</span></div>';
+    if (cols === 'held') return '<div class="metric">' + ASK.totalHeld(it).toLocaleString() + '<span class="sub">held back</span></div>';
     if (cols === 'burnt') return '<div class="metric">' + (it.burnt || 0).toLocaleString() + '<span class="sub">burnt</span></div>';
     if (cols === 'unsold') return '<div class="metric">' + (it.blind ? '—' : (it.store || 0).toLocaleString()) + '<span class="sub">' + (it.blind ? 'blind box' : 'unsold in store') + '</span></div>';
     return '<div class="metric">' + (it.edition ? it.edition.toLocaleString() : '?') + '<span class="sub">edition</span></div>';

@@ -7,6 +7,7 @@
   'use strict';
   var C = (window.CATALOG && CATALOG.items) || [];
   var COMICS = window.COMICS || [];
+  var CDESC = window.COMIC_DESC || {};   // VeVe's own per-comic description (authoritative lore), keyed by tid
   var W = window.WIKI || { coll: {}, ent: {}, dom: {}, col: {} };
   var SM = (window.CATALOG && CATALOG.seasonMeta) || {};
   var nn = window.normName || function (s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
@@ -325,7 +326,7 @@
       '<div class="sec-h">Covers <span class="small">(' + covers.length + ' — a full cover-set)</span></div><dl class="facts">' + covRows + '</dl>' +
       (creators.length ? '<div class="sec-h">Creators</div><p class="prose">' + creators.map(esc).join(' · ') + '</p>' : '') +
       (chars.length ? '<div class="sec-h">Characters</div><div class="tagrow">' + chars.join('') + '</div>' : '') +
-      '<div class="prose" style="margin-top:14px"><em># TODO — synopsis / significance in a later research pass.</em></div>' +
+      (tid && CDESC[tid] && CDESC[tid].d ? '<div class="prose" style="margin-top:14px"><h4>Story</h4>' + esc(CDESC[tid].d) + '</div>' : '') +
       (series.length ? '<div class="sec-h">More in “' + esc(rec.s) + '”</div>' + comicGrid(series, 24) : '') +
       '<div style="margin-top:22px"><span class="backchip" onclick="history.back()">← Back</span></div>';
   }
