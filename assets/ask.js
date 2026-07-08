@@ -51,18 +51,20 @@
   // On-chain reserve index (app/data/held.js = the exact editions in VeVe's reserve wallet 0x7be1…).
   // isHeld(it,N): true = CONFIRMED VeVe-held · false = CONFIRMED collector-owned · null = not indexed → probabilistic.
   var _hk = g.normName || nz;
-  function isHeld(it, N) {
+  // exact held-back edition ranges for an item, from the on-chain reserve index. held.js is keyed by the
+  // ON-CHAIN name, so try the catalog's `aka` (on-chain alias) FIRST, then the display name (71%→95% match).
+  function heldList(it) {
     var H = g.HELD; if (!H || !H.k) return null;
-    var r = H.k[_hk(it.name) + '|' + _hk(it.rarity)];
-    if (r == null) {                                    // no entry for this item
-      if (!H.complete) return null;                     // partial index → unknown
-      if (it.drop && H.asOf && Date.parse(it.drop) > H.asOf * 1000) return null;  // dropped AFTER the index → not yet covered
-      return false;                                     // complete index, item pre-dates it, not held → collector
-    }
+    return H.k[_hk(it.aka || it.name) + '|' + _hk(it.rarity)] || H.k[_hk(it.name) + '|' + _hk(it.rarity)] || null;
+  }
+  function isHeld(it, N) {
+    var r = heldList(it);
+    if (r == null) return null;                         // not in the index (or a name miss) → probabilistic fallback; never a false "collector"
     var parts = String(r).split(',');
     for (var i = 0; i < parts.length; i++) { var p = parts[i].split('-'), lo = +p[0], hi = p[1] != null ? +p[1] : lo; if (N >= lo && N <= hi) return true; }
     return false;
   }
+  function heldCount(r) { var c = 0; String(r).split(',').forEach(function (p) { var a = p.split('-'); c += a[1] ? (+a[1] - +a[0] + 1) : 1; }); return c; }
   function unsold(it) { return it.blind ? 0 : (it.store || 0); }   // blind boxes never sold as singles → no store surface
   function burnt(it) { return it.burnt || 0; }
   function issuedOf(it) { return it.issued || it.edition || 0; }
@@ -165,7 +167,11 @@
     var items = p.uni ? base.filter(function (it) { return it.universe === p.uni; }) : base.slice();
     var subjq = sq(p.subj);
     if (subjq && subjq.length >= 3) {
-      var nar = items.filter(function (it) { return sq(it.name).indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0 || sq(it.series || '').indexOf(subjq) >= 0; });
+      var nar = items.filter(function (it) { return sq(it.name).indexOf(subjq) >= 0 || sq(it.aka || '').indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0 || sq(it.series || '').indexOf(subjq) >= 0; });
+      if (!nar.length) {   // token match — ALL subject words present (handles "partner statue" → "The Partners Statue")
+        var toks = p.subj.split(/\s+/).filter(function (t) { return t.length > 1; });
+        if (toks.length) nar = items.filter(function (it) { var hay = sq(it.name) + ' ' + sq(it.aka || '') + ' ' + sq(it.character) + ' ' + sq(it.series || ''); return toks.every(function (t) { return hay.indexOf(sq(t)) >= 0; }); });
+      }
       if (nar.length) items = nar;
       else if (!p.uni) { var b2 = base.filter(function (it) { return sq(it.universe).indexOf(subjq) >= 0 || sq(it.name).indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0; }); if (b2.length) items = b2; }
       // universe set + no name match → keep the universe list (don't over-narrow)
@@ -233,6 +239,11 @@
     var lines = list.slice(0, 8).map(function (it) {
       var head = '<strong>' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition ' + it.edition.toLocaleString() : '') + ')</span>';
       if (intent === 'held') {
+        var hl = heldList(it);
+        if (hl) {   // EXACT held-back editions from the on-chain reserve index (reserve + random withholds)
+          var cnt = heldCount(hl), xb = burnt(it) ? ' <span class="small">(plus ' + burnt(it).toLocaleString() + ' burnt)</span>' : '';
+          return head + ' — VeVe holds back <strong>' + cnt.toLocaleString() + '</strong> edition' + (cnt === 1 ? '' : 's') + ' <span class="small">(confirmed on-chain — in VeVe\'s reserve wallet):</span><br><span class="mono" style="font-size:12px;line-height:1.7">#' + esc(hl).replace(/,/g, ', #') + '</span>' + xb;
+        }
         var lpm = it.lowmint, res = reserved(it);
         if (!lpm || lpm <= 1) return head + ' — the reserve for this one <strong>hasn\'t been researched yet</strong>, so the exact held-back mints aren\'t recorded. <span class="small">(Anything below its lowest public mint is held back — we just don\'t have that number for this item.)</span>';
         var rnd = randomHeld(it), theld = totalHeld(it);
