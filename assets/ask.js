@@ -13,12 +13,17 @@
   'use strict';
   var C = (g.CATALOG && g.CATALOG.items) || [];
   var COMICS = g.COMICS || [];
+  var CMCP = (g.COMICS_MCP && COMICS_MCP.items) || [];   // per-cover comic supply (edition + floor)
   var DESC = g.WIKI_DESC || { coll: {}, lore: {} };
 
   function nz(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
   function sq(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ''); }
   function esc(s) { return (s || '').replace(/</g, '&lt;'); }
   function L(lbl) { return (lbl && lbl !== 'all') ? esc(lbl) + ' ' : ''; }
+  function fmtN(n) { return (n || 0).toLocaleString(); }
+  var cmByKey = {}; // comic per-cover supply: "title|num|rarity" -> {e,f,tid}
+  CMCP.forEach(function (r) { cmByKey[nz(r.t) + '|' + r.n + '|' + nz(r.r)] = { e: r.e, f: r.f, tid: r.tid }; });
+  var COMIC_ABBR = { af: 'amazing fantasy', asm: 'amazing spider man', tmnt: 'teenage mutant ninja turtles', ff: 'fantastic four', xmen: 'x men', got: 'game of thrones' };
 
   // ---- cost (VeVe gem floor > StackR OMI floor > non-blind drop price) ----
   var _fnN = g.normName || nz;
@@ -87,10 +92,11 @@
     'left still remaining collectible collectibles collectable comic comics edition editions mint mints minted figure ' +
     'figures piece pieces item items thing things veve collect chain stackr drop drops dropped set sets series ' +
     'season seasons universe universes brand brands franchise character characters ' +
-    'scarce scarcest rare rarest rarer common commons uncommon uncommons secret ultra proof artist floor floors ' +
+    'scarce scarcest rare rares rarest rarer common commons uncommon uncommons secret ultra proof artist floor floors ' +
     'price prices priced pricing worth value valuable priciest cheap cheapest expensive count counted counting ' +
     'number numbers how many much top best good better great highest lowest smallest biggest largest fewest ' +
-    'own owns owned owning holder holders where locate located sitting has have got');
+    'own owns owned owning holder holders where locate located sitting has have got ' +
+    'distribution breakdown concentration spread supply supplies exist exists existing minted circulation circulating whale whales');
   function subject(q) {
     return q.toLowerCase().replace(/[^a-z0-9\s]+/g, ' ').split(/\s+/)
       .filter(function (w) { return w && !FILLER[w] && !/^\d+$/.test(w); })  // drop filler + standalone numbers (keep in-word digits: S3LF, 2099)
@@ -102,6 +108,7 @@
     if (/\bburn(t|ed)?\b|burning/.test(s)) return 'burnt';
     if (/unsold|(didn.?t|did not|doesn.?t) sell|still (available|for sale)|in the store|store stock|left in the store/.test(s)) return 'unsold';
     if (/held ?back|hold ?back|reserved|reserve|withheld/.test(s)) return 'held';
+    if (/owns? the most|biggest holder|top holders?|\bwhales?\b|\bdistribution\b|\bbreakdown\b|\bconcentration\b|how (many|much)[^?]*(exist|minted|are there|out there|in circulation|left)|how rare is|supply of/.test(s)) return 'dist';
     if (/how many|number of|count of|count the| count\b/.test(s)) return 'count';
     if (/scarcest|rarest|lowest edition|smallest edition|fewest|hardest to (get|find)/.test(s)) return 'scarce';
     if (/most common|largest edition|biggest edition|highest edition/.test(s)) return 'common';
@@ -118,7 +125,7 @@
     return COMICS.map(function (c) {
       var rank = { 'Secret Rare': 0, 'Ultra Rare': 1, 'Rare': 2, 'Uncommon': 3, 'Common': 4 };
       var top = (c.r || []).slice().sort(function (a, b) { return (rank[a] == null ? 9 : rank[a]) - (rank[b] == null ? 9 : rank[b]); })[0] || '';
-      return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s };
+      return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s, _t: c.t, _n: c.n };
     });
   }
 
@@ -208,9 +215,52 @@
       { summary: (list.length > 1 ? '<div class="small" style="margin-bottom:8px">' + list.length + ' matching collectibles:</div>' : '') + lines.join('<br><br>'), rows: [] });
   }
 
+  // "who owns the most X?" / "distribution of X" — per-holder ownership isn't publicly knowable
+  // (VeVe custodies wallets; no on-chain per-collectible holder index), so give the SUPPLY distribution.
+  function distAnswer(q, p) {
+    var subjq = sq(p.subj);
+    if (COMIC_ABBR[subjq]) subjq = sq(COMIC_ABBR[subjq]);                 // "AF" -> amazing fantasy
+    var numM = q.match(/#\s*(\d{1,4})/) || q.match(/\b(\d{1,4})\b/);
+    var num = numM ? numM[1] : null;
+    var pool = C.concat(comicItems());
+    var cand = subjq ? pool.filter(function (it) { return sq(it.name).indexOf(subjq) >= 0 || sq(it.character).indexOf(subjq) >= 0 || sq(it.series || '').indexOf(subjq) >= 0; }) : [];
+    var byNum = num ? cand.filter(function (it) { return it._comic && String(it._n) === num; }) : [];
+    if (byNum.length) cand = byNum;                                       // a comic issue number pins it down
+    if (p.rarity) { var byR = cand.filter(function (it) { return it.rarity === p.rarity; }); if (byR.length) cand = byR; }
+    var it = cand.sort(function (a, b) {
+      var an = subjq && sq(a.name).indexOf(subjq) >= 0 ? 0 : 1, bn = subjq && sq(b.name).indexOf(subjq) >= 0 ? 0 : 1;
+      if (an !== bn) return an - bn;                                      // a NAME match beats a series/character match
+      return sq(a.name).length - sq(b.name).length;                      // then shortest (most specific) name
+    })[0];
+    if (!it) return fin(q, { topic: 'distribution', empty: true, emptyWhy: 'I couldn\'t find that item.' },
+      { summary: 'Which collectible or comic? Try a full name — e.g. <em>"distribution of Amazing Fantasy #15 secret rare"</em> or <em>"who owns the most Alligator Loki?"</em>', rows: [] });
+    var whoAsk = /who owns|owns? the most|biggest holder|top holder|\bwhales?\b|concentration/.test(q.toLowerCase());
+    var ed = it.edition || issuedOf(it), floorC = cost(it);
+    if (it._comic && p.rarity) { var cm = cmByKey[nz(it._t) + '|' + it._n + '|' + nz(p.rarity)]; if (cm) { if (cm.e) ed = cm.e; if (cm.f) floorC = { v: cm.f, src: 'veve' }; } }
+    var circ = it.circ || null, res = reserved(it), bn = burnt(it), st = unsold(it), lpm = it.lowmint;
+    var rows = [];
+    if (ed) rows.push('📦 Edition — <strong>' + fmtN(ed) + '</strong> total minted');
+    if (circ) rows.push('👥 In circulation — <strong>' + fmtN(circ) + '</strong> <span class="small">(in collectors\' hands)</span>');
+    if (res) rows.push('🔒 Held back by VeVe — <strong>' + fmtN(res) + '</strong> <span class="small">(#1–#' + (lpm - 1) + ', the reserve)</span>');
+    if (st) rows.push('🏪 Unsold in Store — <strong>' + fmtN(st) + '</strong>');
+    if (bn) rows.push('🔥 Burnt — <strong>' + fmtN(bn) + '</strong>');
+    if (lpm) rows.push('🥇 Lowest public mint — <strong>#' + lpm + '</strong>');
+    if (floorC) rows.push('💎 Market floor — <strong>' + Math.round(floorC.v).toLocaleString() + '</strong> <span class="small">(' + (floorC.src === 'veve' ? 'VeVe ask 💠' : floorC.src === 'stackr' ? 'StackR traded ⛓' : 'drop') + ')</span>');
+    var head = '<strong>' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.universe ? ' · ' + esc(it.universe) : '') + (it._comic ? ' · comic' : '') + ')</span>';
+    var lead = whoAsk
+      ? '👤 <strong>Who owns the most isn\'t publicly knowable.</strong> VeVe custodies every wallet, and there\'s no public on-chain index of who holds which edition of a given item — so holders can\'t be ranked from outside. Here\'s the <strong>supply distribution</strong> instead:'
+      : '<strong>Supply distribution</strong>:';
+    return fin(q, { item: it, topic: 'distribution of ' + it.name }, {
+      summary: head + '<br><br>' + lead + '<br>' + (rows.length ? rows.join('<br>') : '<span class="small">Only edition/floor is recorded for this one.</span>') +
+        '<br><span class="small">To check a specific edition\'s owner, scan a wallet in the <strong>Mint Checker</strong> — the reverse (edition → owner) needs VeVe\'s own app.</span>',
+      rows: []
+    });
+  }
+
   // ---- the query engine (stateless core) ----------------------------------
   function engine(q, intent, N, pIn) {
     var p = pIn || parse(q); CURP = p;
+    if (intent === 'dist') return distAnswer(q, p);
     var items = selectItems(p), lbl = labelOf(p);
     var kind = p.useComics ? 'comics' : 'collectibles';
 
@@ -393,6 +443,9 @@
   function respond(q) {
     q = (q || '').trim();
     if (!q) return { summary: 'Ask me anything about the collectibles — e.g. "scarcest 5 Spider-Man collectibles", "which Disney collectibles are held back?", or "what is Alligator Loki?"', rows: [] };
+    // distribution / "who owns the most" — checked BEFORE the edition locator, because a comic
+    // issue number (#15) is not an edition number and shouldn't trigger the locator.
+    if (intentOf(q) === 'dist') return engine(q, 'dist', topN(q), parse(q));
     // edition locator ("where is #1987 of X?")
     var em = q.match(/(?:#|edition|mint|no\.?|number)\s*#?\s*(\d{1,7})/i);
     if (em && (/#\s*\d/.test(q) || /where|who|locate|holder|owns?|\bhas\b|sitting/i.test(q))) return locate(q, parseInt(em[1], 10));
