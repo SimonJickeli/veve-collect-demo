@@ -145,7 +145,7 @@
   function buyRow(c) {
     if (!c.tid) return '';
     var co = cost(c), isS = co && /StackR/.test(co.s);
-    var veve = 'https://www.veve.me/en/collectibles/' + c.tid, st = 'https://www.stackr.world/collections/veve/collectible/' + c.tid;
+    var veve = 'https://www.veve.me/collectibles/en/collectibles/' + c.tid, st = 'https://www.stackr.world/collections/veve/collectible/' + c.tid;
     var pr = isS ? ['🛒 View on StackR', st] : ['🛒 View on VeVe', veve];
     var se = isS ? ['VeVe', veve] : ['StackR', st];
     return '<div class="exbuy"><a class="btn" href="' + pr[1] + '" target="_blank" rel="noopener">' + pr[0] + ' ↗</a>' +
@@ -316,7 +316,7 @@
     var chars = (hist.ch || []).map(function (ch) { var es = charToEnt[nn(ch)]; return es ? '<span class="tag" onclick="' + href('e/' + es) + '">' + esc(ch) + '</span>' : '<span class="tag" style="cursor:default;opacity:.7">' + esc(ch) + '</span>'; });
     var creators = hist.c || [];
     var series = (comicsBySeries[rec.s] || []).filter(function (x) { return x._slug !== slug; }).sort(comicSort);
-    var veve = tid ? 'https://www.veve.me/en/comics/' + tid : null, st = tid ? 'https://www.stackr.world/collections/veve/comic/' + tid : null;
+    var veve = tid ? 'https://www.veve.me/collectibles/en/comics/' + tid : null, st = tid ? 'https://www.stackr.world/collections/veve/comic/' + tid : null;
     var buy = tid ? '<div class="exbuy"><a class="btn" href="' + st + '" target="_blank" rel="noopener">🛒 View on StackR ↗</a><a class="buylink" href="' + veve + '" target="_blank" rel="noopener">also on VeVe ↗</a></div>' : '';
     view.innerHTML = crumb([{ t: 'Explorer', r: '' }].concat(uni ? [{ t: cap(uni), r: 'u/' + uni }] : []).concat([{ t: rec.t + ' #' + rec.n }])) +
       '<h1>📖 ' + esc(rec.t) + ' #' + esc(String(rec.n)) + '</h1>' +
