@@ -48,6 +48,21 @@
   // above the lowest public mint — so a mint ≥ lpm is NOT guaranteed to be in a collector's wallet.
   function totalHeld(it) { return Math.max(it.held || 0, reserved(it)); }
   function randomHeld(it) { return Math.max(0, totalHeld(it) - reserved(it)); }
+  // On-chain reserve index (app/data/held.js = the exact editions in VeVe's reserve wallet 0x7be1…).
+  // isHeld(it,N): true = CONFIRMED VeVe-held · false = CONFIRMED collector-owned · null = not indexed → probabilistic.
+  var _hk = g.normName || nz;
+  function isHeld(it, N) {
+    var H = g.HELD; if (!H || !H.k) return null;
+    var r = H.k[_hk(it.name) + '|' + _hk(it.rarity)];
+    if (r == null) {                                    // no entry for this item
+      if (!H.complete) return null;                     // partial index → unknown
+      if (it.drop && H.asOf && Date.parse(it.drop) > H.asOf * 1000) return null;  // dropped AFTER the index → not yet covered
+      return false;                                     // complete index, item pre-dates it, not held → collector
+    }
+    var parts = String(r).split(',');
+    for (var i = 0; i < parts.length; i++) { var p = parts[i].split('-'), lo = +p[0], hi = p[1] != null ? +p[1] : lo; if (N >= lo && N <= hi) return true; }
+    return false;
+  }
   function unsold(it) { return it.blind ? 0 : (it.store || 0); }   // blind boxes never sold as singles → no store surface
   function burnt(it) { return it.burnt || 0; }
   function issuedOf(it) { return it.issued || it.edition || 0; }
@@ -197,6 +212,10 @@
     var head = '<strong>#' + N + ' of ' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition of ' + it.edition.toLocaleString() : '') + ')</span> — ';
     var meta = { item: it, topic: '#' + N + ' of ' + it.name };
     if (iss && N > iss) return fin(q, meta, { summary: head + '❔ there is no #' + N + ' — only ' + iss.toLocaleString() + ' editions were minted.', rows: [] });
+    // on-chain reserve index → DEFINITIVE answer (covers the random withholds above the LPM too)
+    var hs = isHeld(it, N);
+    if (hs === true) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — confirmed on-chain.</strong> #' + N + ' sits in VeVe\'s reserve wallet, not with a collector.', rows: [] });
+    if (hs === false) return fin(q, meta, { summary: head + '👤 <strong>With a collector — confirmed on-chain.</strong> #' + N + ' is <em>not</em> in VeVe\'s reserve wallet, so it\'s in a collector\'s hands (or burnt) — a real, tradeable edition.', rows: [] });
     if (lpm && N > 0 && N < lpm) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — certain.</strong> A reserved mint below the lowest public mint (#' + lpm + '); it sits in VeVe\'s reserve wallet and was never sold to collectors.', rows: [] });
     var bits = []; if (res) bits.push('#1–#' + (lpm - 1) + ' reserved'); if (rnd) bits.push('~' + rnd.toLocaleString() + ' more withheld at random above #' + lpm); if (bn) bits.push(bn.toLocaleString() + ' burnt'); if (st) bits.push(st.toLocaleString() + ' unsold');
     var ctx = bits.length ? ' <span class="small">(' + esc(it.name) + ': ' + bits.join(' · ') + ')</span>' : '';
