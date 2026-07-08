@@ -146,12 +146,20 @@
   }
   function topN(q) { var m = q.match(/\b(\d{1,3})\b/); var n = m ? parseInt(m[1], 10) : 10; return Math.max(1, Math.min(n, 25)); }
 
-  function comicItems() {
-    return COMICS.map(function (c) {
-      var rank = { 'Secret Rare': 0, 'Ultra Rare': 1, 'Rare': 2, 'Uncommon': 3, 'Common': 4 };
-      var top = (c.r || []).slice().sort(function (a, b) { return (rank[a] == null ? 9 : rank[a]) - (rank[b] == null ? 9 : rank[b]); })[0] || '';
-      return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s, _t: c.t, _n: c.n, _r: c.r || [], tid: (cmByKey[nz(c.t) + '|' + c.n + '|' + nz(top)] || {}).tid };
-    });
+  function makeComicItem(c) {
+    var rank = { 'Secret Rare': 0, 'Ultra Rare': 1, 'Rare': 2, 'Uncommon': 3, 'Common': 4 };
+    var top = (c.r || []).slice().sort(function (a, b) { return (rank[a] == null ? 9 : rank[a]) - (rank[b] == null ? 9 : rank[b]); })[0] || '';
+    return { name: c.t + (c.n ? ' #' + c.n : ''), universe: nz(c.l), character: '', rarity: top, edition: c.e, price: null, floor: c.f, blind: false, drop: c.d, _comic: true, age: c.a, series: c.s, _t: c.t, _n: c.n, _r: c.r || [], tid: (cmByKey[nz(c.t) + '|' + c.n + '|' + nz(top)] || {}).tid, _id: 'comic:' + sq(c.t) + '|' + c.n };
+  }
+  function comicItems() { return COMICS.map(makeComicItem); }
+  // stable id → item, so disambiguation option chips resolve to the EXACT item (not a re-search)
+  var bySlug = {}; C.forEach(function (c) { bySlug[c.slug] = c; });
+  var comicByKey = {}; COMICS.forEach(function (c) { comicByKey[sq(c.t) + '|' + c.n] = c; });
+  function itemId(it) { return it && it._comic ? it._id : (it ? it.slug : ''); }
+  function itemById(id) {
+    if (!id) return null;
+    if (id.indexOf('comic:') === 0) { var c = comicByKey[id.slice(6)]; return c ? makeComicItem(c) : null; }
+    return bySlug[id] || null;
   }
 
   // parse a query into {uni, subj, rarity, useComics}
@@ -334,7 +342,7 @@
       }
       var toks = (p.subj || '').split(/\s+/).filter(function (t) { return t.length >= 4; });
       var sugg = toks.length ? C.filter(function (it) { var n = sq(it.name) + ' ' + sq(it.character); return toks.some(function (t) { return n.indexOf(sq(t)) >= 0; }); }).sort(function (a, b) { return (a.edition || 1e9) - (b.edition || 1e9); }).slice(0, 6) : [];
-      var sg = sugg.length ? ' Did you mean: ' + sugg.map(function (it) { return '<span class="exchip" onclick="ASKUI(\'' + esc(it.name).replace(/'/g, '') + '\')">' + esc(it.name) + '</span>'; }).join(' ') : ' Try a universe (Marvel, Star Wars, Disney…) or a character (Boba Fett).';
+      var sg = sugg.length ? ' Did you mean: ' + sugg.map(function (it) { return '<span class="exchip" onclick="ASKPICK(\'' + itemId(it) + '\')">' + esc(it.name) + '</span>'; }).join(' ') : ' Try a universe (Marvel, Star Wars, Disney…) or a character (Boba Fett).';
       return fin(q, { topic: lbl, empty: true, emptyWhy: 'no ' + kind + ' matched ' + (lbl === 'all' ? 'that' : '“' + lbl + '”') + '.', suggest: '' },
         { summary: 'No ' + kind + ' found for <strong>' + esc(lbl) + '</strong>.' + sg, rows: [] });
     }
@@ -431,14 +439,25 @@
     var buy = '';
     if (it.tid) { var seg = isC ? 'comic' : 'collectible', pth = isC ? 'comics' : 'collectibles';
       buy = '<div class="exchips" style="margin-top:10px"><a class="exchip" href="https://www.stackr.world/collections/veve/' + seg + '/' + it.tid + '" target="_blank" rel="noopener">🛒 StackR ↗</a><a class="exchip" href="https://www.veve.me/collectibles/en/' + pth + '/' + it.tid + '" target="_blank" rel="noopener">VeVe ↗</a></div>'; }
-    var alt = (matches && matches.length > 1) ? '<div class="small" style="margin-top:10px">Also matched: ' + matches.filter(function (m) { return m !== it; }).slice(0, 5).map(function (m) { return '<span class="exchip" onclick="ASKUI(\'' + esc(m.name).replace(/'/g, '') + '\')">' + esc(m.name) + '</span>'; }).join(' ') + '</div>' : '';
+    var alt = (matches && matches.length > 1) ? '<div class="small" style="margin-top:10px">Also matched: ' + matches.filter(function (m) { return m !== it; }).slice(0, 5).map(function (m) { return '<span class="exchip" onclick="ASKPICK(\'' + itemId(m) + '\')">' + esc(m.name) + '</span>'; }).join(' ') + '</div>' : '';
     return fin(q, { item: it, topic: it.name }, {
       summary: '<strong style="font-size:16px">' + esc(it.name) + '</strong>' + (isC ? ' <span class="small">comic</span>' : '') +
         '<div style="margin-top:8px">' + rows.join('') + '</div>' +
         (lore ? '<div class="small" style="margin-top:10px;line-height:1.6">' + esc(lore) + '</div>' : '') + buy + alt, rows: []
     });
   }
-  // route a specific-item query to the rich card (bare item name, "tell me about X", "X floor", …)
+  // when several distinct items genuinely fit and none clearly dominates, ASK instead of guessing —
+  // clickable options that resolve to the EXACT item (via ASKPICK → ASK.card(id)).
+  function disambiguate(q, list) {
+    var opts = list.map(function (it) {
+      var tag = it._comic ? ('comic' + (it.series ? ' · ' + it.series : '')) : ((it.rarity || '?') + (it.set ? ' · ' + it.set : '') + (it.drop ? ' · ' + String(it.drop).slice(0, 4) : ''));
+      return '<span class="exchip" onclick="ASKPICK(\'' + itemId(it) + '\')" style="display:inline-block;margin:3px 5px 0 0">' + esc(it.name) + ' <span class="small">— ' + esc(tag) + '</span></span>';
+    }).join('');
+    return fin(q, { topic: 'which one', full: list, cols: 'scarce' },
+      { summary: '🤔 A few match — which one do you mean?<div style="margin-top:8px">' + opts + '</div>', rows: [] });
+  }
+  // route a specific-item query to the rich card (bare item name, "tell me about X", "X floor", …),
+  // or to a disambiguation prompt when it's genuinely ambiguous.
   function maybeItemCard(q) {
     var io = intentOf(q);
     if (io !== 'list' && io !== 'about' && io !== 'floor') return null;   // ranked/metric intents keep their own handlers
@@ -446,20 +465,24 @@
     if (!pp.subj || pp.uni) return null;                                  // universe queries → list handler
     var subjq = sq(pp.subj); if (COMIC_ABBR[subjq]) subjq = sq(COMIC_ABBR[subjq]);
     if (subjq.length < 3) return null;
-    var matches = selectItems(pp);
-    // a rarity makes it a specific-VARIANT query ("SR yoda", "spiderman SR") → allow more matches and
-    // pick the FIRST drop; without a rarity, only fire on a tight name match (else it's a browse → list).
-    var cap = pp.rarity ? 40 : 8;
-    if (!matches.length || matches.length > cap) return null;
-    var best = matches.slice().sort(function (a, b) {
+    var matches = selectItems(pp).slice().sort(function (a, b) {
       var ax = (sq(a.name) === subjq || sq(a.aka || '') === subjq) ? 0 : 1, bx = (sq(b.name) === subjq || sq(b.aka || '') === subjq) ? 0 : 1;
       if (ax !== bx) return ax - bx;                                      // exact name/aka first
-      var ad = a.drop || '9999', bd = b.drop || '9999';                  // then the FIRST drop (VeVe collectors mean the original)
+      var ad = a.drop || '9999', bd = b.drop || '9999';                  // then the FIRST drop (collectors mean the original)
       if (ad !== bd) return ad < bd ? -1 : 1;
       return Math.abs(sq(a.name).length - subjq.length) - Math.abs(sq(b.name).length - subjq.length);
-    })[0];
-    var bn = sq(best.name), ba = sq(best.aka || '');
-    if (!(bn.indexOf(subjq) >= 0 || ba.indexOf(subjq) >= 0 || subjq.indexOf(bn) >= 0 || matches.length <= 3 || pp.rarity)) return null;   // must clearly BE the subject (a rarity already scopes it)
+    });
+    var cap = pp.rarity ? 40 : 12;
+    if (!matches.length || matches.length > cap) return null;
+    var best = matches[0], bn = sq(best.name), ba = sq(best.aka || '');
+    var bestStrong = bn.indexOf(subjq) >= 0 || ba.indexOf(subjq) >= 0 || subjq.indexOf(bn) >= 0;
+    if (!bestStrong && !pp.rarity && matches.length > 3) return null;     // weak match, no rarity → let the engine list it
+    var exact = matches.filter(function (it) { return sq(it.name) === subjq || sq(it.aka || '') === subjq; });
+    // ambiguous = 2+ items literally named the subject (e.g. two Common "Yoda"), or a small no-rarity
+    // spread with no exact winner. A rarity that pins one variant, or a single exact, is NOT ambiguous.
+    var ambiguous = pp.rarity ? (exact.length >= 2)
+      : ((exact.length >= 2) || (exact.length === 0 && bestStrong && matches.length >= 2 && matches.length <= 6));
+    if (ambiguous) return disambiguate(q, matches.slice(0, 8));
     return itemCard(best, q, matches);
   }
 
@@ -572,6 +595,7 @@
     ask: respond,
     reset: function () { LAST = null; },
     cost: cost, costStr: costStr, mcp: mcp, reserved: reserved, heldBack: heldBack, totalHeld: totalHeld,
+    card: function (id) { var it = itemById(id); return it ? itemCard(it, '', null) : { summary: 'Sorry — I lost track of that one. Ask again?', rows: [] }; },
     desc: function (slug) { return DESC.coll[slug] || ''; },
     stats: { collectibles: C.length, universes: uniList.length, comics: COMICS.length }
   };

@@ -73,7 +73,7 @@
 <script src="data/descriptions.js?v=2"></script>
 <script src="data/held.js?v=1"></script>
 <script src="assets/collectscan.js?v=5"></script>
-<script src="assets/ask.js?v=21"></script>
+<script src="assets/ask.js?v=22"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -108,17 +108,19 @@
       metric(it, cols) + '</div>';
   }
 
-  function answer(text) {
-    var chat = $('#chat');
-    chat.insertAdjacentHTML('beforeend', '<div class="msg you">' + text.replace(/</g, '&lt;') + '</div>');
-    var r = ASK.ask(text);
+  function render(r) {
     var body = '<div class="answer"><div class="sum">' + r.summary + '</div>';
     if (r.note) body += '<div class="small" style="margin:6px 0">' + r.note + '</div>';
     if (r.rows && r.rows.length) body += r.rows.map(function (it, i) { return rowHtml(it, (r.startIndex || 0) + i, r.cols); }).join('');
     body += '</div>';
-    chat.insertAdjacentHTML('beforeend', '<div class="msg bot">' + body + '</div>');
+    $('#chat').insertAdjacentHTML('beforeend', '<div class="msg bot">' + body + '</div>');
     window.scrollTo(0, document.body.scrollHeight);
   }
+  function answer(text) {
+    $('#chat').insertAdjacentHTML('beforeend', '<div class="msg you">' + text.replace(/</g, '&lt;') + '</div>');
+    render(ASK.ask(text));
+  }
+  window.ASKPICK = function (id) { render(ASK.card(id)); };   // disambiguation / "also matched" chips → exact item card
 
   $('#send').addEventListener('click', function () { var v = $('#q').value.trim(); if (v) { answer(v); $('#q').value = ''; } });
   $('#q').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#send').click(); });
