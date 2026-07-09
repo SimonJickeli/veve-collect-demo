@@ -48,6 +48,36 @@
   // above the lowest public mint — so a mint ≥ lpm is NOT guaranteed to be in a collector's wallet.
   function totalHeld(it) { return Math.max(it.held || 0, reserved(it)); }
   function randomHeld(it) { return Math.max(0, totalHeld(it) - reserved(it)); }
+  // ── SIGNATURE / significant mints (creator birth+death years, first-appearance, franchise eggs,
+  // memes, runs, LPM, highest) — via the shared MINTS engine + SIG data (loaded by ask.html). If those
+  // scripts aren't present the helpers are safe no-ops. This is what makes e.g. #1927 of any Steve-Ditko
+  // character (Spider-Man, Doctor Strange, Green Goblin…) a recognised "Ditko born" signature mint. ──
+  var _MINTS = g.MINTS, _SIG = g.SIG;
+  function mintOpts(it) {
+    var sy = (_SIG ? _SIG.lookup(it.character || it.name) : []).slice();
+    var dm = it.drop ? String(it.drop).match(/(\d{4})/) : null;
+    if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
+    return { significantYears: sy, firstPublicMint: it.lowmint,
+             universeYears: (_SIG && it.universe) ? _SIG.lookupUniverse(it.universe) : [],
+             universeEggs: (_SIG && it.universe) ? _SIG.lookupEggs(it.universe) : [] };
+  }
+  function mintFlags(it, N) { return (_MINTS && N) ? _MINTS.analyzeMint(N, it.edition, mintOpts(it)).flags : []; }
+  // the "meaning" flags (why this NUMBER is special) — creator/year/egg/meme/run; not the position ones
+  function meaningFlags(it, N) { return mintFlags(it, N).filter(function (x) { return x.tag.indexOf('historic-') === 0 || x.cats.indexOf('meme') >= 0 || ['ascending', 'descending', 'palindrome', 'repdigit'].indexOf(x.tag) >= 0; }); }
+  function cleanLabel(l) { return l.replace(/^🏆 Grail — |^Historically significant — |^Franchise easter egg — |^Meme \/ iconic number — /, ''); }
+  // one-line significance suffix for a specific edition (used by the mint locator)
+  function mintSig(it, N) { var f = meaningFlags(it, N); return f.length ? '<br>⭐ <strong>Signature mint</strong> — ' + f.map(function (x) { return cleanLabel(x.label); }).join(' · ') : ''; }
+  // the notable mints WITHIN an item's edition range — creator years, FA, eggs, memes, LPM, highest
+  function notableMints(it) {
+    if (!_MINTS) return [];
+    var ed = it.edition || 0, opts = mintOpts(it), cands = {};
+    if (it.lowmint) cands[it.lowmint] = 1; if (ed) cands[ed] = 1;
+    [69, 420, 1337].forEach(function (n) { cands[n] = 1; });
+    (opts.universeEggs || []).forEach(function (e) { cands[e.mint] = 1; });
+    (opts.significantYears || []).concat(opts.universeYears || []).forEach(function (y) { cands[y.year] = 1; });
+    return Object.keys(cands).map(Number).filter(function (n) { return n >= 1 && (!ed || n <= ed); }).sort(function (a, b) { return a - b; })
+      .map(function (n) { var fl = mintFlags(it, n); return fl.length ? { n: n, label: cleanLabel(fl[0].label) } : null; }).filter(Boolean);
+  }
   // On-chain reserve index (app/data/held.js = the exact editions in VeVe's reserve wallet 0x7be1…).
   // isHeld(it,N): true = CONFIRMED VeVe-held · false = CONFIRMED collector-owned · null = not indexed → probabilistic.
   var _hk = g.normName || nz;
@@ -232,16 +262,17 @@
     if (iss && N > iss) return fin(q, meta, { summary: head + '❔ there is no #' + N + ' — only ' + iss.toLocaleString() + ' editions were minted.', rows: [] });
     // on-chain reserve index → DEFINITIVE answer (covers the random withholds above the LPM too)
     var hs = isHeld(it, N);
-    if (hs === true) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — confirmed on-chain.</strong> #' + N + ' sits in VeVe\'s reserve wallet, not with a collector.', rows: [] });
-    if (hs === false) return fin(q, meta, { summary: head + '👤 <strong>With a collector — confirmed on-chain.</strong> #' + N + ' is <em>not</em> in VeVe\'s reserve wallet, so it\'s in a collector\'s hands (or burnt) — a real, tradeable edition.', rows: [] });
-    if (lpm && N > 0 && N < lpm) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — certain.</strong> A reserved mint below the lowest public mint (#' + lpm + '); it sits in VeVe\'s reserve wallet and was never sold to collectors.', rows: [] });
+    var sig = mintSig(it, N);   // ⭐ is this edition NUMBER also a signature mint? (creator year, egg, meme, run)
+    if (hs === true) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — confirmed on-chain.</strong> #' + N + ' sits in VeVe\'s reserve wallet, not with a collector.' + sig, rows: [] });
+    if (hs === false) return fin(q, meta, { summary: head + '👤 <strong>With a collector — confirmed on-chain.</strong> #' + N + ' is <em>not</em> in VeVe\'s reserve wallet, so it\'s in a collector\'s hands (or burnt) — a real, tradeable edition.' + sig, rows: [] });
+    if (lpm && N > 0 && N < lpm) return fin(q, meta, { summary: head + '🔒 <strong>Held back by VeVe — certain.</strong> A reserved mint below the lowest public mint (#' + lpm + '); it sits in VeVe\'s reserve wallet and was never sold to collectors.' + sig, rows: [] });
     var bits = []; if (res) bits.push('#1–#' + (lpm - 1) + ' reserved'); if (rnd) bits.push('~' + rnd.toLocaleString() + ' more withheld at random above #' + lpm); if (bn) bits.push(bn.toLocaleString() + ' burnt'); if (st) bits.push(st.toLocaleString() + ' unsold');
     var ctx = bits.length ? ' <span class="small">(' + esc(it.name) + ': ' + bits.join(' · ') + ')</span>' : '';
-    if (!lpm) return fin(q, meta, { summary: head + '❔ the lowest public mint isn\'t recorded for this one, so I can\'t say whether #' + N + ' is reserved.' + ctx, rows: [] });
+    if (!lpm) return fin(q, meta, { summary: head + '❔ the lowest public mint isn\'t recorded for this one, so I can\'t say whether #' + N + ' is reserved.' + ctx + sig, rows: [] });
     // N ≥ lpm: public range — BUT VeVe also withholds editions AT RANDOM above the reserve, so not certain
     if (rnd > 0) return fin(q, meta, {
-      summary: head + '👤 <strong>Public range</strong> (#' + lpm + '+) — <em>most likely</em> a collector\'s, <strong>but not certain</strong>. VeVe withholds <strong>' + theld.toLocaleString() + '</strong> of this item in total: the #1–#' + (lpm - 1) + ' reserve <em>plus ~' + rnd.toLocaleString() + ' scattered at random above #' + lpm + '</em> — so #' + N + ' could still be a VeVe hold rather than a collector.' + ctx + ' <span class="small">Confirming a specific edition needs its on-chain owner (VeVe\'s app, or a full chain index like an analytics service runs).</span>', rows: [] });
-    return fin(q, meta, { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + ' <span class="small">Pinpointing the exact owner needs VeVe\'s app / a full on-chain index.</span>', rows: [] });
+      summary: head + '👤 <strong>Public range</strong> (#' + lpm + '+) — <em>most likely</em> a collector\'s, <strong>but not certain</strong>. VeVe withholds <strong>' + theld.toLocaleString() + '</strong> of this item in total: the #1–#' + (lpm - 1) + ' reserve <em>plus ~' + rnd.toLocaleString() + ' scattered at random above #' + lpm + '</em> — so #' + N + ' could still be a VeVe hold rather than a collector.' + ctx + sig + ' <span class="small">Confirming a specific edition needs its on-chain owner (VeVe\'s app, or a full chain index like an analytics service runs).</span>', rows: [] });
+    return fin(q, meta, { summary: head + '👤 in the <strong>public range</strong> (#' + lpm + '+), so #' + N + ' is with a collector, unsold, or burnt — not a VeVe reserve.' + ctx + sig + ' <span class="small">Pinpointing the exact owner needs VeVe\'s app / a full on-chain index.</span>', rows: [] });
   }
 
   // Precise per-item answer for "what does VeVe hold back / burn / leave unsold on <a specific item>?"
@@ -445,6 +476,10 @@
     if (burnt(it)) rows.push(kv('🔥 Burnt', burnt(it).toLocaleString()));
     if (!it.blind && unsold(it)) rows.push(kv('📦 Unsold in Store', unsold(it).toLocaleString()));
     rows.push(kv('MCP', '+' + mcp(it).toFixed(2) + '/day'));
+    // ⭐ Signature mints within this item's edition range — the editions whose NUMBER is meaningful
+    // (creator birth/death years, first-appearance, franchise eggs, memes). Chase-worthy specials.
+    var nm = notableMints(it).filter(function (m) { return String(m.n).length >= 2; });   // skip #1/#9 single-digit noise
+    if (nm.length) rows.push(kv('⭐ Signature mints', nm.slice(0, 8).map(function (m) { return '<span title="' + esc(m.label) + '">#' + m.n + '</span>'; }).join(', ') + ' <span class="small">— ' + esc(nm.slice(0, 4).map(function (m) { return '#' + m.n + ' ' + m.label; }).join(' · ')) + (nm.length > 4 ? ' …' : '') + '</span>'));
     var lore = DESC.coll[it.slug] || (isC && it.tid && g.COMIC_DESC && g.COMIC_DESC[it.tid] && g.COMIC_DESC[it.tid].d) || '';
     var buy = '';
     if (it.tid) { var seg = isC ? 'comic' : 'collectible', pth = isC ? 'comics' : 'collectibles';
