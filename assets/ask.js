@@ -148,8 +148,9 @@
     'season seasons universe universes brand brands franchise character characters ' +
     'scarce scarcest rare rares rarest rarer common commons uncommon uncommons secret ultra proof artist floor floors ' +
     'sr ur uc ap fe variant variants version drop chase grail ' +
-    'price prices priced pricing worth value valuable priciest cheap cheapest expensive count counted counting ' +
-    'number numbers how many much top best good better great highest lowest smallest biggest largest fewest ' +
+    'price prices priced pricing worth value valuable priciest cheap cheapest cheaper expensive pricier dearer costlier count counted counting ' +
+    'number numbers how many much top best good better great highest lowest smallest smaller biggest largest larger bigger fewest fewer ' +
+    'rarer scarcer commoner older newer made were was come out release released dropped ' +
     'own owns owned owning holder holders where locate located sitting has have got ' +
     'distribution breakdown concentration spread supply supplies exist exists existing minted circulation circulating whale whales');
   function subject(q) {
@@ -163,12 +164,12 @@
     if (/\bburn(t|ed)?\b|burning/.test(s)) return 'burnt';
     if (/unsold|(didn.?t|did not|doesn.?t) sell|still (available|for sale)|in the store|store stock|left in the store/.test(s)) return 'unsold';
     if (/held ?back|hold ?back|reserved|reserve|withheld/.test(s)) return 'held';
-    if (/owns? the most|biggest holder|top holders?|\bwhales?\b|\bdistribution\b|\bbreakdown\b|\bconcentration\b|how (many|much)[^?]*(exist|minted|are there|out there|in circulation|left)|how rare is|supply of/.test(s)) return 'dist';
-    if (/how many|number of|count of|count the| count\b/.test(s)) return 'count';
-    if (/scarcest|rarest|lowest edition|smallest edition|fewest|hardest to (get|find)/.test(s)) return 'scarce';
-    if (/most common|largest edition|biggest edition|highest edition/.test(s)) return 'common';
-    if (/cheapest|lowest (price|floor)|least expensive/.test(s)) return 'cheap';
-    if (/most expensive|priciest|highest (floor|price)|most valuable/.test(s)) return 'expensive';
+    if (/owns? the most|biggest holder|top holders?|\bwhales?\b|\bdistribution\b|\bbreakdown\b|\bconcentration\b|how rare is\b|supply of/.test(s)) return 'dist';
+    if (/how many|number of|count (of|the)|\bcount\b/.test(s)) return 'count';
+    if (/scarcest|rarest|scarcer|rarer|lowest edition|smallest edition|smaller edition|fewest|fewer|hardest to (get|find)/.test(s)) return 'scarce';
+    if (/most common|commoner|more common|largest edition|biggest edition|bigger edition|highest edition/.test(s)) return 'common';
+    if (/cheapest|cheaper|lower (price|floor)|lowest (price|floor)|less expensive|least expensive/.test(s)) return 'cheap';
+    if (/most expensive|more expensive|priciest|pricier|dearer|costlier|higher (floor|price)|highest (floor|price)|most valuable/.test(s)) return 'expensive';
     if (/best (mcp|value)|most (mcp|points)|(mcp|points) per/.test(s)) return 'mcp';
     if (/\bfloor\b|\bprice\b|worth|how much|value of/.test(s)) return 'floor';
     if (/what is|who is|tell me about|explain|describe|about /.test(s)) return 'about';
@@ -594,14 +595,27 @@
       var idx = ord === -1 ? LAST.full.length - 1 : ord - 1;
       if (idx >= 0 && idx < LAST.full.length) return itemCard(LAST.full[idx], q);
     }
-    // 6) refine: a metric follow-up with no new subject → apply to the last subject/universe
-    if (subject(q) === '' && (LAST.item || LAST.topic)) {
-      var ni = bareIntent(s);
-      if (ni) {
-        if (LAST.item && /floor|price|worth|much|blind|held|reserve|burnt|unsold/.test(s)) return itemCard(LAST.item, q);
-        return engine(q, ni, topN(q), { uni: detectUni(sq(q)) || LAST._uni || null, subj: LAST._subj || '', rarity: detectRarity(q) || LAST._rarity || null, useComics: /\bcomics?\b/.test(s) || LAST._useComics });
+    // 6) item follow-ups — a property question about the LAST item ("is it rare?", "how much is it
+    // worth?", "how many made?", "when did it drop?"). Subject is empty, so "it" refers back.
+    if (LAST.item && subject(q) === '') {
+      var it = LAST.item;
+      if (/worth|how much|value|\bprice\b|\bcost\b|expensive|\bfloor\b/.test(s)) return itemCard(it, q);
+      if (/\b(rare|rarity|common|uncommon|scarce)\b/.test(s)) {
+        var tier = { 'Secret Rare': 'the top tier — rarest', 'Ultra Rare': '2nd-rarest tier', 'Rare': 'the middle tier', 'Uncommon': 'a lower tier', 'Common': 'the most common tier' }[it.rarity] || '';
+        return { summary: '<strong>' + esc(it.name) + '</strong> is <strong>' + (it.rarity || '?') + '</strong>' + (tier ? ' <span class="small">(' + tier + ')</span>' : '') + (it.edition ? ' — edition of <strong>' + it.edition.toLocaleString() + '</strong>' : '') + '.', rows: [] };
       }
-      if (LAST.item && /(it|this|that|its)\b/.test(s)) return itemCard(LAST.item, q);
+      if (/how many|edition size|how big|\bmade\b|minted|exist|copies|circulation/.test(s))
+        return { summary: '<strong>' + esc(it.name) + '</strong> — edition of <strong>' + (it.edition ? it.edition.toLocaleString() : '?') + '</strong>' + (it.circ ? ', ' + it.circ.toLocaleString() + ' in circulation' : '') + (burnt(it) ? ', ' + burnt(it).toLocaleString() + ' burnt' : '') + (it.lowmint ? ' · lowest public mint #' + it.lowmint : '') + '.', rows: [] };
+      if (/held ?back|reserved|withheld|burnt|unsold/.test(s)) return itemCard(it, q);
+      if (/when.*(drop|release|come out|\bout\b)|drop date|how old/.test(s))
+        return { summary: '<strong>' + esc(it.name) + '</strong> dropped <strong>' + (it.drop || '— (not recorded)') + '</strong>' + (it.season ? ' <span class="small">(Season ' + it.season + ')</span>' : '') + '.', rows: [] };
+      if (/tell me more|more (info|detail|about)|\bdetails?\b|full (info|card)|everything/.test(s)) return itemCard(it, q);
+    }
+    // 7) refine: a SHORT bare metric follow-up with no new subject → apply to the last subject/universe.
+    // Gated to genuine follow-ups (≤3 words) and NEVER inheriting a failed/empty last query (state bleed).
+    if (subject(q) === '' && !LAST.empty && LAST.topic && words.length <= 3) {
+      var ni = bareIntent(s);
+      if (ni) return engine(q, ni, topN(q), { uni: detectUni(sq(q)) || LAST._uni || null, subj: LAST._subj || '', rarity: detectRarity(q) || LAST._rarity || null, useComics: /\bcomics?\b/.test(s) || LAST._useComics });
     }
     // 7) "what about X" / "how about X" / "and X" → new subject, inherit the last intent
     var wa = s.match(/^(?:what about|how about|and what about|what if|and|also|now)\s+(.+)$/);
@@ -613,10 +627,53 @@
     return null;
   }
 
+  // ---- conversational / knowledge layer — greetings, help, "what is X", advice, small talk ----
+  // KB entries answer a CONCEPT question (gated to "what is / explain / …" so "best MCP marvel" still lists).
+  var KB = [
+    [/\bmcp\b|multiplier collector|collector points|daily points/, 'MCP = Multiplier Collector Points — VeVe\'s daily rewards. Every collectible you hold earns MCP each day; scarcer / higher-rarity pieces earn more, and completing a set adds a bonus. The <a href="mcp.html">MCP Optimizer</a> ranks the best 💎-per-MCP buys.'],
+    [/veve/, 'VeVe is the app selling officially-licensed digital collectibles — Marvel, Star Wars, DC, Disney and more. They live on the Collect Chain (formerly OMI / ECOMI); StackR is the newer market layer VeVe is bridging to.'],
+    [/blind ?box/, 'A blind box is sold sealed — you don\'t know which rarity you\'ll pull until you open it. Odds are weighted (Common most likely → Secret Rare rarest). Because you can\'t choose, blind-box items only ever show a real secondary-market floor, never a drop price.'],
+    [/secret rare|\brarit/, 'Rarity tiers, most common → rarest: <strong>Common · Uncommon · Rare · Ultra Rare · Secret Rare</strong>. Scarcer tiers have smaller editions. Artist Proof (AP) is a tiny special edition (often a "master set" extra).'],
+    [/held ?back|reserve|withheld/, 'Held-back = editions VeVe keeps off the market. Every mint below the lowest public mint (#1 → LPM−1) is reserved, and VeVe also withholds some editions at random above that. Ask e.g. <em>"which editions of X are held back?"</em>'],
+    [/\blpm\b|lowest public mint|first available edition/, 'LPM = Lowest Public Mint — the lowest edition number ever sold to collectors. VeVe reserves the numbers below it (often #1–#40 → LPM #41), so #1 usually isn\'t obtainable; the LPM is the true "lowest you can own".'],
+    [/edition size|what.*edition|how big.*edition/, 'Edition size = the total copies minted of a collectible. Each copy has a unique mint number (#1, #2 …); smaller edition = scarcer.'],
+    [/\bgems?\b|omi\b|ecomi|what.*currency/, 'Prices show in 💎 Gems (VeVe\'s in-app currency, 1 Gem ≈ US$1). The underlying token is OMI on the Collect Chain; StackR is the newer trading layer.'],
+    [/\bstackr\b/, 'StackR is the newer on-chain marketplace VeVe is bridging to (stackr.world). Floors marked ⛓ are real StackR traded prices; 💠 floors are VeVe in-app asks.'],
+    [/what.*floor|floor mean/, 'The floor is the cheapest currently-listed price — ⛓ = a real StackR traded price, 💠 = a VeVe in-app ask. It\'s the "buy it now" starting point, not an appraised value.'],
+    [/mint number|what.*mint\b|signature mint/, 'A mint number is the unique serial of your copy (e.g. #1927 of 3,333). The lowest public mint, the final mint, and "signature" numbers (creator birth years, franchise eggs like #1138, memes like #420) are the most sought-after.'],
+    [/\bseason\b/, 'A VeVe Season groups collectibles by the ~year they dropped (Season 1 = 2021 … Season 11 = 2026). It\'s a collectibles-only tag — comics carry no season.']
+  ];
+  function smallTalk(q) {
+    var s = q.toLowerCase().trim().replace(/[?!.]+$/, ''), w = s.split(/\s+/);
+    if (/^(hi|hey+|hello|yo|sup|howdy|hiya|g'?day|good (morning|afternoon|evening)|greetings|heya)\b/.test(s) && w.length <= 3)
+      return { summary: '👋 Hey! Ask me anything about the VeVe collectibles — scarcity, prices, what\'s held back, sets, seasons, a specific piece, or where a mint number sits. Try a chip above, or e.g. <em>"scarcest Spider-Man"</em> · <em>"cheapest Secret Rares"</em> · <em>"where is #1927 of Green Goblin?"</em>', rows: [] };
+    if (/^(thanks|thank you|thx|ty|cheers|much appreciated|appreciate it)\b/.test(s) && w.length <= 3)
+      return { summary: '👍 Anytime! Ask about scarcity, floors, what VeVe holds back, a set, a season, or any specific collectible.', rows: [] };
+    if (/^(bye|goodbye|see ya|see you|cya|later|that.?s (all|it)|nothing else|no thanks|nope|im good|i.?m good)\b/.test(s) && w.length <= 4)
+      return { summary: '👋 Cheers — come back anytime.', rows: [] };
+    if (/^(help|what can (you|i) (do|ask|help)|how (does|do) (this|it|you) work|how do i use|commands?|examples?|options?|guide|menu)\b/.test(s))
+      return { summary: 'I\'m the wiki\'s chat — answers computed live from the on-chain catalog (2,600+ collectibles + 3,900 comics). Try:<br>• <em>Scarcest / cheapest / most valuable Spider-Man</em><br>• <em>What is Alligator Loki?</em> — a rich card (rarity, floor, held-back, lore)<br>• <em>Which editions of Green Goblin are held back / burnt / unsold?</em><br>• <em>Where is #1927 of Green Goblin?</em> — held-back + signature mints<br>• <em>Who owns the most Amazing Fantasy #15?</em><br>It\'s a conversation — follow up with <em>"cheaper"</em>, <em>"more"</em>, <em>"the 2nd one"</em>, or <em>"how much is it worth?"</em>', rows: [] };
+    if (/^(who are you|what are you|are you (a )?(bot|ai|human|chatgpt|real|person)|your name|whats your name)\b/.test(s))
+      return { summary: '🤖 I\'m the VeVe Collect wiki\'s assistant — a deterministic engine, not a chatbot guessing. Every answer is computed live from the on-chain catalog (edition sizes, market floors, VeVe\'s reserve / burn / store figures). Ask me about any collectible, universe, set, or mint number.', rows: [] };
+    if (/(surprise me|random|something (cool|interesting|neat|good)|show me anything|anything (cool|interesting))/.test(s)) {
+      var pool = C.filter(function (x) { return x.floor > 0 && x.edition && !x.art; });
+      if (pool.length) { var pick = pool[Math.floor(Date.now() / 1000) % pool.length]; var r = itemCard(pick, q); r.summary = '🎲 <strong>Here\'s one:</strong><br>' + r.summary; return r; }
+    }
+    if (/what should i (buy|get|collect|pick)|good (investment|buy|pickup|starter)|worth (buying|investing)|start collecting|get started|beginner|new to (this|veve|collecting)|cheapest way to (start|begin)|where (do|should) i start/.test(s))
+      return { summary: '💡 A few ways to decide:<br>• <strong>Best value for rewards</strong> → the <a href="mcp.html">MCP Optimizer</a> ranks collectibles by 💎-per-MCP/day.<br>• <strong>Cheapest to start</strong> → ask <em>"cheapest collectibles"</em> or <em>"cheapest Secret Rares"</em>.<br>• <strong>Scarcity plays</strong> → <em>"scarcest Marvel collectibles"</em>.<br>• <strong>Finish a set on the cheap</strong> → the <a href="sets.html">Set Tracker</a>\'s "cheapest to complete".<br><span class="small">Not financial advice — just what the data shows.</span>', rows: [] };
+    // knowledge base — only for genuine concept questions (so "best mcp marvel" still lists)
+    var isDefQ = /^(what|whats|what.?s|explain|define|meaning of|how does|tell me about|what does|whats the|whats a)\b/.test(s) || w.length <= 2;
+    if (isDefQ) for (var i = 0; i < KB.length; i++) if (KB[i][0].test(s)) return { summary: '💡 ' + KB[i][1], rows: [] };
+    return null;
+  }
+
   // ---- public entry: conversational -------------------------------------
   function respond(q) {
     q = (q || '').trim();
     if (!q) return { summary: 'Ask me anything about the collectibles — e.g. "scarcest 5 Spider-Man collectibles", "which Disney collectibles are held back?", or "what is Alligator Loki?"', rows: [] };
+    // greetings / help / "what is MCP?" / advice — the conversational layer, before any search
+    var st = smallTalk(q);
+    if (st) return st;
     // distribution / "who owns the most" — checked BEFORE the edition locator, because a comic
     // issue number (#15) is not an edition number and shouldn't trigger the locator.
     if (intentOf(q) === 'dist') return engine(q, 'dist', topN(q), parse(q));

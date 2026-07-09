@@ -76,20 +76,20 @@
 <script src="data/historic-years.js?v=2"></script>
 <script src="assets/significant-years.js?v=3"></script>
 <script src="assets/mints.js?v=13"></script>
-<script src="assets/ask.js?v=24"></script>
+<script src="assets/ask.js?v=25"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   $('#stat').textContent = ASK.stats.collectibles.toLocaleString() + ' collectibles · ' + ASK.stats.universes + ' universes · ' + ASK.stats.comics.toLocaleString() + ' comics';
   var EX = [
-    'The Partners Statue',
-    'Which editions of The Partners Statue are held back?',
-    'Where is #78 of the partners statue?',
-    'Scarcest 5 Spider-Man collectibles',
+    'Scarcest Spider-Man collectibles',
     'Cheapest Secret Rares',
-    'Who owns the most Alligator Loki?',
-    'What is Amazing Fantasy #15?',
-    'Most valuable Star Wars collectibles'
+    'What is Alligator Loki?',
+    'Where is #1927 of Green Goblin?',
+    'Which editions of Green Goblin are held back?',
+    'Most valuable Star Wars collectibles',
+    'Who owns the most Amazing Fantasy #15?',
+    'What is MCP?'
   ];
   // it's a conversation — follow-ups like "why?", "more", "the 2nd one", "and burnt?" work
   $('#examples').innerHTML = EX.map(function (e) { return '<span class="exchip">' + e + '</span>'; }).join('');
