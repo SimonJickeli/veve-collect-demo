@@ -56,7 +56,7 @@
   // character (Spider-Man, Doctor Strange, Green Goblin…) a recognised "Ditko born" signature mint. ──
   var _MINTS = g.MINTS, _SIG = g.SIG;
   function mintOpts(it) {
-    var sy = (_SIG ? _SIG.lookup(it.character || it.name) : []).slice();
+    var sy = (_SIG ? _SIG.lookup(it.character || it.name, it.universe) : []).slice();
     var dm = it.drop ? String(it.drop).match(/(\d{4})/) : null;
     if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year', tier: 'legendary' });  // release year = elite
     return { significantYears: sy, firstPublicMint: it.lowmint,

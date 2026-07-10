@@ -28,14 +28,53 @@
 
   function mapYears(arr) { return arr.map(function (e) { return { year: e.y, reason: e.r, tier: e.tier, cat: e.cat }; }); }
 
-  function lookup(character) {
+  // char → {universe:1} home map, built once from the catalog (authoritative). Used to reject
+  // cross-universe character-year collisions (a Star Wars "Beast" must not inherit Marvel Beast's years).
+  var CHAR_UNI = (function () {
+    var m = {}, C = global.CATALOG;
+    if (C && C.items) C.items.forEach(function (it) {
+      if (it.character && it.universe) { var c = String(it.character).toLowerCase().trim(); (m[c] = m[c] || {})[it.universe] = 1; }
+    });
+    return m;
+  })();
+  function esc(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function wordHit(hay, needle) { try { return new RegExp('\\b' + esc(needle) + '\\b', 'i').test(hay); } catch (e) { return hay.indexOf(needle) >= 0; } }
+
+  // A comic character's years (creator births, comic debuts) must only apply inside comic-origin universes
+  // + the VeVe variant lines that reuse licensed comic characters — never a same-named DIFFERENT character
+  // in an unrelated franchise (Marvel's Thing vs Addams Family's Thing; DC's Death vs a Star Wars trooper).
+  var COMIC_COMPATIBLE = { 'marvel': 1, 'dc': 1, 'tmnt': 1, 'vampirella': 1, 'red-sonja': 1, 'project-superpowers': 1, 'dynamite-crossover': 1, 'darick-robertson': 1, 'veve-vibes': 1, 'funko-gold': 1 };
+  var COMIC_MARK = /\(co-?creators?\)|\(creators?\)|Fantastic Four|Sandman|Amazing Spider|Detective Comics|Action Comics|X-Men|Mirage|#\d/i;
+  var _comicKey = {};
+  function isComicChar(key) {
+    if (_comicKey[key] == null) _comicKey[key] = (YEARS[key] || []).some(function (e) { return COMIC_MARK.test(e.r || ''); });
+    return _comicKey[key];
+  }
+  // find the matching YEARS key: exact first, else WHOLE-WORD containment (never a bare substring, so
+  // "ken" no longer matches "franken", "storm" no longer matches "stormtrooper", "boo" not "booklet").
+  function matchKey(k) {
+    if (YEARS[k]) return k;
+    for (var key in YEARS) {
+      if (!YEARS.hasOwnProperty(key)) continue;
+      if (wordHit(k, key) || wordHit(key, k)) return key;
+    }
+    return null;
+  }
+
+  // lookup(character[, universe]) — universe (optional) rejects a match whose character canonically
+  // lives only in OTHER universes, killing cross-franchise collisions. Omit universe for legacy callers.
+  function lookup(character, universe) {
     if (!character) return [];
     var k = String(character).toLowerCase().trim();
-    if (YEARS[k]) return mapYears(YEARS[k]);
-    for (var key in YEARS) {
-      if (YEARS.hasOwnProperty(key) && (k.indexOf(key) >= 0 || key.indexOf(k) >= 0)) return mapYears(YEARS[key]);
+    var key = matchKey(k);
+    if (!key) return [];
+    if (universe) {
+      var u = String(universe).toLowerCase().trim();
+      if (isComicChar(key) && !COMIC_COMPATIBLE[u]) return [];           // comic character bleeding into an unrelated franchise
+      var homes = CHAR_UNI[key];
+      if (homes && !homes[u] && Object.keys(homes).length) return [];   // catalog says this exact name lives only elsewhere
     }
-    return [];
+    return mapYears(YEARS[key]);
   }
   function lookupUniverse(universe) {
     if (!universe) return [];

@@ -141,7 +141,7 @@
       var c = catalogById[h.collectibleId] || {};
       var uni = c.universe || h.universe;
       // VeVe drop year — a mint matching the year this NFT dropped (on-chain dropDate, else catalog drop)
-      var sy = (sigLookup ? sigLookup(c.character || c.name) : []).slice();
+      var sy = (sigLookup ? sigLookup(c.character || c.name, uni) : []).slice();
       var dd = h.dropDate || c.drop, dm = dd ? String(dd).match(/(\d{4})/) : null;
       if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year', tier: 'legendary' });  // release year = elite
       // comics: original publication year + writer/artist birth years (from window.COMIC_HISTORIC)

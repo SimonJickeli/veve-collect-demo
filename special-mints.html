@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Special Mint Market — VeVe Collect</title>
+<title>Special Mint Listings — VeVe Collect</title>
 <link rel="stylesheet" href="assets/style.css?v=6" />
 <style>
   .smctl { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:0 0 14px; padding:12px 14px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; }
@@ -30,8 +30,27 @@
   .smrow .buy { margin-top:5px; display:flex; gap:6px; justify-content:flex-end; }
   .smrow .buy a { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; border:1px solid var(--border); color:var(--accent-2); background:var(--bg-2); white-space:nowrap; }
   .smrow .buy a:hover { border-color:var(--accent); text-decoration:none; }
+  .omidot { width:11px; height:11px; border-radius:50%; display:inline-block; vertical-align:-1px; background:#ff2d55; box-shadow:0 0 0 2px rgba(255,45,85,.22); }
   .tierdot { width:8px; height:8px; border-radius:50%; display:inline-block; }
   .t-legendary{background:#ffd23f} .t-epic{background:#c084fc} .t-rare{background:#50abff} .t-notable{background:#7a8699}
+  .modetoggle { display:inline-flex; gap:4px; padding:4px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; margin:6px 0 14px; }
+  .modetoggle button { background:transparent; border:0; color:var(--muted); font-weight:700; font-size:13.5px; padding:8px 15px; border-radius:9px; cursor:pointer; display:inline-flex; gap:7px; align-items:center; }
+  .modetoggle button.on { background:linear-gradient(135deg, var(--accent), #5b7cff); color:#fff; box-shadow:var(--shadow); }
+  .modetoggle .mc { font-size:11.5px; opacity:.8; font-weight:800; }
+  /* whole-catalog per-collectible card */
+  .ccard { display:grid; grid-template-columns:46px 1fr; gap:13px; padding:12px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); margin-bottom:9px; }
+  .ccard .ic { width:46px; height:46px; border-radius:9px; object-fit:cover; background:#12162a; }
+  .ccard .nm { font-weight:700; font-size:14.5px; }
+  .ccard .nm a { color:var(--text); } .ccard .nm a:hover { color:var(--accent-2); }
+  .ccard .meta2 { font-size:11.5px; color:var(--muted); margin:2px 0 7px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .mchips { display:flex; flex-wrap:wrap; gap:6px; }
+  .mchip { font-size:12px; font-weight:600; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:var(--bg-2); color:var(--text); display:inline-flex; gap:6px; align-items:center; white-space:nowrap; }
+  .mchip .h { font-weight:800; }
+  .mchip.listed { border-color:var(--good); background:rgba(60,200,120,.12); }
+  .mchip.listed a { color:var(--good); font-weight:800; text-decoration:none; }
+  .mchip.dim { opacity:.42; }
+  .mchip b { border-left:2px solid; padding-left:6px; }
+  .mchip.tl-legendary b{border-color:#ffd23f} .mchip.tl-epic b{border-color:#c084fc} .mchip.tl-rare b{border-color:#50abff} .mchip.tl-notable b{border-color:#7a8699}
 </style>
 </head>
 <body>
@@ -42,7 +61,7 @@
     <a href="sets.html">Set Tracker</a>
     <a href="mcp.html">MCP Optimizer</a>
     <a href="mint-checker.html">Mint Checker</a>
-    <a href="special-mints.html" class="active">Special Mints</a>
+    <a href="special-mints.html" class="active">Mint Listings</a>
     <a href="ask.html">Ask</a>
     <a href="explorer.html">Explorer</a>
   </nav>
@@ -51,9 +70,14 @@
 
 <div class="wrap">
   <section class="hero" style="padding:34px 0 12px">
-    <h1>Special Mint <span class="grad">Market</span></h1>
-    <p>Every collectible <strong>currently listed</strong> whose <strong>mint number is significant</strong> — the lowest public mint, a creator's birth year, a franchise easter egg (#1138, #616), a palindrome, an ascending run, a meme number. Shop the good serials that are actually for sale. <span class="small" id="stat"></span></p>
+    <h1>Special Mint <span class="grad">Listings</span></h1>
+    <p>Collectibles whose <strong>mint number is significant</strong> — the lowest public mint, a creator's birth year, a founding/anniversary date, a franchise easter egg (#1138, #616), a meme number. <strong>For sale</strong> shows the good serials you can buy right now; <strong>Whole catalog</strong> is every significant mint that exists across all collectibles. <span class="small" id="stat"></span></p>
   </section>
+
+  <div class="modetoggle" id="mode">
+    <button data-m="sale" class="on">🛒 For sale now <span class="mc" id="mc-sale">…</span></button>
+    <button data-m="catalog">📚 Whole catalog <span class="mc" id="mc-cat">…</span></button>
+  </div>
 
   <div class="catchips" id="cats"></div>
   <div class="smctl">
@@ -73,51 +97,80 @@
   <div id="results"></div>
 
   <div class="note warn" style="margin-top:18px">
-    Listings are a periodic snapshot of VeVe's fixed-price market (💠) and StackR (⛓) — prices/availability change; confirm in-app before buying. "Significant" is an objective property of the number (creator years, franchise eggs, memes, runs, the lowest public mint), computed by the same engine as the Mint Checker. Not affiliated with VeVe.
+    <strong>For sale now</strong> is a periodic snapshot of the fixed-price market — each row links to where it's actually listed (VeVe 💎 Gems, or StackR <span class="omidot"></span> OMI); prices/availability change, confirm in-app before buying. <strong>Whole catalog</strong> lists every significant mint that <em>exists</em> for each collectible (for-sale ones are tagged ✅). "Significant" is an objective property of the number, computed by the same engine as the Mint Checker. Not affiliated with VeVe.
   </div>
-  <footer class="foot">Special Mint Market · significant serials currently listed, matched by mint number to the wiki's historic-mint dataset.</footer>
+  <footer class="foot">Special Mint Listings · significant serials — matched by mint number to the wiki's historic-mint dataset.</footer>
 </div>
 
 <script src="data/catalog.js?v=24"></script>
 <script src="data/historic-years.js?v=3"></script>
-<script src="assets/significant-years.js?v=4"></script>
-<script src="assets/mints.js?v=14"></script>
-<script src="data/special_listings.js?v=2"></script>
+<script src="assets/significant-years.js?v=5"></script>
+<script src="assets/mints.js?v=15"></script>
+<script src="data/special_listings.js?v=3"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
   var SL = window.SPECIAL_LISTINGS || { items: [], count: 0, asOf: 0 };
   var items = SL.items || [];
-  // category metadata (matches mints.js CATEGORIES)
-  var CATS = [
-    { key: 'low', icon: '🥇', label: 'Lowest public' },
-    { key: 'historic', icon: '🏛️', label: 'Historic year' },
-    { key: 'milestone', icon: '🎂', label: 'Anniversary / milestone' },
-    { key: 'high', icon: '🏁', label: 'Highest mint' },
-    { key: 'sequence', icon: '📈', label: 'Ascending / descending' },
-    { key: 'palindrome', icon: '🔁', label: 'Palindrome' },
-    { key: 'repdigit', icon: '💯', label: 'Repeating digits' },
-    { key: 'meme', icon: '😎', label: 'Meme / franchise egg' }
+  var CM = null;                 // window.CATALOG_MINTS (lazy-loaded)
+  var MODE = 'sale';             // 'sale' | 'catalog'
+  var active = {};               // selected categories (empty = all)
+  var catCap = 120;              // catalog-mode pagination
+
+  // category metadata. 'sale' has every pattern (they can be listed); 'catalog' carries only the
+  // named + positional categories the whole-DB index computes (patterns live in the Mint Checker).
+  var CAT_ICON = { low: '🥇', high: '🏁', historic: '🏛️', milestone: '🎂', meme: '😎', sequence: '📈', palindrome: '🔁', repdigit: '💯' };
+  var CATS_SALE = [
+    { key: 'low', label: 'Lowest public' }, { key: 'historic', label: 'Historic year' },
+    { key: 'milestone', label: 'Anniversary / milestone' }, { key: 'high', label: 'Highest mint' },
+    { key: 'sequence', label: 'Ascending / descending' }, { key: 'palindrome', label: 'Palindrome' },
+    { key: 'repdigit', label: 'Repeating digits' }, { key: 'meme', label: 'Meme / franchise egg' }
   ];
-  var active = {};   // selected categories (empty = all)
-  function catCount(k) { return items.filter(function (i) { return i.cats.indexOf(k) >= 0; }).length; }
-
-  var asOf = SL.asOf ? new Date(SL.asOf * 1000).toISOString().slice(0, 10) : '—';
-  $('#stat').textContent = SL.count.toLocaleString() + ' special-mint listings · snapshot ' + asOf;
-
-  // universe options
-  var unis = {}; items.forEach(function (i) { if (i.universe) unis[i.universe] = (unis[i.universe] || 0) + 1; });
-  $('#uni').innerHTML = '<option value="all">All universes</option>' + Object.keys(unis).sort(function (a, b) { return unis[b] - unis[a]; })
-    .map(function (u) { return '<option value="' + u + '">' + u + ' (' + unis[u] + ')</option>'; }).join('');
-
-  $('#cats').innerHTML = CATS.map(function (c) { return '<span class="catchip" data-k="' + c.key + '">' + c.icon + ' ' + c.label + ' <span class="c">' + catCount(c.key) + '</span></span>'; }).join('');
+  var CATS_CAT = [
+    { key: 'milestone', label: 'Anniversary / milestone' }, { key: 'historic', label: 'Historic year' },
+    { key: 'meme', label: 'Franchise egg' }, { key: 'low', label: 'Lowest public' }, { key: 'high', label: 'Highest mint' }
+  ];
 
   function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
   function icon(i) { return i.tier === 'legendary' ? '🏆' : i.tier === 'epic' ? '💎' : i.cats.indexOf('milestone') >= 0 ? '🎂' : i.cats.indexOf('meme') >= 0 ? '😎' : i.cats.indexOf('low') >= 0 ? '🥇' : '🎯'; }
   function veveUrl(t) { return 'https://www.veve.me/collectibles/en/collectibles/' + t; }
   function stackrUrl(t) { return 'https://stackr.world/collections/veve/collectible/' + t; }
+  // link ONLY to where it's actually listed; price shown in that market's unit (VeVe → 💎 Gems, StackR → OMI)
+  function isOmi(mkt) { return mkt === 'STACKR' || mkt === 'OMI'; }
+  function mktLink(tid, mkt) { return isOmi(mkt) ? '<a href="' + stackrUrl(tid) + '" target="_blank" rel="noopener">StackR ↗</a>' : '<a href="' + veveUrl(tid) + '" target="_blank" rel="noopener">VeVe ↗</a>'; }
+  function priceHtml(price, mkt) { var p = Math.round(price).toLocaleString(); return isOmi(mkt) ? '<span class="omidot"></span> ' + p + ' OMI' : '💎 ' + p; }
+  var TW = { legendary: 0, epic: 1, rare: 2, notable: 3 };
 
-  function render() {
+  // ── chrome that changes with the mode: category chips, universe list, control visibility, stat line ──
+  function catList() { return MODE === 'sale' ? CATS_SALE : CATS_CAT; }
+  function catCount(k) {
+    if (MODE === 'sale') return items.filter(function (i) { return i.cats.indexOf(k) >= 0; }).length;
+    return CM ? CM.items.reduce(function (a, it) { return a + (it.mints.some(function (m) { return m.cat === k; }) ? 1 : 0); }, 0) : 0;
+  }
+  function paintChrome() {
+    $('#cats').innerHTML = catList().map(function (c) {
+      return '<span class="catchip' + (active[c.key] ? ' on' : '') + '" data-k="' + c.key + '">' + (CAT_ICON[c.key] || '') + ' ' + c.label + ' <span class="c">' + catCount(c.key).toLocaleString() + '</span></span>';
+    }).join('');
+    // universe options for the active dataset
+    var src = MODE === 'sale' ? items : (CM ? CM.items : []);
+    var unis = {}; src.forEach(function (i) { if (i.universe) unis[i.universe] = (unis[i.universe] || 0) + 1; });
+    var cur = $('#uni').value;
+    $('#uni').innerHTML = '<option value="all">All universes</option>' + Object.keys(unis).sort(function (a, b) { return unis[b] - unis[a]; })
+      .map(function (u) { return '<option value="' + u + '"' + (u === cur ? ' selected' : '') + '>' + u + ' (' + unis[u] + ')</option>'; }).join('');
+    // price-only controls make no sense for the (unpriced) catalog reference
+    var saleOnly = MODE === 'sale' ? '' : 'none';
+    $('#mk').closest('label').style.display = saleOnly;
+    $('#maxp').closest('label').style.display = saleOnly;
+    if (MODE === 'sale') {
+      var asOf = SL.asOf ? new Date(SL.asOf * 1000).toISOString().slice(0, 10) : '—';
+      $('#stat').textContent = SL.count.toLocaleString() + ' listings · snapshot ' + asOf;
+    } else {
+      $('#stat').textContent = CM ? CM.collectibles.toLocaleString() + ' collectibles · ' + CM.mints.toLocaleString() + ' significant mints' : 'loading…';
+    }
+  }
+
+  // ── SALE mode: one row per listed significant mint (buyable now) ──
+  function renderSale() {
     var uni = $('#uni').value, mk = $('#mk').value, maxp = parseFloat($('#maxp').value) || 0, sort = $('#sort').value, q = $('#q').value.trim().toLowerCase();
     var sel = Object.keys(active);
     var list = items.filter(function (i) {
@@ -128,17 +181,16 @@
       if (q && i.name.toLowerCase().indexOf(q) < 0) return false;
       return true;
     });
-    var TW = { legendary: 0, epic: 1, rare: 2, notable: 3 };
     list.sort(function (a, b) {
       if (sort === 'cheap') return a.price - b.price;
       if (sort === 'pricey') return b.price - a.price;
       if (sort === 'mint') return a.mint - b.mint;
-      return (TW[a.tier] - TW[b.tier]) || (a.price - b.price);   // tier
+      // "Most significant": best tier, then richest match (score), then scarcer edition — NOT cheapest
+      return (TW[a.tier] - TW[b.tier]) || ((b.score || 0) - (a.score || 0)) || ((a.edition || 1e9) - (b.edition || 1e9)) || (a.price - b.price);
     });
     $('#cnt').textContent = list.length.toLocaleString() + ' listing' + (list.length === 1 ? '' : 's');
     var cap = 300, shown = list.slice(0, cap);
     $('#results').innerHTML = shown.map(function (i, n) {
-      var buy = '<a href="' + veveUrl(i.tid) + '" target="_blank" rel="noopener">VeVe ↗</a><a href="' + stackrUrl(i.tid) + '" target="_blank" rel="noopener">StackR ↗</a>';
       var extra = i.labels.length > 1 ? ' <span class="small" style="color:var(--muted)">+' + (i.labels.length - 1) + ' more</span>' : '';
       return '<div class="smrow">' +
         '<div class="rank">' + (n + 1) + '</div>' +
@@ -148,19 +200,91 @@
           '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
           '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span></div>' +
         '</div>' +
-        '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">💎 ' + Math.round(i.price).toLocaleString() + (i.market === 'STACKR' ? ' ⛓' : ' 💠') + '</div><div class="buy">' + buy + '</div></div>' +
+        '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">' + priceHtml(i.price, i.market) + '</div><div class="buy">' + mktLink(i.tid, i.market) + '</div></div>' +
       '</div>';
     }).join('') + (list.length > cap ? '<div class="note" style="margin-top:8px">Showing the top ' + cap + ' of ' + list.length.toLocaleString() + ' — narrow with the filters above.</div>' : '') +
       (list.length ? '' : '<div class="note">No special-mint listings match — clear a filter.</div>');
   }
 
+  // ── CATALOG mode: one card per collectible, chips for every significant mint it has (listed ones tagged) ──
+  function renderCatalog() {
+    if (!CM) { $('#results').innerHTML = '<div class="note">Loading the whole-catalog index…</div>'; return; }
+    var uni = $('#uni').value, sort = $('#sort').value, q = $('#q').value.trim().toLowerCase();
+    var sel = Object.keys(active);
+    var list = CM.items.filter(function (it) {
+      if (sel.length && !it.mints.some(function (m) { return sel.indexOf(m.cat) >= 0; })) return false;
+      if (uni !== 'all' && it.universe !== uni) return false;
+      if (q && it.name.toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    // a collectible's "significance weight" — rewards named story mints (milestone/historic/egg) over the
+    // low/high every item trivially has, so rich cards beat bare edition-1 proofs.
+    function wt(it) { return it.mints.reduce(function (s, m) { return s + (m.cat === 'milestone' || m.cat === 'historic' || m.cat === 'meme' ? 3 : 1) * (4 - TW[m.tier]); }, 0); }
+    list.sort(function (a, b) {
+      if (sort === 'mint') return a.mints[0].m - b.mints[0].m;
+      if (sort === 'cheap' || sort === 'pricey') {   // "has a listed one" first, else by weight
+        var la = a.mints.some(function (m) { return m.listed; }) ? 0 : 1, lb = b.mints.some(function (m) { return m.listed; }) ? 0 : 1;
+        if (la !== lb) return la - lb;
+      }
+      return (TW[a.mints[0].tier] - TW[b.mints[0].tier]) || (wt(b) - wt(a)) || (a.edition - b.edition);
+    });
+    var totalMints = list.reduce(function (a, it) { return a + it.mints.length; }, 0);
+    $('#cnt').textContent = list.length.toLocaleString() + ' collectible' + (list.length === 1 ? '' : 's') + ' · ' + totalMints.toLocaleString() + ' mints';
+    var shown = list.slice(0, catCap);
+    $('#results').innerHTML = shown.map(function (it) {
+      var thumb = it.img ? '<img class="ic" src="' + it.img + '" loading="lazy" onerror="this.style.visibility=\'hidden\'">' : '<span class="ic"></span>';
+      var chips = it.mints.map(function (m) {
+        var dim = (sel.length && sel.indexOf(m.cat) < 0) ? ' dim' : '';
+        var lab = (CAT_ICON[m.cat] || '') + ' ' + CM.labels[m.li];
+        if (m.listed) {
+          var url = isOmi(m.market) ? stackrUrl(it.tid) : veveUrl(it.tid);
+          var sym = isOmi(m.market) ? '<span class="omidot"></span> ' + Math.round(m.price).toLocaleString() + ' OMI' : '💎 ' + Math.round(m.price).toLocaleString();
+          return '<span class="mchip listed tl-' + m.tier + dim + '"><span class="h">#' + m.m.toLocaleString() + '</span> <b>' + lab + '</b> · <a href="' + url + '" target="_blank" rel="noopener">✅ ' + sym + ' ↗</a></span>';
+        }
+        return '<span class="mchip tl-' + m.tier + dim + '"><span class="h">#' + m.m.toLocaleString() + '</span> <b>' + lab + '</b></span>';
+      }).join('');
+      return '<div class="ccard">' + thumb +
+        '<div><div class="nm"><a href="explorer.html#/c/' + it.slug + '">' + it.name + '</a></div>' +
+        '<div class="meta2"><span class="' + rClass(it.rarity) + '">' + (it.rarity || '?') + '</span>' + (it.universe ? '<span>· ' + it.universe + '</span>' : '') + '<span>· edition ' + (it.edition ? it.edition.toLocaleString() : '?') + '</span></div>' +
+        '<div class="mchips">' + chips + '</div></div></div>';
+    }).join('') + (list.length > catCap ? '<div style="text-align:center;margin-top:10px"><button class="btn ghost" id="more">Show more (' + (list.length - catCap).toLocaleString() + ' left)</button></div>' : '') +
+      (list.length ? '' : '<div class="note">No collectibles match — clear a filter.</div>');
+    var mb = $('#more'); if (mb) mb.addEventListener('click', function () { catCap += 200; renderCatalog(); });
+  }
+
+  function render() { catCap = catCap; MODE === 'sale' ? renderSale() : renderCatalog(); }
+
+  // ── lazy-load the whole-catalog index (1.5MB) once, in the background after first paint ──
+  function loadCatalog(cb) {
+    if (CM) { cb && cb(); return; }
+    if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=1';
+    s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
+    s.onerror = function () { $('#mc-cat').textContent = '—'; };
+    document.head.appendChild(s);
+  }
+
+  function setMode(m) {
+    if (m === MODE) return;
+    MODE = m; active = {}; catCap = 120;
+    [].forEach.call($('#mode').children, function (b) { b.classList.toggle('on', b.dataset.m === m); });
+    var apply = function () { paintChrome(); render(); window.scrollTo(0, 0); };
+    if (m === 'catalog') loadCatalog(apply); else apply();
+  }
+
+  // events
+  $('#mode').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) setMode(b.dataset.m); });
   $('#cats').addEventListener('click', function (e) {
     var chip = e.target.closest('.catchip'); if (!chip) return;
     var k = chip.dataset.k; if (active[k]) { delete active[k]; chip.classList.remove('on'); } else { active[k] = 1; chip.classList.add('on'); }
     render();
   });
   ['uni', 'mk', 'maxp', 'sort', 'q'].forEach(function (id) { $('#' + id).addEventListener('input', render); });
-  render();
+
+  // initial paint (sale mode), then warm the catalog index + its button count in the background
+  $('#mc-sale').textContent = SL.count.toLocaleString();
+  paintChrome(); renderSale();
+  setTimeout(function () { loadCatalog(); }, 400);
 })();
 </script>
 </body>
