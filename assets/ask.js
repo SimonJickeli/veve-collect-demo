@@ -31,8 +31,10 @@
   if (g.FLOOR && g.FLOOR.byName) Object.keys(g.FLOOR.byName).forEach(function (n) { var k = _fnN(n); if (k && !(k in FLOORN)) FLOORN[k] = g.FLOOR.byName[n]; });
   function stackr(name) { var r = (g.FLOOR && g.FLOOR.byName && (g.FLOOR.byName[name] || FLOORN[_fnN(name)])) || null; return (r && r.usd > 0) ? r.usd : null; }
   function cost(it) {
-    var s = stackr(it.name); if (s) return { v: s, src: 'stackr' };   // StackR live traded floor — trusted
-    var vv = g.saneVeveFloor ? g.saneVeveFloor(it.floor) : it.floor;    // VeVe floor is a lowest-ask listing → sanitized
+    var sRaw = stackr(it.name) || 0, vRaw = it.floor || 0;             // StackR traded floor + VeVe ask
+    var s = g.saneStackrFloor ? g.saneStackrFloor(sRaw, vRaw) : sRaw;  // ≥20k dropped unless VeVe corroborates
+    if (s > 0) return { v: s, src: 'stackr' };
+    var vv = g.saneVeveFloor ? g.saneVeveFloor(vRaw, sRaw) : vRaw;     // VeVe ask, ≥20k dropped unless StackR corroborates
     if (vv > 0) return { v: vv, src: 'veve' };
     if (!it.blind && it.price > 0) return { v: it.price, src: 'drop' };
     return null;

@@ -135,19 +135,28 @@
   }
   function emojiFor(h) { return h.format === 'comic' ? '📖' : '🎴'; }
 
-  // saneVeveFloor — VeVe's `floor` is the lowest ASKING price, and illiquid items carry troll
-  // listings (💎10,000,042, 💎3,000,000, repdigit 💎888,888 / 💎99,999 on 1-of-1s). Reject the
-  // obvious fakes so no troll number is ever shown as a market value or summed into a portfolio.
-  // Returns the floor if plausible, else 0. (StackR live traded floors are trusted as-is.)
-  function saneVeveFloor(v) {
+  // Floor sanitizers — a floor above 💎FLOOR_TROLL is an outlier/troll UNLESS CORROBORATED (the OTHER
+  // marketplace's floor is also above it → the item is genuinely that valuable, so keep it). Pass the
+  // other market's raw floor as `corrob`. VeVe asks additionally reject repdigit vanity prices
+  // (💎888,888 / 💎99,999). Illiquid items carry troll asks (💎10,000,042, 💎3,000,000) — reject them
+  // so no troll number is shown as a market value or summed into a portfolio.
+  var FLOOR_TROLL = 20000;
+  function saneVeveFloor(v, corrob) {          // VeVe = lowest ASK (the main troll source)
     v = +v || 0;
     if (v <= 0) return 0;
-    if (v >= 100000) return 0;                 // no realistic VeVe floor ≥ 💎100k → troll listing
-    var s = String(Math.round(v));
-    if (/^(\d)\1{3,}/.test(s)) return 0;       // repdigit vanity price: 8888, 33333, 88888, 99999
+    if (v >= FLOOR_TROLL && !(+corrob >= FLOOR_TROLL)) return 0;   // uncorroborated high ask → troll
+    if (/^(\d)\1{3,}/.test(String(Math.round(v)))) return 0;       // repdigit vanity price
+    return v;
+  }
+  function saneStackrFloor(v, corrob) {        // StackR = real TRADE; still drop an uncorroborated ≥20k outlier
+    v = +v || 0;
+    if (v <= 0) return 0;
+    if (v >= FLOOR_TROLL && !(+corrob >= FLOOR_TROLL)) return 0;
     return v;
   }
   global.saneVeveFloor = saneVeveFloor;
+  global.saneStackrFloor = saneStackrFloor;
+  global.FLOOR_TROLL = FLOOR_TROLL;
 
   global.normName = normName; // shared match-key normalizer (used by mcp.html + sets.html)
   global.COLLECTSCAN = {
