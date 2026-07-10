@@ -94,7 +94,7 @@
   <footer class="foot">Sets are the real VeVe series (from the authoritative catalog); set-completion points use the series, not a same-day-drop proxy.</footer>
 </div>
 
-<script src="data/catalog.js?v=22"></script>
+<script src="data/catalog.js?v=23"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="assets/collectscan.js?v=5"></script>
 <script src="assets/mcp.js?v=4"></script>
@@ -173,7 +173,7 @@
       var b = bySeason[s], pct = b.total ? Math.round(b.owned.length / b.total * 100) : 0;
       var owned = b.owned.slice().sort(function (x, y) { return (rOrder[x.rarity]==null?9:rOrder[x.rarity]) - (rOrder[y.rarity]==null?9:rOrder[y.rarity]) || (x.name>y.name?1:-1); });
       var tiles = owned.map(function (m) {
-        var c = m.floor>0 ? {v:m.floor,src:'veve'} : (function(){ var f=floorRec(m.name); return f&&f.usd>0?{v:f.usd,src:'stackr'}:null; })();
+        var c = itemCost(m);   // StackR traded → sanitised VeVe ask (troll listings dropped) → drop; null for unpriceable blind boxes
         return '<div class="tile">' +
           '<div class="own">✅</div>' +
           '<div class="ic">' + (m.rarity === 'Secret Rare' ? '🏆' : m.rarity === 'Ultra Rare' ? '💎' : '🎴') + '</div>' +

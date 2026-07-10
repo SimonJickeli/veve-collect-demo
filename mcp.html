@@ -67,13 +67,13 @@
 <script src="assets/data.js"></script>
 <script src="assets/mcp.js?v=4"></script>
 <script src="assets/collectscan.js?v=5"></script>
-<script src="data/catalog.js?v=22"></script>
+<script src="data/catalog.js?v=23"></script>
 <script src="data/floor.js?v=1"></script>
 <script src="data/comics_mcp.js?v=2"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
-  var rClass = function (r) { return 'chip r-' + r.replace(/ /g, ''); };
+  var rClass = function (r) { return 'chip r-' + (r || '').replace(/ /g, ''); };
   var holdings = [];
   var liveMode = false;
   var liveSets = null; // set-completion sets built from the catalog, matched to live holdings by name
@@ -123,7 +123,7 @@
   function itemUrl(tid, kind, src){
     if(!tid) return null;
     if(src==='stackr') return 'https://www.stackr.world/collections/veve/' + (kind==='comic'?'comic':'collectible') + '/' + tid;
-    return 'https://www.veve.me/en/' + (kind==='comic'?'comics':'collectibles') + '/' + tid;
+    return 'https://www.veve.me/collectibles/en/' + (kind==='comic'?'comics':'collectibles') + '/' + tid;
   }
   function buyLink(tid, src, kind){
     var url = itemUrl(tid, kind||'collectible', src); if(!url) return '';

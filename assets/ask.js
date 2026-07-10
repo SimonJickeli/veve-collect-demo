@@ -85,7 +85,13 @@
   // ON-CHAIN name, so try the catalog's `aka` (on-chain alias) FIRST, then the display name (71%→95% match).
   function heldList(it) {
     var H = g.HELD; if (!H || !H.k) return null;
-    return H.k[_hk(it.aka || it.name) + '|' + _hk(it.rarity)] || H.k[_hk(it.name) + '|' + _hk(it.rarity)] || null;
+    var r = H.k[_hk(it.aka || it.name) + '|' + _hk(it.rarity)] || H.k[_hk(it.name) + '|' + _hk(it.rarity)] || null;
+    // GUARD name-collisions: two DIFFERENT collectibles can normalize to the same held key (e.g. the
+    // 19,800-ed and 1,980-ed "Yoda|Common"). If the resolved reserve list contains a mint number ABOVE
+    // this item's edition size, it belongs to the larger twin — treat as a miss so we never fabricate a
+    // held range (falls back to the honest "≥ reserve below LPM" path).
+    if (r && it.edition) { var mx = 0; String(r).split(',').forEach(function (p) { var n = +p.split('-').pop(); if (n > mx) mx = n; }); if (mx > it.edition) return null; }
+    return r;
   }
   function isHeld(it, N) {
     var r = heldList(it);
@@ -260,7 +266,11 @@
     var lpm = it.lowmint, iss = issuedOf(it), res = reserved(it), bn = burnt(it), st = unsold(it), rnd = randomHeld(it), theld = totalHeld(it);
     var head = '<strong>#' + N + ' of ' + esc(it.name) + '</strong> <span class="small">(' + (it.rarity || '?') + (it.edition ? ', edition of ' + it.edition.toLocaleString() : '') + ')</span> — ';
     var meta = { item: it, topic: '#' + N + ' of ' + it.name };
-    if (iss && N > iss) return fin(q, meta, { summary: head + '❔ there is no #' + N + ' — only ' + iss.toLocaleString() + ' editions were minted.', rows: [] });
+    // The true ceiling for a valid mint number is the EDITION SIZE (issued/minted can be lower for
+    // partially-sold drops, but an owned #N proves it exists) — bound by edition to avoid telling a
+    // holder their real edition "doesn't exist".
+    var maxMint = it.edition || iss;
+    if (maxMint && N > maxMint) return fin(q, meta, { summary: head + '❔ there is no #' + N + ' — the edition tops out at #' + maxMint.toLocaleString() + '.', rows: [] });
     // on-chain reserve index → DEFINITIVE answer (covers the random withholds above the LPM too)
     var hs = isHeld(it, N);
     var sig = mintSig(it, N);   // ⭐ is this edition NUMBER also a signature mint? (creator year, egg, meme, run)
