@@ -18,7 +18,8 @@
   .catchip.on .c { color:#cfe6ff; }
   .smrow { display:grid; grid-template-columns:30px 40px 1fr auto; align-items:center; gap:13px; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); margin-bottom:9px; }
   .smrow .rank { font-size:12px; font-weight:800; color:var(--muted); text-align:center; }
-  .smrow .ic { width:40px; height:40px; border-radius:9px; background:#12162a; display:flex; align-items:center; justify-content:center; font-size:21px; flex:0 0 auto; }
+  .smrow .ic { position:relative; overflow:hidden; width:40px; height:40px; border-radius:9px; background:#12162a; display:flex; align-items:center; justify-content:center; font-size:21px; flex:0 0 auto; }
+  .smrow .ic img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
   .smrow .mid { min-width:0; }
   .smrow .nm { font-weight:700; font-size:14.5px; }
   .smrow .nm a { color:var(--text); } .smrow .nm a:hover { color:var(--accent-2); }
@@ -106,7 +107,7 @@
 <script src="data/historic-years.js?v=3"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=3"></script>
+<script src="data/special_listings.js?v=4"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -194,7 +195,7 @@
       var extra = i.labels.length > 1 ? ' <span class="small" style="color:var(--muted)">+' + (i.labels.length - 1) + ' more</span>' : '';
       return '<div class="smrow">' +
         '<div class="rank">' + (n + 1) + '</div>' +
-        '<div class="ic">' + icon(i) + '</div>' +
+        '<div class="ic">' + icon(i) + (i.img ? '<img src="' + i.img + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') + '</div>' +
         '<div class="mid">' +
           '<div class="nm"><a href="explorer.html#/c/' + i.slug + '">' + i.name + '</a></div>' +
           '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
