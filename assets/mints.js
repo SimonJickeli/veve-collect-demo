@@ -24,6 +24,7 @@
 
   var CATEGORIES = [
     { key: 'historic',   label: 'Historically significant' },
+    { key: 'milestone',  label: 'Anniversary / milestone dates' },
     { key: 'low',        label: 'Lowest public mint' },
     { key: 'high',       label: 'Highest (final) mint' },
     { key: 'palindrome', label: 'Palindromes (5+ digits)' },
@@ -91,22 +92,31 @@
     // ── repeating digits (3+ digits: #111, #333, #2222, #5555) — a lower "somewhat special" tier ──
     if (s.length >= 3 && isRepdigit(s)) add('repdigit', 'Repeating digits (#' + s + ')', 'notable', ['repdigit']);
 
-    // ── meme / iconic numbers + franchise easter eggs (kept tight) ──
+    // ── meme / iconic numbers + franchise easter eggs + milestone date-codes ──
+    // Eggs can carry cat ('meme' default | 'milestone' for date-codes like #1071 = Oct 1971, #775 = May 1977)
+    // and tier (default 'rare'), so anniversary/founding date-codes read as a milestone, not a meme.
     if (MEME_NUMBERS[mint]) add('meme', 'Meme / iconic number — ' + MEME_NUMBERS[mint], 'rare', ['meme']);
-    (opts.universeEggs || []).forEach(function (e) { if (Number(e.mint) === mint) add('meme', 'Franchise easter egg — ' + e.reason, 'rare', ['meme']); });
+    (opts.universeEggs || []).forEach(function (e) {
+      if (Number(e.mint) !== mint) return;
+      var cat = e.cat || 'meme', tier = e.tier || 'rare';
+      var pre = cat === 'milestone' ? '🎂 Milestone — ' : 'Franchise easter egg — ';
+      add('egg-' + mint, pre + e.reason, tier, [cat]);
+    });
 
-    // ── historically significant years (character-specific, WITH reasons) ──
+    // ── significant YEARS (release/birth = elite 'historic'; founding/anniversary = 'milestone', tier 2-3).
+    // Each entry may carry sy.tier and sy.cat; release/drop years are pushed as legendary by the consumers.
     var sigYears = (opts.significantYears || []).slice();
     if (opts.universeYears) sigYears = sigYears.concat(opts.universeYears);
-    if (opts.firstAppearanceYear) sigYears.push({ year: Number(opts.firstAppearanceYear), reason: 'first appearance' });
+    if (opts.firstAppearanceYear) sigYears.push({ year: Number(opts.firstAppearanceYear), reason: 'first appearance', tier: 'legendary' });
     var sigSeen = {};
     sigYears.forEach(function (sy) {
       var y = Number(sy.year);
       if (mint === y && !sigSeen[y]) {
         sigSeen[y] = 1;
         var t = sy.tier || 'epic';
-        var pre = (t === 'legendary') ? '🏆 Grail — ' : 'Historically significant — ';
-        add('historic-' + y, pre + sy.reason + ' (' + y + ')', t, ['historic']);
+        var cat = sy.cat || 'historic';
+        var pre = (t === 'legendary') ? '🏆 Grail — ' : (cat === 'milestone' ? '🎂 Milestone — ' : 'Historically significant — ');
+        add('historic-' + y, pre + sy.reason + ' (' + y + ')', t, [cat]);
       }
     });
 
@@ -133,13 +143,13 @@
       // VeVe drop year — a mint matching the year this NFT dropped (on-chain dropDate, else catalog drop)
       var sy = (sigLookup ? sigLookup(c.character || c.name) : []).slice();
       var dd = h.dropDate || c.drop, dm = dd ? String(dd).match(/(\d{4})/) : null;
-      if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
+      if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year', tier: 'legendary' });  // release year = elite
       // comics: original publication year + writer/artist birth years (from window.COMIC_HISTORIC)
       var chi = null;
       if (h.format === 'comic' && global.COMIC_HISTORIC && h.nameKey) {
         chi = global.COMIC_HISTORIC.issues[h.nameKey];
         if (chi) {
-          if (chi.pub) sy.push({ year: chi.pub, reason: 'comic first published' });
+          if (chi.pub) sy.push({ year: chi.pub, reason: 'comic first published', tier: 'legendary' });  // release year = elite
           (chi.c || []).forEach(function (cr) { var by = global.COMIC_HISTORIC.births[cr]; if (by) sy.push({ year: by, reason: cr + ' (creator) born' }); });
           var cfa = global.COMIC_HISTORIC.cfa || {};
           (chi.ch || []).forEach(function (cc) { var fy = cfa[cc]; if (fy) sy.push({ year: fy, reason: cc + ' first appeared' }); });

@@ -12,20 +12,21 @@
   'use strict';
   var H = global.HISTORIC || { years: {}, universeYears: {}, universeEggs: {} };
 
+  // tuple formats: year = [year, reason, tier?, cat?] ; egg = [mint, reason, cat?, tier?]
   var YEARS = {};
   Object.keys(H.years || {}).forEach(function (k) {
-    YEARS[k] = (H.years[k] || []).map(function (e) { return { y: e[0], r: e[1] }; });
+    YEARS[k] = (H.years[k] || []).map(function (e) { return { y: e[0], r: e[1], tier: e[2], cat: e[3] }; });
   });
   var UNIVERSE_YEARS = {};
   Object.keys(H.universeYears || {}).forEach(function (k) {
-    UNIVERSE_YEARS[k] = (H.universeYears[k] || []).map(function (e) { return { y: e[0], r: e[1], tier: e[2] }; });
+    UNIVERSE_YEARS[k] = (H.universeYears[k] || []).map(function (e) { return { y: e[0], r: e[1], tier: e[2], cat: e[3] }; });
   });
   var UNIVERSE_EGGS = {};
   Object.keys(H.universeEggs || {}).forEach(function (k) {
-    UNIVERSE_EGGS[k] = (H.universeEggs[k] || []).map(function (e) { return { n: e[0], r: e[1] }; });
+    UNIVERSE_EGGS[k] = (H.universeEggs[k] || []).map(function (e) { return { n: e[0], r: e[1], cat: e[2], tier: e[3] }; });
   });
 
-  function mapYears(arr) { return arr.map(function (e) { return { year: e.y, reason: e.r, tier: e.tier }; }); }
+  function mapYears(arr) { return arr.map(function (e) { return { year: e.y, reason: e.r, tier: e.tier, cat: e.cat }; }); }
 
   function lookup(character) {
     if (!character) return [];
@@ -44,7 +45,7 @@
   function lookupEggs(universe) {
     if (!universe) return [];
     var k = String(universe).toLowerCase().trim();
-    return (UNIVERSE_EGGS[k] || []).map(function (e) { return { mint: e.n, reason: e.r }; });
+    return (UNIVERSE_EGGS[k] || []).map(function (e) { return { mint: e.n, reason: e.r, cat: e.cat, tier: e.tier }; });
   }
 
   global.SIG = { years: YEARS, universeYears: UNIVERSE_YEARS, universeEggs: UNIVERSE_EGGS,

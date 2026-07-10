@@ -72,9 +72,9 @@
 <script src="assets/data.js?v=2"></script>
 <script src="data/catalog.js?v=24"></script>
 <script src="data/floor.js?v=1"></script>
-<script src="data/historic-years.js?v=2"></script>
-<script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=13"></script>
+<script src="data/historic-years.js?v=3"></script>
+<script src="assets/significant-years.js?v=4"></script>
+<script src="assets/mints.js?v=14"></script>
 <script src="assets/collectscan.js?v=6"></script>
 <script>
 (function () {
@@ -87,16 +87,19 @@
     return MINTS.CATEGORIES.map(function (c) { return c.key; });
   }
 
-  // groups for the scan results — a holding appears under every category it matches
+  // groups for the scan results — a holding appears under every category it matches. Predicates take the
+  // whole flag: eggs share the tag 'egg-<mint>' so meme-vs-milestone is told apart by category, and
+  // milestone years (tag 'historic-<yr>', cat 'milestone') route to Milestone, not Historic.
   var SECTIONS = [
-    { title: '🥇 Lowest public mint',          match: function (t) { return t === 'lowest-public' || t === 'ace'; } },
-    { title: '🏁 Highest (final) mint',         match: function (t) { return t === 'highest-public'; } },
-    { title: '➡️ Ascending runs',               match: function (t) { return t === 'ascending'; } },
-    { title: '⬅️ Descending runs',              match: function (t) { return t === 'descending'; } },
-    { title: '🔢 Palindromes',                  match: function (t) { return t === 'palindrome'; } },
-    { title: '🔁 Repeating digits',             match: function (t) { return t === 'repdigit'; } },
-    { title: '😎 Meme / iconic & easter eggs',  match: function (t) { return t === 'meme'; } },
-    { title: '📅 Historically significant',     match: function (t) { return t.indexOf('historic-') === 0; } }
+    { title: '🥇 Lowest public mint',          match: function (f) { return f.tag === 'lowest-public' || f.tag === 'ace'; } },
+    { title: '🏁 Highest (final) mint',         match: function (f) { return f.tag === 'highest-public'; } },
+    { title: '➡️ Ascending runs',               match: function (f) { return f.tag === 'ascending'; } },
+    { title: '⬅️ Descending runs',              match: function (f) { return f.tag === 'descending'; } },
+    { title: '🔢 Palindromes',                  match: function (f) { return f.tag === 'palindrome'; } },
+    { title: '🔁 Repeating digits',             match: function (f) { return f.tag === 'repdigit'; } },
+    { title: '🎂 Anniversary / milestone',      match: function (f) { return f.cats.indexOf('milestone') >= 0; } },
+    { title: '😎 Meme / iconic & easter eggs',  match: function (f) { return f.tag === 'meme' || (f.tag.indexOf('egg-') === 0 && f.cats.indexOf('meme') >= 0); } },
+    { title: '📅 Historically significant',     match: function (f) { return f.tag.indexOf('historic-') === 0 && f.cats.indexOf('milestone') < 0; } }
   ];
 
   function scanRow(r, flags) {
@@ -124,7 +127,7 @@
     SECTIONS.forEach(function (sec) {
       var hits = [];
       rows.forEach(function (r) {
-        var fl = r.analysis.flags.filter(function (f) { return sec.match(f.tag); });
+        var fl = r.analysis.flags.filter(function (f) { return sec.match(f); });
         if (fl.length) hits.push({ r: r, flags: fl });
       });
       if (!hits.length) return;

@@ -79,10 +79,10 @@
 </div>
 
 <script src="data/catalog.js?v=24"></script>
-<script src="data/historic-years.js?v=2"></script>
-<script src="assets/significant-years.js?v=3"></script>
-<script src="assets/mints.js?v=13"></script>
-<script src="data/special_listings.js?v=1"></script>
+<script src="data/historic-years.js?v=3"></script>
+<script src="assets/significant-years.js?v=4"></script>
+<script src="assets/mints.js?v=14"></script>
+<script src="data/special_listings.js?v=2"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -92,6 +92,7 @@
   var CATS = [
     { key: 'low', icon: '🥇', label: 'Lowest public' },
     { key: 'historic', icon: '🏛️', label: 'Historic year' },
+    { key: 'milestone', icon: '🎂', label: 'Anniversary / milestone' },
     { key: 'high', icon: '🏁', label: 'Highest mint' },
     { key: 'sequence', icon: '📈', label: 'Ascending / descending' },
     { key: 'palindrome', icon: '🔁', label: 'Palindrome' },
@@ -112,7 +113,7 @@
   $('#cats').innerHTML = CATS.map(function (c) { return '<span class="catchip" data-k="' + c.key + '">' + c.icon + ' ' + c.label + ' <span class="c">' + catCount(c.key) + '</span></span>'; }).join('');
 
   function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
-  function icon(i) { return i.tier === 'legendary' ? '🏆' : i.tier === 'epic' ? '💎' : i.cats.indexOf('meme') >= 0 ? '😎' : i.cats.indexOf('low') >= 0 ? '🥇' : '🎯'; }
+  function icon(i) { return i.tier === 'legendary' ? '🏆' : i.tier === 'epic' ? '💎' : i.cats.indexOf('milestone') >= 0 ? '🎂' : i.cats.indexOf('meme') >= 0 ? '😎' : i.cats.indexOf('low') >= 0 ? '🥇' : '🎯'; }
   function veveUrl(t) { return 'https://www.veve.me/collectibles/en/collectibles/' + t; }
   function stackrUrl(t) { return 'https://stackr.world/collections/veve/collectible/' + t; }
 

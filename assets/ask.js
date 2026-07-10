@@ -58,7 +58,7 @@
   function mintOpts(it) {
     var sy = (_SIG ? _SIG.lookup(it.character || it.name) : []).slice();
     var dm = it.drop ? String(it.drop).match(/(\d{4})/) : null;
-    if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year' });
+    if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year', tier: 'legendary' });  // release year = elite
     return { significantYears: sy, firstPublicMint: it.lowmint,
              universeYears: (_SIG && it.universe) ? _SIG.lookupUniverse(it.universe) : [],
              universeEggs: (_SIG && it.universe) ? _SIG.lookupEggs(it.universe) : [] };
