@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Special Mint Market — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=6" />
+<style>
+  .smctl { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:0 0 14px; padding:12px 14px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; }
+  .smctl .cnt { margin-right:auto; font-weight:800; font-size:14px; }
+  .smctl label { font-size:12.5px; color:var(--muted); display:inline-flex; gap:6px; align-items:center; }
+  .smctl select, .smctl input { background:var(--panel); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:13px; }
+  .catchips { display:flex; flex-wrap:wrap; gap:8px; margin:2px 0 16px; }
+  .catchip { cursor:pointer; user-select:none; border:1px solid var(--border); background:var(--bg-2); border-radius:999px; padding:7px 13px; font-size:13px; color:var(--text); display:inline-flex; gap:7px; align-items:center; }
+  .catchip:hover { border-color:var(--accent); }
+  .catchip.on { border-color:var(--accent); background:linear-gradient(135deg, rgba(11,153,255,.22), rgba(80,171,255,.1)); color:#fff; }
+  .catchip .c { color:var(--muted); font-weight:700; }
+  .catchip.on .c { color:#cfe6ff; }
+  .smrow { display:grid; grid-template-columns:30px 40px 1fr auto; align-items:center; gap:13px; padding:11px 12px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); margin-bottom:9px; }
+  .smrow .rank { font-size:12px; font-weight:800; color:var(--muted); text-align:center; }
+  .smrow .ic { width:40px; height:40px; border-radius:9px; background:#12162a; display:flex; align-items:center; justify-content:center; font-size:21px; flex:0 0 auto; }
+  .smrow .mid { min-width:0; }
+  .smrow .nm { font-weight:700; font-size:14.5px; }
+  .smrow .nm a { color:var(--text); } .smrow .nm a:hover { color:var(--accent-2); }
+  .smrow .sig { font-size:12.5px; color:var(--accent-2); margin-top:2px; font-weight:600; }
+  .smrow .meta2 { font-size:11.5px; color:var(--muted); margin-top:2px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .smrow .right { text-align:right; white-space:nowrap; }
+  .smrow .mint { font-size:16px; font-weight:800; }
+  .smrow .price { font-size:13px; color:var(--good); font-weight:700; margin-top:1px; }
+  .smrow .buy { margin-top:5px; display:flex; gap:6px; justify-content:flex-end; }
+  .smrow .buy a { font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; border:1px solid var(--border); color:var(--accent-2); background:var(--bg-2); white-space:nowrap; }
+  .smrow .buy a:hover { border-color:var(--accent); text-decoration:none; }
+  .tierdot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+  .t-legendary{background:#ffd23f} .t-epic{background:#c084fc} .t-rare{background:#50abff} .t-notable{background:#7a8699}
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html" class="active">Special Mints</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 12px">
+    <h1>Special Mint <span class="grad">Market</span></h1>
+    <p>Every collectible <strong>currently listed</strong> whose <strong>mint number is significant</strong> — the lowest public mint, a creator's birth year, a franchise easter egg (#1138, #616), a palindrome, an ascending run, a meme number. Shop the good serials that are actually for sale. <span class="small" id="stat"></span></p>
+  </section>
+
+  <div class="catchips" id="cats"></div>
+  <div class="smctl">
+    <span class="cnt" id="cnt">…</span>
+    <label>Universe <select id="uni"><option value="all">All</option></select></label>
+    <label>Market <select id="mk"><option value="all">All</option><option value="VEVE">VeVe 💠</option><option value="STACKR">StackR ⛓</option></select></label>
+    <label>Max 💎 <input type="number" id="maxp" placeholder="any" style="width:90px" min="0"></label>
+    <label>Sort <select id="sort">
+      <option value="tier">Most significant</option>
+      <option value="cheap">Cheapest</option>
+      <option value="mint">Lowest mint #</option>
+      <option value="pricey">Priciest</option>
+    </select></label>
+    <label><input type="text" id="q" placeholder="search name…" style="width:150px"></label>
+  </div>
+
+  <div id="results"></div>
+
+  <div class="note warn" style="margin-top:18px">
+    Listings are a periodic snapshot of VeVe's fixed-price market (💠) and StackR (⛓) — prices/availability change; confirm in-app before buying. "Significant" is an objective property of the number (creator years, franchise eggs, memes, runs, the lowest public mint), computed by the same engine as the Mint Checker. Not affiliated with VeVe.
+  </div>
+  <footer class="foot">Special Mint Market · significant serials currently listed, matched by mint number to the wiki's historic-mint dataset.</footer>
+</div>
+
+<script src="data/catalog.js?v=24"></script>
+<script src="data/historic-years.js?v=2"></script>
+<script src="assets/significant-years.js?v=3"></script>
+<script src="assets/mints.js?v=13"></script>
+<script src="data/special_listings.js?v=1"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var SL = window.SPECIAL_LISTINGS || { items: [], count: 0, asOf: 0 };
+  var items = SL.items || [];
+  // category metadata (matches mints.js CATEGORIES)
+  var CATS = [
+    { key: 'low', icon: '🥇', label: 'Lowest public' },
+    { key: 'historic', icon: '🏛️', label: 'Historic year' },
+    { key: 'high', icon: '🏁', label: 'Highest mint' },
+    { key: 'sequence', icon: '📈', label: 'Ascending / descending' },
+    { key: 'palindrome', icon: '🔁', label: 'Palindrome' },
+    { key: 'repdigit', icon: '💯', label: 'Repeating digits' },
+    { key: 'meme', icon: '😎', label: 'Meme / franchise egg' }
+  ];
+  var active = {};   // selected categories (empty = all)
+  function catCount(k) { return items.filter(function (i) { return i.cats.indexOf(k) >= 0; }).length; }
+
+  var asOf = SL.asOf ? new Date(SL.asOf * 1000).toISOString().slice(0, 10) : '—';
+  $('#stat').textContent = SL.count.toLocaleString() + ' special-mint listings · snapshot ' + asOf;
+
+  // universe options
+  var unis = {}; items.forEach(function (i) { if (i.universe) unis[i.universe] = (unis[i.universe] || 0) + 1; });
+  $('#uni').innerHTML = '<option value="all">All universes</option>' + Object.keys(unis).sort(function (a, b) { return unis[b] - unis[a]; })
+    .map(function (u) { return '<option value="' + u + '">' + u + ' (' + unis[u] + ')</option>'; }).join('');
+
+  $('#cats').innerHTML = CATS.map(function (c) { return '<span class="catchip" data-k="' + c.key + '">' + c.icon + ' ' + c.label + ' <span class="c">' + catCount(c.key) + '</span></span>'; }).join('');
+
+  function rClass(r) { return 'chip r-' + (r || '').replace(/ /g, ''); }
+  function icon(i) { return i.tier === 'legendary' ? '🏆' : i.tier === 'epic' ? '💎' : i.cats.indexOf('meme') >= 0 ? '😎' : i.cats.indexOf('low') >= 0 ? '🥇' : '🎯'; }
+  function veveUrl(t) { return 'https://www.veve.me/collectibles/en/collectibles/' + t; }
+  function stackrUrl(t) { return 'https://stackr.world/collections/veve/collectible/' + t; }
+
+  function render() {
+    var uni = $('#uni').value, mk = $('#mk').value, maxp = parseFloat($('#maxp').value) || 0, sort = $('#sort').value, q = $('#q').value.trim().toLowerCase();
+    var sel = Object.keys(active);
+    var list = items.filter(function (i) {
+      if (sel.length && !sel.some(function (k) { return i.cats.indexOf(k) >= 0; })) return false;
+      if (uni !== 'all' && i.universe !== uni) return false;
+      if (mk !== 'all' && i.market !== mk) return false;
+      if (maxp && i.price > maxp) return false;
+      if (q && i.name.toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+    var TW = { legendary: 0, epic: 1, rare: 2, notable: 3 };
+    list.sort(function (a, b) {
+      if (sort === 'cheap') return a.price - b.price;
+      if (sort === 'pricey') return b.price - a.price;
+      if (sort === 'mint') return a.mint - b.mint;
+      return (TW[a.tier] - TW[b.tier]) || (a.price - b.price);   // tier
+    });
+    $('#cnt').textContent = list.length.toLocaleString() + ' listing' + (list.length === 1 ? '' : 's');
+    var cap = 300, shown = list.slice(0, cap);
+    $('#results').innerHTML = shown.map(function (i, n) {
+      var buy = '<a href="' + veveUrl(i.tid) + '" target="_blank" rel="noopener">VeVe ↗</a><a href="' + stackrUrl(i.tid) + '" target="_blank" rel="noopener">StackR ↗</a>';
+      var extra = i.labels.length > 1 ? ' <span class="small" style="color:var(--muted)">+' + (i.labels.length - 1) + ' more</span>' : '';
+      return '<div class="smrow">' +
+        '<div class="rank">' + (n + 1) + '</div>' +
+        '<div class="ic">' + icon(i) + '</div>' +
+        '<div class="mid">' +
+          '<div class="nm"><a href="explorer.html#/c/' + i.slug + '">' + i.name + '</a></div>' +
+          '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
+          '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span></div>' +
+        '</div>' +
+        '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">💎 ' + Math.round(i.price).toLocaleString() + (i.market === 'STACKR' ? ' ⛓' : ' 💠') + '</div><div class="buy">' + buy + '</div></div>' +
+      '</div>';
+    }).join('') + (list.length > cap ? '<div class="note" style="margin-top:8px">Showing the top ' + cap + ' of ' + list.length.toLocaleString() + ' — narrow with the filters above.</div>' : '') +
+      (list.length ? '' : '<div class="note">No special-mint listings match — clear a filter.</div>');
+  }
+
+  $('#cats').addEventListener('click', function (e) {
+    var chip = e.target.closest('.catchip'); if (!chip) return;
+    var k = chip.dataset.k; if (active[k]) { delete active[k]; chip.classList.remove('on'); } else { active[k] = 1; chip.classList.add('on'); }
+    render();
+  });
+  ['uni', 'mk', 'maxp', 'sort', 'q'].forEach(function (id) { $('#' + id).addEventListener('input', render); });
+  render();
+})();
+</script>
+</body>
+</html>
