@@ -107,7 +107,7 @@
 <script src="data/historic-years.js?v=3"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607120122"></script>
+<script src="data/special_listings.js?v=202607120205"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -199,7 +199,7 @@
         '<div class="mid">' +
           '<div class="nm"><a href="explorer.html#/c/' + i.slug + '">' + i.name + '</a></div>' +
           '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
-          '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span></div>' +
+          '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span>' + (i.seller ? '<span>· 👤 ' + i.seller.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '') + '</div>' +
         '</div>' +
         '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">' + priceHtml(i.price, i.market) + '</div><div class="buy">' + mktLink(i.tid, i.market) + '</div></div>' +
       '</div>';
@@ -259,7 +259,8 @@
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607120122'#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607120205';
+    s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
   }
