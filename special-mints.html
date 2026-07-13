@@ -88,6 +88,7 @@
     <label>Max 💎 <input type="number" id="maxp" placeholder="any" style="width:90px" min="0"></label>
     <label>Sort <select id="sort">
       <option value="tier">Most significant</option>
+      <option value="listed">Last listed</option>
       <option value="cheap">Cheapest</option>
       <option value="mint">Lowest mint #</option>
       <option value="pricey">Priciest</option>
@@ -107,7 +108,7 @@
 <script src="data/historic-years.js?v=202607121251"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607130922"></script>
+<script src="data/special_listings.js?v=202607131044"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -186,6 +187,7 @@
       if (sort === 'cheap') return a.price - b.price;
       if (sort === 'pricey') return b.price - a.price;
       if (sort === 'mint') return a.mint - b.mint;
+      if (sort === 'listed') return ((b.listedAt || 0) - (a.listedAt || 0)) || (TW[a.tier] - TW[b.tier]);   // most recently listed first
       // "Most significant": best tier, then richest match (score), then scarcer edition — NOT cheapest
       return (TW[a.tier] - TW[b.tier]) || ((b.score || 0) - (a.score || 0)) || ((a.edition || 1e9) - (b.edition || 1e9)) || (a.price - b.price);
     });
@@ -259,7 +261,7 @@
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607130922';
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607131044';
     s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
