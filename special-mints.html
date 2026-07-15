@@ -108,7 +108,7 @@
 <script src="data/historic-years.js?v=202607151331"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607151516"></script>
+<script src="data/special_listings.js?v=202607151734"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -261,7 +261,7 @@
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607151516';
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607151734';
     s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
