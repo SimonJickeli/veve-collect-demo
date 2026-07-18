@@ -104,11 +104,11 @@
   <footer class="foot">Special Mint Listings · significant serials — matched by mint number to the wiki's historic-mint dataset.</footer>
 </div>
 
-<script src="data/catalog.js?v=202607171218"></script>
-<script src="data/historic-years.js?v=202607171218"></script>
+<script src="data/catalog.js?v=202607181144"></script>
+<script src="data/historic-years.js?v=202607181144"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607181012"></script>
+<script src="data/special_listings.js?v=202607181427"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -261,7 +261,7 @@
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607181012';
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607181427';
     s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
