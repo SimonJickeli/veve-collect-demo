@@ -77,13 +77,17 @@
   function stackDailyPoints(copies, format) {
     if (!copies || !copies.length) return 0;
     if (format === 'comic') {
-      // Comics: the rarity value IS a per-copy bonus that STACKS — every copy counts FULL at its
-      // rarity value (Common 0.25 … Secret Rare 6.0; ×1.5 on low-mint copies), with NO duplicate
-      // diminishing. (Owner-confirmed: "6 for comics" stacks, mirroring the collectible SR bonus
-      // which also stacks full per copy. The collectible 1.0 base diminishes; comics have no such
-      // base, so nothing diminishes.)
+      // Comics — VeVe OFFICIAL (re-verified 2026-07-18 against veve.me/blog/veve/mcp/
+      // ...earning-mcp-points): duplicate comic covers DIMINISH for Rare / Ultra Rare / Secret Rare —
+      // 2nd 50% · 3rd 25% · 4th+ 10% "of the Daily Points" — while Common and Uncommon are EXEMPT
+      // ("Excluding Common and Uncommon") and stack full. An earlier note assumed all comics stack;
+      // VeVe's published page governs. Best-first: most valuable copy (e.g. the low-mint one) takes
+      // the full factor.
+      var vals = copies.map(function (cp) { return comicIntrinsic(cp.rarity, cp.lowMint); })
+                       .sort(function (a, b) { return b - a; });
+      var exempt = COMIC_DUP_EXEMPT[copies[0].rarity];
       var tc = 0;
-      for (var j = 0; j < copies.length; j++) tc += comicIntrinsic(copies[j].rarity, copies[j].lowMint);
+      for (var j = 0; j < vals.length; j++) tc += exempt ? vals[j] : vals[j] * dupFactor(COMIC_DUP, j + 1);
       return tc;
     }
     // Collectibles: ONLY the 1.0 BASE diminishes on duplicates. The rarity bonus (+5 Secret Rare,
