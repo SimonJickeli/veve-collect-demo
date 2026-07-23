@@ -40,8 +40,11 @@
     return null;
   }
   function costStr(it) { var c = cost(it); if (!c) return '—'; return '💎 ' + Math.round(c.v).toLocaleString() + (c.src === 'veve' ? ' 💠' : c.src === 'stackr' ? ' ⛓' : ' ~'); }
-  var RB = { 'Rare': 0.25, 'Ultra Rare': 0.5, 'Secret Rare': 5, 'Artist Proof': 5 };
-  function mcp(it) { return 1 + (RB[it.rarity] || 0); }
+  // VALIDATED against VeVe dailyMcpPoints (2,510 items, 2026-07-18): Artist Proof earns BASE ONLY
+  // (1.0/day — VeVe reports 1.0, NOT SR-tier 6.0). Comics use the COMIC_BASE scale, not 1+bonus.
+  var RB = { 'Rare': 0.25, 'Ultra Rare': 0.5, 'Secret Rare': 5 };
+  var CB = { 'Common': 0.25, 'Uncommon': 0.5, 'Rare': 2, 'Ultra Rare': 3, 'Secret Rare': 6 };
+  function mcp(it) { return it._comic ? (CB[it.rarity] || 0.25) : 1 + (RB[it.rarity] || 0); }
   // HELD BACK = reserved low mints (#1 → lowest-public−1). UNSOLD = Store stock. BURNT = removed. All separate.
   function reserved(it) { return (it.lowmint && it.lowmint > 1) ? (it.lowmint - 1) : 0; }
   function heldBack(it) { return reserved(it); }
