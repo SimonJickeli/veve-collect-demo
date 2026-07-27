@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Market Indexes — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=6" />
+<style>
+  .ixgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; }
+  .ixcard { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); padding:16px 16px 10px; }
+  .ixcard h3 { margin:0; font-size:15.5px; }
+  .ixcard .big { font-size:26px; font-weight:800; margin:2px 0 0; }
+  .up { color:#3ddc84; } .down { color:#ff5d5d; }
+  .ixchips { display:flex; gap:8px; margin:6px 0 4px; flex-wrap:wrap; }
+  .ixchip { font-size:11.5px; font-weight:700; border:1px solid var(--border); border-radius:999px; padding:3px 9px; color:var(--muted); }
+  .ixchip b.up, .ixchip b.down { font-weight:800; }
+  .ixfoot { font-size:11px; color:var(--muted); margin-top:4px; }
+  canvas.ix { width:100%; height:120px; display:block; margin-top:6px; }
+  .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table td { padding:9px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table tr:last-child td { border-bottom:0; }
+  .mcap-table .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .rankn { color:var(--muted); font-weight:800; font-size:12px; }
+  .sech { margin:26px 0 10px; font-size:18px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="market.html" class="active">Market</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 12px">
+    <h1>Market <span class="grad">Indexes</span></h1>
+    <p>Franchise &amp; character performance indexes computed from <strong>every real market sale</strong> (VeVe 💠 + StackR ⛓, 300k+ trades since Jul 2025) — plus the marketcap leaderboard. <span class="small" id="stat"></span></p>
+  </section>
+
+  <h2 class="sech">📈 Franchise indexes</h2>
+  <div class="ixgrid" id="fr"></div>
+
+  <h2 class="sech">🦸 Character indexes</h2>
+  <div class="ixgrid" id="ch"></div>
+
+  <h2 class="sech">🏆 Marketcap leaderboard</h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="mcap"></table>
+  </div>
+
+  <div class="note warn" style="margin-top:18px">
+    <strong>Method:</strong> each index is <em>equal-weight, entry-at-first-trade</em> — buy 1 of every collectible in the basket at its first traded price (since 2025-07-12), track the portfolio vs cost, rebased to 100. Daily price = median of that day's real sales (both markets); days without a trade carry the last price forward. Marketcap = last traded price × editions in circulation. Small baskets (few members) swing hard — check the members count. Not financial advice.
+  </div>
+  <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed daily.</footer>
+</div>
+
+<script src="data/indexes.js?v=1"></script>
+<script src="data/marketcap.js?v=1"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var IX = window.INDEXES || { indexes: [] }, MC = window.MARKETCAP || { rows: [] };
+  $('#stat').textContent = IX.indexes.length + ' indexes · base 100 = first trade · updated ' + (IX.asOf ? new Date(IX.asOf * 1000).toISOString().slice(0, 10) : '—');
+
+  function pct(v, digits) { if (v == null) return '—'; var s = v > 0 ? '+' : ''; return s + v.toFixed(digits == null ? 1 : digits) + '%'; }
+  function cls(v) { return v == null ? '' : (v >= 0 ? 'up' : 'down'); }
+
+  function card(ix) {
+    var id = 'cv-' + ix.key;
+    return '<div class="ixcard">' +
+      '<h3>' + ix.label + '</h3>' +
+      '<div class="big ' + cls(ix.r_all) + '">' + pct(ix.r_all) + '</div>' +
+      '<div class="ixchips">' +
+        '<span class="ixchip">7d <b class="' + cls(ix.r7) + '">' + pct(ix.r7) + '</b></span>' +
+        '<span class="ixchip">30d <b class="' + cls(ix.r30) + '">' + pct(ix.r30) + '</b></span>' +
+        '<span class="ixchip">' + ix.traded + '/' + ix.members + ' traded</span>' +
+      '</div>' +
+      '<canvas class="ix" id="' + id + '"></canvas>' +
+      '<div class="ixfoot">since ' + ix.series[0][0] + ' · index ' + ix.series[ix.series.length - 1][1].toFixed(0) + '</div>' +
+    '</div>';
+  }
+  function draw(ix) {
+    var cv = document.getElementById('cv-' + ix.key); if (!cv) return;
+    var dpr = window.devicePixelRatio || 1, W = cv.clientWidth * dpr, H = cv.clientHeight * dpr;
+    cv.width = W; cv.height = H;
+    var c = cv.getContext('2d'), s = ix.series, n = s.length;
+    var vals = s.map(function (p) { return p[1]; });
+    var mn = Math.min.apply(null, vals.concat([100])), mx = Math.max.apply(null, vals.concat([100]));
+    var pad = (mx - mn) * 0.08 + 1; mn -= pad; mx += pad;
+    function X(i) { return (i / (n - 1)) * (W - 8 * dpr) + 4 * dpr; }
+    function Y(v) { return H - ((v - mn) / (mx - mn)) * (H - 8 * dpr) - 4 * dpr; }
+    // baseline 100
+    c.strokeStyle = 'rgba(150,160,190,.35)'; c.setLineDash([4 * dpr, 4 * dpr]); c.lineWidth = dpr;
+    c.beginPath(); c.moveTo(0, Y(100)); c.lineTo(W, Y(100)); c.stroke(); c.setLineDash([]);
+    // line
+    var up = vals[n - 1] >= 100;
+    c.strokeStyle = up ? '#3ddc84' : '#ff5d5d'; c.lineWidth = 2 * dpr;
+    c.beginPath();
+    for (var i = 0; i < n; i++) { i ? c.lineTo(X(i), Y(vals[i])) : c.moveTo(X(i), Y(vals[i])); }
+    c.stroke();
+    // soft fill
+    var g = c.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, up ? 'rgba(61,220,132,.25)' : 'rgba(255,93,93,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    c.lineTo(X(n - 1), H); c.lineTo(X(0), H); c.closePath(); c.fillStyle = g; c.fill();
+  }
+
+  var fr = IX.indexes.filter(function (i) { return i.type === 'franchise'; });
+  var ch = IX.indexes.filter(function (i) { return i.type === 'character'; });
+  $('#fr').innerHTML = fr.map(card).join('');
+  $('#ch').innerHTML = ch.map(card).join('');
+  IX.indexes.forEach(draw);
+  window.addEventListener('resize', function () { IX.indexes.forEach(draw); });
+
+  function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : '$' + Math.round(n / 1000).toLocaleString() + 'k'; }
+  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r">7d</th><th class="r">30d</th></tr>' +
+    MC.rows.slice(0, 20).map(function (r, i) {
+      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700">' + r.universe + '</td>' +
+        '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
+        '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td></tr>';
+    }).join('');
+})();
+</script>
+</body>
+</html>

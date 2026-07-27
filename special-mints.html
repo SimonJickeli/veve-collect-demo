@@ -59,6 +59,7 @@
   <div class="brand">VeVe<span class="dot">.</span>Collect</div>
   <nav class="main">
     <a href="index.html">Home</a>
+    <a href="market.html">Market</a>
     <a href="sets.html">Set Tracker</a>
     <a href="mcp.html">MCP Optimizer</a>
     <a href="mint-checker.html">Mint Checker</a>
@@ -85,7 +86,7 @@
     <span class="cnt" id="cnt">…</span>
     <label>Universe <select id="uni"><option value="all">All</option></select></label>
     <label>Market <select id="mk"><option value="all">All</option><option value="VEVE">VeVe 💠</option><option value="STACKR">StackR ⛓</option></select></label>
-    <label>Max 💎 <input type="number" id="maxp" placeholder="any" style="width:90px" min="0"></label>
+    <label>Max $ <input type="number" id="maxp" placeholder="any" style="width:90px" min="0"></label>
     <label>Sort <select id="sort">
       <option value="tier">Most significant</option>
       <option value="listed">Last listed</option>
@@ -108,7 +109,7 @@
 <script src="data/historic-years.js?v=202607261201"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607270855"></script>
+<script src="data/special_listings.js?v=202607271056"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -140,7 +141,7 @@
   // link ONLY to where it's actually listed; price shown in that market's unit (VeVe → 💎 Gems, StackR → OMI)
   function isOmi(mkt) { return mkt === 'STACKR' || mkt === 'OMI'; }
   function mktLink(tid, mkt) { return isOmi(mkt) ? '<a href="' + stackrUrl(tid) + '" target="_blank" rel="noopener">StackR ↗</a>' : '<a href="' + veveUrl(tid) + '" target="_blank" rel="noopener">VeVe ↗</a>'; }
-  function priceHtml(price, mkt) { var p = Math.round(price).toLocaleString(); return isOmi(mkt) ? '<span class="omidot"></span> ' + p + ' OMI' : '💎 ' + p; }
+  function priceHtml(price, mkt, usd) { var p = Math.round(price).toLocaleString(); return isOmi(mkt) ? '<span class="omidot"></span> ' + p + ' OMI' + (usd ? ' <span class="small" style="color:var(--muted);font-weight:600">≈$' + Math.round(usd).toLocaleString() + '</span>' : '') : '💎 ' + p; }
   var TW = { legendary: 0, epic: 1, rare: 2, notable: 3 };
 
   // ── chrome that changes with the mode: category chips, universe list, control visibility, stat line ──
@@ -179,13 +180,13 @@
       if (sel.length && !sel.some(function (k) { return i.cats.indexOf(k) >= 0; })) return false;
       if (uni !== 'all' && i.universe !== uni) return false;
       if (mk !== 'all' && i.market !== mk) return false;
-      if (maxp && i.price > maxp) return false;
+      if (maxp && (i.usd || i.price) > maxp) return false;
       if (q && i.name.toLowerCase().indexOf(q) < 0) return false;
       return true;
     });
     list.sort(function (a, b) {
-      if (sort === 'cheap') return a.price - b.price;
-      if (sort === 'pricey') return b.price - a.price;
+      if (sort === 'cheap') return (a.usd || a.price) - (b.usd || b.price);
+      if (sort === 'pricey') return (b.usd || b.price) - (a.usd || a.price);
       if (sort === 'mint') return a.mint - b.mint;
       if (sort === 'listed') return ((b.listedAt || 0) - (a.listedAt || 0)) || (TW[a.tier] - TW[b.tier]);   // most recently listed first
       // "Most significant": best tier, then richest match (score), then scarcer edition — NOT cheapest
@@ -203,7 +204,7 @@
           '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
           '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span>' + (i.seller ? '<span>· 👤 ' + i.seller.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '') + '</div>' +
         '</div>' +
-        '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">' + priceHtml(i.price, i.market) + '</div><div class="buy">' + mktLink(i.tid, i.market) + '</div></div>' +
+        '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">' + priceHtml(i.price, i.market, i.usd) + '</div><div class="buy">' + mktLink(i.tid, i.market) + '</div></div>' +
       '</div>';
     }).join('') + (list.length > cap ? '<div class="note" style="margin-top:8px">Showing the top ' + cap + ' of ' + list.length.toLocaleString() + ' — narrow with the filters above.</div>' : '') +
       (list.length ? '' : '<div class="note">No special-mint listings match — clear a filter.</div>');
