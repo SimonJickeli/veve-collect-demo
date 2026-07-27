@@ -58,14 +58,19 @@
     <table class="mcap-table" id="mcap"></table>
   </div>
 
+  <h2 class="sech">💎 Top collectibles by marketcap</h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="topc"></table>
+  </div>
+
   <div class="note warn" style="margin-top:18px">
-    <strong>Method:</strong> each index is <em>equal-weight, entry-at-first-trade</em> — buy 1 of every collectible in the basket at its first traded price (since 2025-07-12), track the portfolio vs cost, rebased to 100. Daily price = median of that day's real sales (both markets); days without a trade carry the last price forward. Marketcap = last traded price × editions in circulation. Small baskets (few members) swing hard — check the members count. Not financial advice.
+    <strong>Method:</strong> each index is <em>equal-weight, entry-at-first-trade</em> — buy 1 of every collectible in the basket at its first traded price (since 2025-07-12), track the portfolio vs cost, rebased to 100. Daily price = median of that day's real sales (both markets); days without a trade carry the last price forward. Marketcap = trailing-30-day median traded price (else last sale) × editions in circulation. Small baskets (few members) swing hard — check the members count. Not financial advice.
   </div>
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed daily.</footer>
 </div>
 
-<script src="data/indexes.js?v=1"></script>
-<script src="data/marketcap.js?v=1"></script>
+<script src="data/indexes.js?v=202607271111"></script>
+<script src="data/marketcap.js?v=202607271111"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -83,7 +88,9 @@
       '<div class="ixchips">' +
         '<span class="ixchip">7d <b class="' + cls(ix.r7) + '">' + pct(ix.r7) + '</b></span>' +
         '<span class="ixchip">30d <b class="' + cls(ix.r30) + '">' + pct(ix.r30) + '</b></span>' +
+        '<span class="ixchip">median item <b class="' + cls(ix.med_all) + '">' + pct(ix.med_all) + '</b></span>' +
         '<span class="ixchip">' + ix.traded + '/' + ix.members + ' traded</span>' +
+        (ix.thin ? '<span class="ixchip" style="color:#ffcf5c;border-color:#6e5a23" title="Fewer than 12 traded items — a single collectible can move this index a lot">⚠ thin basket</span>' : '') +
       '</div>' +
       '<canvas class="ix" id="' + id + '"></canvas>' +
       '<div class="ixfoot">since ' + ix.series[0][0] + ' · index ' + ix.series[ix.series.length - 1][1].toFixed(0) + '</div>' +
@@ -121,12 +128,24 @@
   IX.indexes.forEach(draw);
   window.addEventListener('resize', function () { IX.indexes.forEach(draw); });
 
+  var UNAME = { 'dc':'DC', 'tmnt':'TMNT', 'blackpink':'BLACKPINK', 'veve-vibes':'VeVe Vibes', 'real-world-brand':'Real-World Brands' };
+  function uname(u) { return UNAME[u] || u.replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
   function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : '$' + Math.round(n / 1000).toLocaleString() + 'k'; }
   $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r">7d</th><th class="r">30d</th></tr>' +
     MC.rows.slice(0, 20).map(function (r, i) {
-      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700">' + r.universe + '</td>' +
+      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700">' + uname(r.universe) + '</td>' +
         '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
         '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td></tr>';
+    }).join('');
+
+  $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
+    (MC.top || []).map(function (r, i) {
+      return '<tr><td class="rankn">' + (i + 1) + '</td>' +
+        '<td style="font-weight:700"><a href="explorer.html#/c/' + r.slug + '" style="color:var(--text)">' + r.name + '</a></td>' +
+        '<td>' + uname(r.universe) + '</td>' +
+        '<td class="r">$' + Math.round(r.last).toLocaleString() + '</td>' +
+        '<td class="r">' + r.supply.toLocaleString() + '</td>' +
+        '<td class="r" style="font-weight:800">' + money(r.cap) + '</td></tr>';
     }).join('');
 })();
 </script>

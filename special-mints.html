@@ -87,6 +87,7 @@
     <label>Universe <select id="uni"><option value="all">All</option></select></label>
     <label>Market <select id="mk"><option value="all">All</option><option value="VEVE">VeVe 💠</option><option value="STACKR">StackR ⛓</option></select></label>
     <label>Max $ <input type="number" id="maxp" placeholder="any" style="width:90px" min="0"></label>
+    <label>🎯 Hunt mint # <input type="number" id="huntm" placeholder="e.g. 221" style="width:100px" min="1" title="Show EVERY live listing (both markets) with this exact mint number — across all collectibles"></label>
     <label>Sort <select id="sort">
       <option value="tier">Most significant</option>
       <option value="listed">Last listed</option>
@@ -109,7 +110,7 @@
 <script src="data/historic-years.js?v=202607261201"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202607271056"></script>
+<script src="data/special_listings.js?v=202607271111"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -256,13 +257,66 @@
     var mb = $('#more'); if (mb) mb.addEventListener('click', function () { catCap += 200; renderCatalog(); });
   }
 
-  function render() { catCap = catCap; MODE === 'sale' ? renderSale() : renderCatalog(); }
+  // ── MINT HUNT: show EVERY live listing (both markets) with one exact mint number ──────────────
+  var AL = null;                                   // window.ALL_LISTINGS, lazy-loaded (632KB)
+  function loadAll(cb) {
+    if (AL) { cb(); return; }
+    if (window.ALL_LISTINGS) { AL = window.ALL_LISTINGS; cb(); return; }
+    var s = document.createElement('script'); s.src = 'data/all_listings.js?t=' + Math.floor(Date.now() / 7.2e6);
+    s.onload = function () { AL = window.ALL_LISTINGS || null; cb(); };
+    s.onerror = function () { $('#results').innerHTML = '<div class="note">Could not load the full listings index.</div>'; };
+    document.head.appendChild(s);
+  }
+  var byTid = {}; (window.CATALOG ? CATALOG.items : []).forEach(function (c) { if (c.tid) byTid[c.tid] = c; });
+  function huntOpts(it) {
+    var sy = (window.SIG ? SIG.lookup(it.character || it.name, it.universe) : []).slice();
+    var dm = it.drop ? String(it.drop).match(/(\d{4})/) : null;
+    if (dm) sy.push({ year: +dm[1], reason: 'VeVe drop year', tier: 'legendary' });
+    return { significantYears: sy, firstPublicMint: it.lowmint,
+             universeYears: (window.SIG && it.universe) ? SIG.lookupUniverse(it.universe) : [],
+             universeEggs: (window.SIG && it.universe) ? SIG.lookupEggs(it.universe) : [] };
+  }
+  function renderHunt(m) {
+    if (!AL) { $('#results').innerHTML = '<div class="note">Loading the full listings index…</div>'; loadAll(function () { renderHunt(m); }); return; }
+    var uni = $('#uni').value, mk = $('#mk').value, maxp = parseFloat($('#maxp').value) || 0;
+    var rows = [];
+    Object.keys(AL.veve).forEach(function (tid) {
+      AL.veve[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[1], market: 'VEVE', seller: r[2] || '' }); });
+    });
+    Object.keys(AL.stackr).forEach(function (tid) {
+      AL.stackr[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[2], market: 'STACKR', seller: r[3] || '' }); });
+    });
+    rows = rows.filter(function (x) {
+      if (uni !== 'all' && x.it.universe !== uni) return false;
+      if (mk !== 'all' && x.market !== mk) return false;
+      if (maxp && x.usd > maxp) return false;
+      return true;
+    }).sort(function (a, b) { return a.usd - b.usd; });
+    var nv = rows.filter(function (x) { return x.market === 'VEVE'; }).length;
+    $('#cnt').textContent = rows.length + ' listing' + (rows.length === 1 ? '' : 's') + ' of mint #' + m.toLocaleString() + ' (' + nv + ' 💠 · ' + (rows.length - nv) + ' ⛓)';
+    $('#results').innerHTML = rows.map(function (x, n) {
+      var it = x.it;
+      var a = (window.MINTS && it.edition) ? MINTS.analyzeMint(m, it.edition, huntOpts(it)) : { special: false, flags: [] };
+      var sig = a.special ? '<span class="tierdot t-' + (a.topTier || 'notable') + '"></span> ' + a.flags[0].label.replace(/^🥇 |^🏁 |^🏆 Grail — |^🎂 Milestone — |^Historically significant — |^Franchise easter egg — |^Meme \/ iconic number — /, '')
+                          : '<span class="small" style="color:var(--muted)">no special significance for this item</span>';
+      return '<div class="smrow">' +
+        '<div class="rank">' + (n + 1) + '</div>' +
+        '<div class="ic">🎯' + (it.img ? '<img src="' + it.img + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') + '</div>' +
+        '<div class="mid"><div class="nm"><a href="explorer.html#/c/' + it.slug + '">' + it.name + '</a></div>' +
+          '<div class="sig">' + sig + '</div>' +
+          '<div class="meta2"><span class="' + rClass(it.rarity) + '">' + (it.rarity || '?') + '</span>' + (it.universe ? '<span>· ' + it.universe + '</span>' : '') + '<span>· edition ' + (it.edition ? it.edition.toLocaleString() : '?') + '</span>' + (x.seller ? '<span>· 👤 ' + String(x.seller).replace(/</g, '&lt;') + '</span>' : '') + '</div></div>' +
+        '<div class="right"><div class="mint">#' + m.toLocaleString() + '</div><div class="price">' + priceHtml(x.price, x.market, x.usd) + '</div><div class="buy">' + mktLink(it.tid, x.market) + '</div></div>' +
+      '</div>';
+    }).join('') + (rows.length ? '' : '<div class="note">Mint #' + m.toLocaleString() + ' isn\'t listed on either market right now (or was filtered out above).</div>');
+  }
+  function huntVal() { var v = parseInt($('#huntm').value, 10); return (v >= 1) ? v : null; }
+  function render() { catCap = catCap; var hm = huntVal(); if (MODE === 'sale' && hm) { renderHunt(hm); return; } MODE === 'sale' ? renderSale() : renderCatalog(); }
 
   // ── lazy-load the whole-catalog index (1.5MB) once, in the background after first paint ──
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607270855';
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607271111';
     s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
@@ -283,11 +337,14 @@
     var k = chip.dataset.k; if (active[k]) { delete active[k]; chip.classList.remove('on'); } else { active[k] = 1; chip.classList.add('on'); }
     render();
   });
-  ['uni', 'mk', 'maxp', 'sort', 'q'].forEach(function (id) { $('#' + id).addEventListener('input', render); });
+  ['uni', 'mk', 'maxp', 'sort', 'q', 'huntm'].forEach(function (id) { $('#' + id).addEventListener('input', render); });
+  // deep-link: special-mints.html?m=221 opens the hunt directly (Ask & external links use this)
+  var _hm = (location.search.match(/[?&]m=(\d+)/) || [])[1];
+  if (_hm) { $('#huntm').value = _hm; }
 
   // initial paint (sale mode), then warm the catalog index + its button count in the background
   $('#mc-sale').textContent = SL.count.toLocaleString();
-  paintChrome(); renderSale();
+  paintChrome(); render();
   setTimeout(function () { loadCatalog(); }, 400);
 })();
 </script>
