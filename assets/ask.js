@@ -690,6 +690,7 @@
     if (g.ALL_LISTINGS || document.getElementById('all-listings-js')) return;
     var s = document.createElement('script'); s.id = 'all-listings-js';
     s.src = 'data/all_listings.js?t=' + Math.floor(Date.now() / 7.2e6);   // 2h cache bucket
+    s.onerror = function () { s.remove(); };                              // failed load → next ask retries
     document.head.appendChild(s);
   }
   function mintHunt(m) {
@@ -712,9 +713,16 @@
     // greetings / help / "what is MCP?" / advice — the conversational layer, before any search
     var st = smallTalk(q);
     if (st) return st;
-    // 🎯 mint hunt — needs a literal # (or the word "hunt") so list queries like "all 5 …" never hijack
+    // 🎯 mint hunt — needs a literal # (or "hunt"), and must NOT hijack a question about a NAMED item
+    // ("Is Alligator Loki #41 for sale?" → that item's card/locator, not a global hunt)
     var hm = q.match(/\ball(?:e)?\s*(?:mints?\s*)?#\s*(\d{1,7})\b|#\s*(\d{1,7})\s*(?:listed|gelistet|for sale|zum verkauf)\b|\bhunt\s*#?\s*(\d{1,7})\b/i);
-    if (hm) return mintHunt(parseInt(hm[1] || hm[2] || hm[3], 10));
+    if (hm) {
+      var residue = q.toLowerCase()
+        .replace(/\ball(e)?\b|\bmints?\b|\bhunt\b|\blisted\b|\bgelistet\b|\bfor sale\b|\bzum verkauf\b/g, ' ')
+        .replace(/\b(show|me|which|what|is|are|any|please|zeig|mir|the|of)\b/g, ' ')
+        .replace(/#?\d+/g, ' ').replace(/[^a-z]/g, '');
+      if (residue.length <= 2) return mintHunt(parseInt(hm[1] || hm[2] || hm[3], 10));
+    }
     // distribution / "who owns the most" — checked BEFORE the edition locator, because a comic
     // issue number (#15) is not an edition number and shouldn't trigger the locator.
     if (intentOf(q) === 'dist') return engine(q, 'dist', topN(q), parse(q));

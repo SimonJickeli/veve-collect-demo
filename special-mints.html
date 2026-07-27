@@ -258,13 +258,15 @@
   }
 
   // ── MINT HUNT: show EVERY live listing (both markets) with one exact mint number ──────────────
-  var AL = null;                                   // window.ALL_LISTINGS, lazy-loaded (632KB)
+  var AL = null, _alLoading = false;               // window.ALL_LISTINGS, lazy-loaded (632KB)
   function loadAll(cb) {
     if (AL) { cb(); return; }
     if (window.ALL_LISTINGS) { AL = window.ALL_LISTINGS; cb(); return; }
+    if (_alLoading) return;                        // one in-flight load; render() re-fires on arrival
+    _alLoading = true;
     var s = document.createElement('script'); s.src = 'data/all_listings.js?t=' + Math.floor(Date.now() / 7.2e6);
-    s.onload = function () { AL = window.ALL_LISTINGS || null; cb(); };
-    s.onerror = function () { $('#results').innerHTML = '<div class="note">Could not load the full listings index.</div>'; };
+    s.onload = function () { AL = window.ALL_LISTINGS || null; _alLoading = false; cb(); };
+    s.onerror = function () { _alLoading = false; $('#results').innerHTML = '<div class="note">Could not load the full listings index — reload the page to retry.</div>'; };
     document.head.appendChild(s);
   }
   var byTid = {}; (window.CATALOG ? CATALOG.items : []).forEach(function (c) { if (c.tid) byTid[c.tid] = c; });
@@ -277,7 +279,7 @@
              universeEggs: (window.SIG && it.universe) ? SIG.lookupEggs(it.universe) : [] };
   }
   function renderHunt(m) {
-    if (!AL) { $('#results').innerHTML = '<div class="note">Loading the full listings index…</div>'; loadAll(function () { renderHunt(m); }); return; }
+    if (!AL) { $('#results').innerHTML = '<div class="note">Loading the full listings index…</div>'; loadAll(function () { render(); }); return; }   // re-read the CURRENT input on arrival (never render a stale mint)
     var uni = $('#uni').value, mk = $('#mk').value, maxp = parseFloat($('#maxp').value) || 0;
     var rows = [];
     Object.keys(AL.veve).forEach(function (tid) {
@@ -310,15 +312,18 @@
     }).join('') + (rows.length ? '' : '<div class="note">Mint #' + m.toLocaleString() + ' isn\'t listed on either market right now (or was filtered out above).</div>');
   }
   function huntVal() { var v = parseInt($('#huntm').value, 10); return (v >= 1) ? v : null; }
-  function render() { catCap = catCap; var hm = huntVal(); if (MODE === 'sale' && hm) { renderHunt(hm); return; } MODE === 'sale' ? renderSale() : renderCatalog(); }
+  function render() { var hm = huntVal(); if (MODE === 'sale' && hm) { renderHunt(hm); return; } MODE === 'sale' ? renderSale() : renderCatalog(); }
 
   // ── lazy-load the whole-catalog index (1.5MB) once, in the background after first paint ──
+  var _cmLoading = false;
   function loadCatalog(cb) {
     if (CM) { cb && cb(); return; }
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
+    if (_cmLoading) { return; }                   // one in-flight fetch of the 1.5MB file
+    _cmLoading = true;
     var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202607271327';
-    s.onload = function () { CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
-    s.onerror = function () { $('#mc-cat').textContent = '—'; };
+    s.onload = function () { _cmLoading = false; CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
+    s.onerror = function () { _cmLoading = false; $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
   }
 
