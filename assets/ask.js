@@ -683,12 +683,38 @@
   }
 
   // ---- public entry: conversational -------------------------------------
+  // ── 🎯 mint hunt: "show me all #221 listed" → every live listing with that mint, both markets ──
+  var _tidMap = null;
+  function tidMap() { if (!_tidMap) { _tidMap = {}; C.forEach(function (c) { if (c.tid) _tidMap[c.tid] = c; }); } return _tidMap; }
+  function ensureAllListings() {
+    if (g.ALL_LISTINGS || document.getElementById('all-listings-js')) return;
+    var s = document.createElement('script'); s.id = 'all-listings-js';
+    s.src = 'data/all_listings.js?t=' + Math.floor(Date.now() / 7.2e6);   // 2h cache bucket
+    document.head.appendChild(s);
+  }
+  function mintHunt(m) {
+    ensureAllListings();
+    var link = ' <a href="special-mints.html?m=' + m + '" style="font-weight:800">🎯 open the full #' + m.toLocaleString() + ' hunt →</a>';
+    var A = g.ALL_LISTINGS, T = tidMap();
+    if (!A) return { summary: '🎯 <strong>Mint hunt #' + m.toLocaleString() + '</strong> — checking every live listing on both markets (VeVe 💠 + StackR ⛓).' + link + '<br><span class="small">Live data is loading — ask again in a moment to see the matches right here.</span>', rows: [] };
+    var hits = [];
+    Object.keys(A.veve).forEach(function (t) { A.veve[t].forEach(function (r) { if (r[0] === m && T[t]) hits.push({ it: T[t], txt: '💎 ' + Math.round(r[1]).toLocaleString() + ' 💠', usd: r[1] }); }); });
+    Object.keys(A.stackr).forEach(function (t) { A.stackr[t].forEach(function (r) { if (r[0] === m && T[t]) hits.push({ it: T[t], txt: Math.round(r[1]).toLocaleString() + ' OMI ⛓ (≈$' + Math.round(r[2]).toLocaleString() + ')', usd: r[2] }); }); });
+    hits.sort(function (a, b) { return a.usd - b.usd; });
+    if (!hits.length) return { summary: '🎯 Mint <strong>#' + m.toLocaleString() + '</strong> isn\'t listed on either market right now.' + link, rows: [] };
+    var lines = hits.slice(0, 8).map(function (h) { return '• <strong>' + esc(h.it.name) + '</strong> <span class="small">(' + (h.it.rarity || '?') + ')</span> — ' + h.txt; }).join('<br>');
+    return { summary: '🎯 Mint <strong>#' + m.toLocaleString() + '</strong> is listed <strong>' + hits.length + '×</strong> right now (both markets, cheapest first):<br>' + lines + (hits.length > 8 ? '<br><span class="small">+' + (hits.length - 8) + ' more…</span>' : '') + '<br>' + link, rows: [] };
+  }
+
   function respond(q) {
     q = (q || '').trim();
     if (!q) return { summary: 'Ask me anything about the collectibles — e.g. "scarcest 5 Spider-Man collectibles", "which Disney collectibles are held back?", or "what is Alligator Loki?"', rows: [] };
     // greetings / help / "what is MCP?" / advice — the conversational layer, before any search
     var st = smallTalk(q);
     if (st) return st;
+    // 🎯 mint hunt — needs a literal # (or the word "hunt") so list queries like "all 5 …" never hijack
+    var hm = q.match(/\ball(?:e)?\s*(?:mints?\s*)?#\s*(\d{1,7})\b|#\s*(\d{1,7})\s*(?:listed|gelistet|for sale|zum verkauf)\b|\bhunt\s*#?\s*(\d{1,7})\b/i);
+    if (hm) return mintHunt(parseInt(hm[1] || hm[2] || hm[3], 10));
     // distribution / "who owns the most" — checked BEFORE the edition locator, because a comic
     // issue number (#15) is not an edition number and shouldn't trigger the locator.
     if (intentOf(q) === 'dist') return engine(q, 'dist', topN(q), parse(q));
