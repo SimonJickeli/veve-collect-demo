@@ -84,11 +84,19 @@
     var ext = (NM.rows || []).map(function (r) { return { id: r.id, name: r.name, chain: r.chain, img: r.img,
       floor: r.floor_usd, vol: r.vol24, sales: r.sales24, d7: r.d7, cap: r.cap, method: 'floor',
       href: WIKI.indexOf(r.id) >= 0 ? 'nft/' + r.id + '.html' : null }; });
-    var veve = (MC.rows || []).slice(0, 15).map(function (r) { return { id: null, name: uname(r.universe) + ' (VeVe)', chain: 'veve', img: '',
-      floor: null, vol: null, sales: r.sales24, d7: r.d7, cap: r.cap, method: 'trade', href: 'market.html' }; });
-    var all = ext.concat(veve);
-    if (PF === 'all') return all.sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
-    return all.filter(function (r) { return r.chain === PF; }).sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
+    // All tab: ONE aggregate row for the whole VeVe platform (collections vs platform stays honest);
+    // VeVe tab: the per-franchise breakdown with full volume + sales columns.
+    if (PF === 'all') {
+      var t = MC.total;
+      if (t) ext.push({ id: null, name: '💠 VeVe — all collectibles', chain: 'veve', img: '',
+        floor: null, vol: t.vol24, sales: t.sales24, d7: t.d7, cap: t.cap, method: 'trade', href: 'market.html' });
+      return ext.sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
+    }
+    if (PF === 'veve') {
+      return (MC.rows || []).slice(0, 15).map(function (r) { return { id: null, name: uname(r.universe) + ' (VeVe)', chain: 'veve', img: '',
+        floor: null, vol: r.vol24, sales: r.sales24, d7: r.d7, cap: r.cap, method: 'trade', href: 'market.html' }; });
+    }
+    return ext.filter(function (r) { return r.chain === PF; }).sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
   }
   function pfTabs() {
     $('#pf').innerHTML = CHAINS.map(function (c) {

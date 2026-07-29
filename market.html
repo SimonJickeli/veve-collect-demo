@@ -15,8 +15,10 @@
   .ixchip { font-size:11.5px; font-weight:700; border:1px solid var(--border); border-radius:999px; padding:3px 9px; color:var(--muted); }
   .ixchip b.up, .ixchip b.down { font-weight:800; }
   .ixfoot { font-size:11px; color:var(--muted); margin-top:4px; }
-  canvas.ix { width:100%; height:120px; display:block; margin-top:6px; }
-  canvas.spark { width:110px; height:30px; display:block; }
+  canvas.ix { width:100%; height:150px; display:block; margin-top:8px; }
+  canvas.spark { width:140px; height:34px; display:block; }
+  .ixstory { font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.45; }
+  .ixstory b { color:var(--text); }
   .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
   .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
   .mcap-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
@@ -55,8 +57,8 @@
   </section>
 
   <div class="wtoggle" id="wt">
-    <button data-w="ew" class="on" title="Buy 1 of every item in the basket — the collector's portfolio view">⚖️ Equal-weight</button>
-    <button data-w="cw" title="Weighted by each item's marketcap (price × supply) — the whole market's value">🏦 Marketcap-weighted</button>
+    <button data-w="ew" class="on" title="One of every traded item, bought at its first sale — like a collector's portfolio">👤 Collector view · 1 of each</button>
+    <button data-w="cw" title="Every item weighted by its market size (price × supply) — how the whole market moved">🏦 Whole market · size-weighted</button>
   </div>
 
   <h2 class="sech">📈 Franchise indexes</h2>
@@ -82,7 +84,12 @@
   </div>
 
   <div class="note warn" style="margin-top:18px">
-    <strong>Method:</strong> <em>entry-at-first-trade</em>, base 100, since 2025-07-12. <strong>⚖️ Equal-weight</strong> = buy 1 of every basket item at its first traded price (a collector's portfolio). <strong>🏦 Marketcap-weighted</strong> = each item weighted by price × circulating supply (the whole market's value — large editions dominate). Daily price = median of that day's real sales (both markets); quiet days carry the last price forward. Marketcap = trailing-30-day median traded price (else last sale) × editions in circulation. <span class="thinb">⚠ thin</span> = fewer than 12 traded items — one collectible can move it a lot. Top collectibles require <strong>≥3 trades in the last 30d</strong> — a single stale sale (or a high floor ask nobody pays) can't headline the board. Not financial advice.
+    <strong>How these numbers work</strong> — in plain words:<br>
+    · Everything is computed from <strong>real sales only</strong> (both markets, since 2025-07-12) — never from listing/ask prices.<br>
+    · <strong>Premium-mint sales are excluded:</strong> when a collectible's price suddenly prints several times its normal level on a single sale (a mint&nbsp;#1 flip, a wash trade), that sale doesn't count. The index tracks <em>ordinary floor-tier items</em> — what a normal collector actually holds.<br>
+    · <strong>👤 Collector view</strong> answers: "if I'd bought one of every traded item at its first sale, how am I doing?" <strong>🏦 Whole market</strong> weights items by size, so big editions dominate.<br>
+    · <strong>Marketcap</strong> = the item's typical traded price over the last 30 days × copies in circulation. Items with no sale in 90 days don't count — we won't value a whole edition off one ancient print. Top collectibles additionally need <strong>≥3 trades in 30 days</strong> to rank.<br>
+    · <strong>🛒 from $</strong> = the cheapest live listing in that basket right now (an entry price, never used in the index math). <span class="thinb">⚠ few trades</span> = under 12 traded items, take the curve with a grain of salt. Not financial advice.
   </div>
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
 </div>
@@ -119,7 +126,21 @@
     c.beginPath();
     for (var i = 0; i < n; i++) { i ? c.lineTo(X(i), Y(vals[i])) : c.moveTo(X(i), Y(vals[i])); }
     c.stroke();
-    if (big) { var g = c.createLinearGradient(0, 0, 0, H);
+    if (big) {
+      // plain-language labels: what am I looking at, where does it start/end
+      var f = 10 * dpr;
+      c.font = '600 ' + f + 'px system-ui, sans-serif';
+      c.fillStyle = 'rgba(150,160,190,.75)';
+      c.fillText(series[0][0], 4 * dpr, H - 3 * dpr);
+      var lastD = series[series.length - 1][0];
+      c.fillText(lastD, Wd - c.measureText(lastD).width - 4 * dpr, H - 3 * dpr);
+      c.fillText('start', 4 * dpr, Math.min(H - 14 * dpr, Math.max(f + 1, Y(100) - 3 * dpr)));
+      var endPct = (vals[n - 1] - 100), endTxt = (endPct >= 0 ? '+' : '') + endPct.toFixed(0) + '%';
+      c.font = '800 ' + 12 * dpr + 'px system-ui, sans-serif';
+      c.fillStyle = up ? '#3ddc84' : '#ff5d5d';
+      var ex = Math.min(Wd - c.measureText(endTxt).width - 4 * dpr, X(n - 1) + 4 * dpr);
+      c.fillText(endTxt, ex, Math.max(12 * dpr, Math.min(H - 16 * dpr, Y(vals[n - 1]) - 5 * dpr)));
+      var g = c.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, up ? 'rgba(61,220,132,.25)' : 'rgba(255,93,93,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       c.lineTo(X(n - 1), H); c.lineTo(X(0), H); c.closePath(); c.fillStyle = g; c.fill(); }
   }
@@ -128,17 +149,20 @@
   function frCards() {
     var fr = IX.indexes.filter(function (i) { return i.type === 'franchise'; });
     $('#fr').innerHTML = fr.map(function (ix) {
-      var w = ix[W];
-      return '<div class="ixcard"><h3>' + ix.label + '</h3>' +
-        '<div class="big ' + cls(w.r_all) + '">' + pct(w.r_all) + '</div>' +
+      var w = ix[W], name = ix.label.replace(' Index', '');
+      var story = (W === 'ew')
+        ? 'One of every traded <b>' + name + '</b> item, bought at its first sale, is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> today.'
+        : 'The <b>' + name + '</b> market as a whole (weighted by size) is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> since ' + w.series[0][0] + '.';
+      return '<div class="ixcard"><h3>' + name + '</h3>' +
+        '<div class="big ' + cls(w.r_all) + '">' + pct(w.r_all) + ' <span class="small" style="font-weight:600">since ' + w.series[0][0] + '</span></div>' +
         '<div class="ixchips">' +
+          (ix.floor != null ? '<span class="ixchip" title="cheapest ' + name + ' listing right now: ' + (ix.floor_item || '') + '">🛒 from $' + ix.floor.toLocaleString() + '</span>' : '') +
+          '<span class="ixchip" title="items with at least one real sale">' + ix.traded + ' items</span>' +
           '<span class="ixchip">7d <b class="' + cls(w.r7) + '">' + pct(w.r7) + '</b></span>' +
           '<span class="ixchip">30d <b class="' + cls(w.r30) + '">' + pct(w.r30) + '</b></span>' +
-          '<span class="ixchip">median item <b class="' + cls(ix.med_all) + '">' + pct(ix.med_all) + '</b></span>' +
-          '<span class="ixchip">' + ix.traded + '/' + ix.members + ' traded</span>' +
-          (ix.thin ? '<span class="ixchip thinb">⚠ thin basket</span>' : '') +
+          (ix.thin ? '<span class="ixchip thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠ few trades</span>' : '') +
         '</div><canvas class="ix" id="cv-' + ix.key + '"></canvas>' +
-        '<div class="ixfoot">since ' + w.series[0][0] + ' · index ' + w.series[w.series.length - 1][1].toFixed(0) + '</div></div>';
+        '<div class="ixstory">' + story + '</div></div>';
     }).join('');
     fr.forEach(function (ix) { line(document.getElementById('cv-' + ix.key), ix[W].series, true); });
   }
@@ -147,21 +171,21 @@
   function chTable() {
     var ch = IX.indexes.filter(function (i) { return i.type === 'character'; });
     $('#chn').textContent = '· ' + ch.length + ' characters, ranked';
-    function val(ix, col) { return col === 'med_all' ? ix.med_all : (col === 'traded' ? ix.traded : ix[W][col]); }
+    function val(ix, col) { return col === 'floor' ? ix.floor : (col === 'traded' ? ix.traded : ix[W][col]); }
     ch.sort(function (a, b) { return ((val(b, chSort.col) == null ? -1e9 : val(b, chSort.col)) - (val(a, chSort.col) == null ? -1e9 : val(a, chSort.col))) * (chSort.dir < 0 ? 1 : -1); });
-    var TH = [['', null], ['Character', null], ['Total', 'r_all'], ['7d', 'r7'], ['30d', 'r30'], ['Median item', 'med_all'], ['Traded', 'traded'], ['Chart', null]];
+    var TH = [['', null], ['Character', null], ['Since start', 'r_all'], ['7d', 'r7'], ['30d', 'r30'], ['Cheapest listing', 'floor'], ['Items', 'traded'], ['Trend', null]];
     $('#chart-table').innerHTML = '<tr>' + TH.map(function (h) {
       var s = h[1] ? ' class="sortable r" data-col="' + h[1] + '"' : (h[0] === 'Character' || h[0] === '' ? '' : ' class="r"');
       var arrow = (h[1] === chSort.col) ? (chSort.dir < 0 ? ' ↓' : ' ↑') : '';
       return '<th' + s + '>' + h[0] + arrow + '</th>';
     }).join('') + '</tr>' + ch.map(function (ix, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td>' +
-        '<td style="font-weight:700">' + ix.label.replace(' Index', '') + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items">⚠</span>' : '') + '</td>' +
-        '<td class="r ' + cls(ix[W].r_all) + '" style="font-weight:800">' + pct(ix[W].r_all) + '</td>' +
+        '<td style="font-weight:700">' + ix.label.replace(' Index', '') + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠</span>' : '') + '</td>' +
+        '<td class="r ' + cls(ix[W].r_all) + '" style="font-weight:800" title="value change of holding one of each since its first sale">' + pct(ix[W].r_all) + '</td>' +
         '<td class="r ' + cls(ix[W].r7) + '">' + pct(ix[W].r7) + '</td>' +
         '<td class="r ' + cls(ix[W].r30) + '">' + pct(ix[W].r30) + '</td>' +
-        '<td class="r ' + cls(ix.med_all) + '">' + pct(ix.med_all) + '</td>' +
-        '<td class="r">' + ix.traded + '/' + ix.members + '</td>' +
+        '<td class="r"' + (ix.floor != null ? ' title="' + String(ix.floor_item || '').replace(/"/g, '&quot;') + '"' : '') + '>' + (ix.floor != null ? '$' + ix.floor.toLocaleString() : '—') + '</td>' +
+        '<td class="r" title="items with at least one real sale">' + ix.traded + '</td>' +
         '<td><canvas class="spark" id="sp-' + ix.key + '"></canvas></td></tr>';
     }).join('');
     ch.forEach(function (ix) { line(document.getElementById('sp-' + ix.key), ix[W].series, false); });
