@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cross-Platform NFT Market — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=6" />
+<style>
+  .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .mcap-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table tr:last-child td { border-bottom:0; }
+  .mcap-table .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .rankn { color:var(--muted); font-weight:800; font-size:12px; }
+  .sech { margin:26px 0 10px; font-size:18px; }
+  .up { color:#3ddc84; } .down { color:#ff5d5d; }
+  .wtoggle { display:inline-flex; gap:4px; padding:4px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; margin:2px 0 14px; flex-wrap:wrap; }
+  .wtoggle button { background:transparent; border:0; color:var(--muted); font-weight:700; font-size:13px; padding:7px 14px; border-radius:9px; cursor:pointer; }
+  .wtoggle button.on { background:linear-gradient(135deg, var(--accent), #5b7cff); color:#fff; }
+  .ixchip { font-size:11.5px; font-weight:700; border:1px solid var(--border); border-radius:999px; padding:3px 9px; color:var(--muted); }
+  tr.lnk { cursor:pointer; } tr.lnk:hover td { background:rgba(91,124,255,.07); }
+  .wikib { font-size:10.5px; font-weight:800; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:1px 7px; margin-left:7px; vertical-align:1px; white-space:nowrap; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="market.html">Market</a>
+    <a href="nft.html" class="active">NFT Market</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 12px">
+    <h1>Cross-Platform <span class="grad">NFT Market</span></h1>
+    <p>The wider NFT world next to VeVe: curated blue-chip collections on Ethereum ⟠, Solana ◎ and Bitcoin ₿ — with VeVe's franchises ranked among them by marketcap. <strong>Click a collection to open its wiki page.</strong> <span class="small" id="stat"></span></p>
+  </section>
+
+  <div class="note" style="margin-bottom:14px">
+    ℹ️ <strong>Scope:</strong> all the tools on this site (Set Tracker, MCP Optimizer, Mint Checker, Mint Listings, Ask) work on <strong>VeVe collectibles only</strong>. This page is the one cross-platform view — for the deep VeVe market (franchise &amp; character indexes, top collectibles) see <a href="market.html">Market</a>.
+  </div>
+
+  <div class="wtoggle" id="pf"></div>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="xplat"></table>
+  </div>
+
+  <div class="note warn" style="margin-top:18px">
+    <strong>Method:</strong> external collections are <span class="ixchip">🏷 floor-based</span> (floor ask × supply — the PFP convention; sensitive to thin floors) via CoinGecko, refreshed every 2h. VeVe rows are <span class="ixchip">📊 trade-based</span> (trailing-30d median <em>traded</em> price × circulating — real sales, both markets). The two methods are not strictly comparable; floor-based caps tend to overstate. Sales 24h: real trade counts (VeVe: both markets from the on-chain mirror; external: CoinGecko). Not financial advice.
+  </div>
+  <footer class="foot">Cross-Platform NFT Market · wiki pages researched from cited public sources · refreshed with every data sync.</footer>
+</div>
+
+<script src="data/nft_market.js?v=1"></script>
+<script src="data/marketcap.js?v=1"></script>
+<script>
+(function () {
+  function $(s) { return document.querySelector(s); }
+  var UNAME = { 'dc': 'DC', 'tmnt': 'TMNT', 'blackpink': 'BLACKPINK', 'veve-vibes': 'VeVe Vibes', 'real-world-brand': 'Real-World Brands' };
+  function uname(u) { return UNAME[u] || String(u).replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+  function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? '$' + Math.round(n / 1000).toLocaleString() + 'k' : '$' + Math.round(n).toLocaleString(); }
+  function pct(v) { return (v == null || isNaN(v)) ? '—' : (v > 0 ? '+' : '') + Number(v).toFixed(1) + '%'; }
+  function cls(v) { return (v == null || isNaN(v)) ? '' : v >= 0 ? 'up' : 'down'; }
+
+  var NM = window.NFT_MARKET || { rows: [] };
+  var MC = window.MARKETCAP || { rows: [] };
+  // wiki pages exist for every researched collection (generated into nft/)
+  var WIKI = ['cryptopunks','bored-ape-yacht-club','mutant-ape-yacht-club','pudgy-penguins','azuki','milady-maker',
+              'doodles-official','moonbirds','clonex','cool-cats','world-of-women','veefriends','meebits','degods',
+              'mad-lads','tensorians','claynosaurz','nodemonkes','bitcoin-puppets','quantum-cats'];
+  var PF = 'all';
+  var CHAINS = [['all','🌐 All'], ['veve','VeVe 📊'], ['ethereum','Ethereum ⟠'], ['solana','Solana ◎'], ['ordinals','Bitcoin ₿'], ['candy','Candy 🍬']];
+
+  function xrows() {
+    var ext = (NM.rows || []).map(function (r) { return { id: r.id, name: r.name, chain: r.chain, img: r.img,
+      floor: r.floor_usd, vol: r.vol24, sales: r.sales24, d7: r.d7, cap: r.cap, method: 'floor',
+      href: WIKI.indexOf(r.id) >= 0 ? 'nft/' + r.id + '.html' : null }; });
+    var veve = (MC.rows || []).slice(0, 15).map(function (r) { return { id: null, name: uname(r.universe) + ' (VeVe)', chain: 'veve', img: '',
+      floor: null, vol: null, sales: r.sales24, d7: r.d7, cap: r.cap, method: 'trade', href: 'market.html' }; });
+    var all = ext.concat(veve);
+    if (PF === 'all') return all.sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
+    return all.filter(function (r) { return r.chain === PF; }).sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
+  }
+  function pfTabs() {
+    $('#pf').innerHTML = CHAINS.map(function (c) {
+      var dis = (c[0] === 'candy') ? ' disabled title="Candy Digital — research in progress (no public market API yet)" style="opacity:.45;cursor:not-allowed"' : '';
+      return '<button data-p="' + c[0] + '"' + (c[0] === PF ? ' class="on"' : '') + dis + '>' + c[1] + '</button>';
+    }).join('');
+  }
+  function xTable() {
+    var rows = xrows();
+    $('#xplat').innerHTML = '<tr><th>#</th><th>Collection</th><th>Chain</th><th class="r">Floor</th><th class="r">24h vol</th><th class="r">Sales 24h</th><th class="r">7d</th><th class="r">Marketcap</th><th>Method</th></tr>' +
+      rows.map(function (r, i) {
+        var img = r.img ? '<img src="' + r.img + '" style="width:22px;height:22px;border-radius:6px;vertical-align:-6px;margin-right:7px" loading="lazy">' : '';
+        var wikib = (r.href && r.href.indexOf('nft/') === 0) ? '<span class="wikib">wiki →</span>' : '';
+        return '<tr' + (r.href ? ' class="lnk" data-href="' + r.href + '"' : '') + '><td class="rankn">' + (i + 1) + '</td>' +
+          '<td style="font-weight:700">' + img + r.name + wikib + '</td>' +
+          '<td>' + uname(r.chain) + '</td>' +
+          '<td class="r">' + (r.floor != null ? '$' + Math.round(r.floor).toLocaleString() : '—') + '</td>' +
+          '<td class="r">' + (r.vol != null ? money(r.vol) : '—') + '</td>' +
+          '<td class="r">' + (r.sales != null ? Number(r.sales).toLocaleString() : '—') + '</td>' +
+          '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td>' +
+          '<td class="r" style="font-weight:800">' + (r.cap != null ? money(r.cap) : '—') + '</td>' +
+          '<td>' + (r.method === 'trade' ? '<span class="ixchip" title="trailing-30d MEDIAN TRADED price × circulating — real sales">📊 trade-based</span>' : '<span class="ixchip" title="floor ask × supply — the PFP convention; sensitive to thin floors">🏷 floor-based</span>') + '</td></tr>';
+      }).join('') + (rows.length ? '' : '<tr><td colspan="9" class="rankn">no data for this platform yet</td></tr>');
+  }
+  $('#pf').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.disabled || b.dataset.p === PF) return;
+    PF = b.dataset.p; pfTabs(); xTable();
+  });
+  $('#xplat').addEventListener('click', function (e) {
+    var tr = e.target.closest('tr.lnk'); if (tr) window.location.href = tr.dataset.href;
+  });
+  var upd = NM.asOf ? new Date(NM.asOf * 1000) : null;
+  if (upd) $('#stat').textContent = '(' + (NM.rows || []).length + ' external collections · updated ' + upd.toLocaleString() + ')';
+  pfTabs(); xTable();
+})();
+</script>
+</body>
+</html>

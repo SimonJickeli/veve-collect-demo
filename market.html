@@ -37,6 +37,7 @@
   <nav class="main">
     <a href="index.html">Home</a>
     <a href="market.html" class="active">Market</a>
+    <a href="nft.html">NFT Market</a>
     <a href="sets.html">Set Tracker</a>
     <a href="mcp.html">MCP Optimizer</a>
     <a href="mint-checker.html">Mint Checker</a>
@@ -76,20 +77,17 @@
     <table class="mcap-table" id="topc"></table>
   </div>
 
-  <h2 class="sech">🌐 Cross-Platform NFT Market</h2>
-  <div class="wtoggle" id="pf"></div>
-  <div class="card" style="overflow-x:auto">
-    <table class="mcap-table" id="xplat"></table>
+  <div class="note" style="margin-top:22px">
+    🌐 Looking beyond VeVe? The <a href="nft.html"><strong>Cross-Platform NFT Market</strong></a> ranks VeVe's franchises against Ethereum, Solana and Bitcoin blue chips — each with its own wiki page. <em>(Everything on this page — and all the tools — is VeVe only.)</em>
   </div>
 
   <div class="note warn" style="margin-top:18px">
-    <strong>Method:</strong> <em>entry-at-first-trade</em>, base 100, since 2025-07-12. <strong>⚖️ Equal-weight</strong> = buy 1 of every basket item at its first traded price (a collector's portfolio). <strong>🏦 Marketcap-weighted</strong> = each item weighted by price × circulating supply (the whole market's value — large editions dominate). Daily price = median of that day's real sales (both markets); quiet days carry the last price forward. Marketcap = trailing-30-day median traded price (else last sale) × editions in circulation. <span class="thinb">⚠ thin</span> = fewer than 12 traded items — one collectible can move it a lot. Not financial advice.
+    <strong>Method:</strong> <em>entry-at-first-trade</em>, base 100, since 2025-07-12. <strong>⚖️ Equal-weight</strong> = buy 1 of every basket item at its first traded price (a collector's portfolio). <strong>🏦 Marketcap-weighted</strong> = each item weighted by price × circulating supply (the whole market's value — large editions dominate). Daily price = median of that day's real sales (both markets); quiet days carry the last price forward. Marketcap = trailing-30-day median traded price (else last sale) × editions in circulation. <span class="thinb">⚠ thin</span> = fewer than 12 traded items — one collectible can move it a lot. Top collectibles require <strong>≥3 trades in the last 30d</strong> — a single stale sale (or a high floor ask nobody pays) can't headline the board. Not financial advice.
   </div>
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
 </div>
 
 <script src="data/indexes.js?v=202607290936"></script>
-<script src="data/nft_market.js?v=202607290936"></script>
 <script src="data/marketcap.js?v=202607290936"></script>
 <script>
 (function () {
@@ -103,7 +101,7 @@
   function cls(v) { return v == null ? '' : (v >= 0 ? 'up' : 'down'); }
   var UNAME = { 'dc': 'DC', 'tmnt': 'TMNT', 'blackpink': 'BLACKPINK', 'veve-vibes': 'VeVe Vibes', 'real-world-brand': 'Real-World Brands' };
   function uname(u) { return UNAME[u] || String(u).replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
-  function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : '$' + Math.round(n / 1000).toLocaleString() + 'k'; }
+  function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? '$' + Math.round(n / 1000).toLocaleString() + 'k' : '$' + Math.round(n).toLocaleString(); }
 
   function line(cv, series, big) {
     var dpr = window.devicePixelRatio || 1, Wd = cv.clientWidth * dpr, H = cv.clientHeight * dpr;
@@ -190,55 +188,16 @@
         '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
         '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td></tr>';
     }).join('');
-  $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
+  $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">30d trades</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
     (MC.top || []).map(function (r, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td>' +
         '<td style="font-weight:700"><a href="explorer.html#/c/' + r.slug + '" style="color:var(--text)">' + r.name + '</a></td>' +
         '<td>' + uname(r.universe) + '</td>' +
         '<td class="r">$' + Math.round(r.last).toLocaleString() + '</td>' +
+        '<td class="r">' + (r.n30 != null ? r.n30 : '—') + '</td>' +
         '<td class="r">' + r.supply.toLocaleString() + '</td>' +
         '<td class="r" style="font-weight:800">' + money(r.cap) + '</td></tr>';
     }).join('');
-
-  // ── cross-platform tabs: All | VeVe | Ethereum | Solana | Bitcoin | Candy(soon) ──
-  var NM = window.NFT_MARKET || { rows: [] };
-  var PF = 'all';
-  var CHAINS = [['all','🌐 All'], ['veve','VeVe 📊'], ['ethereum','Ethereum ⟠'], ['solana','Solana ◎'], ['ordinals','Bitcoin ₿'], ['candy','Candy 🍬']];
-  function xrows() {
-    var ext = (NM.rows || []).map(function (r) { return { name: r.name, chain: r.chain, img: r.img,
-      floor: r.floor_usd, vol: r.vol24, d7: r.d7, cap: r.cap, method: 'floor', holders: r.holders }; });
-    var veve = (MC.rows || []).slice(0, 15).map(function (r) { return { name: uname(r.universe) + ' (VeVe)', chain: 'veve', img: '',
-      floor: null, vol: null, d7: r.d7, cap: r.cap, method: 'trade', holders: null }; });
-    var all = ext.concat(veve);
-    if (PF === 'all') return all.sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
-    return all.filter(function (r) { return r.chain === PF; }).sort(function (a, b) { return (b.cap || 0) - (a.cap || 0); });
-  }
-  function pfTabs() {
-    $('#pf').innerHTML = CHAINS.map(function (c) {
-      var dis = (c[0] === 'candy') ? ' disabled title="Candy Digital — research in progress (no public market API yet)" style="opacity:.45;cursor:not-allowed"' : '';
-      return '<button data-p="' + c[0] + '"' + (c[0] === PF ? ' class="on"' : '') + dis + '>' + c[1] + '</button>';
-    }).join('');
-  }
-  function xTable() {
-    var rows = xrows();
-    $('#xplat').innerHTML = '<tr><th>#</th><th>Collection</th><th>Chain</th><th class="r">Floor</th><th class="r">24h vol</th><th class="r">7d</th><th class="r">Marketcap</th><th>Method</th></tr>' +
-      rows.map(function (r, i) {
-        var img = r.img ? '<img src="' + r.img + '" style="width:22px;height:22px;border-radius:6px;vertical-align:-6px;margin-right:7px">' : '';
-        return '<tr><td class="rankn">' + (i + 1) + '</td>' +
-          '<td style="font-weight:700">' + img + r.name + '</td>' +
-          '<td>' + uname(r.chain) + '</td>' +
-          '<td class="r">' + (r.floor != null ? '$' + Math.round(r.floor).toLocaleString() : '—') + '</td>' +
-          '<td class="r">' + (r.vol != null ? money(r.vol) : '—') + '</td>' +
-          '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td>' +
-          '<td class="r" style="font-weight:800">' + (r.cap != null ? money(r.cap) : '—') + '</td>' +
-          '<td>' + (r.method === 'trade' ? '<span class="ixchip" title="trailing-30d MEDIAN TRADED price × circulating — real sales">📊 trade-based</span>' : '<span class="ixchip" title="floor ask × supply — the PFP convention; sensitive to thin floors">🏷 floor-based</span>') + '</td></tr>';
-      }).join('') + (rows.length ? '' : '<tr><td colspan="8" class="rankn">no data for this platform yet</td></tr>');
-  }
-  $('#pf').addEventListener('click', function (e) {
-    var b = e.target.closest('button'); if (!b || b.disabled || b.dataset.p === PF) return;
-    PF = b.dataset.p; pfTabs(); xTable();
-  });
-  pfTabs(); xTable();
 
   frCards(); chTable();
   window.addEventListener('resize', function () { frCards(); chTable(); });

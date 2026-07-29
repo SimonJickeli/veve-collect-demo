@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Quantum Cats — NFT Wiki — VeVe Collect</title>
+<link rel="stylesheet" href="../assets/style.css?v=6" />
+<style>
+  .sech { margin:26px 0 10px; font-size:18px; }
+  .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .mcap-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table tr:last-child td { border-bottom:0; }
+  .mcap-table .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .ixchip { font-size:11.5px; font-weight:700; border:1px solid var(--border); border-radius:999px; padding:3px 9px; color:var(--muted); text-decoration:none; display:inline-block; margin:2px 4px 2px 0; }
+  .statgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:10px; margin:14px 0 6px; }
+  .stat { border:1px solid var(--border); border-radius:12px; padding:10px 12px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); }
+  .stat .k { font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  .stat .v { font-size:19px; font-weight:800; margin-top:2px; }
+  .rlist li { margin:6px 0; }
+  .hero img.cimg { width:64px; height:64px; border-radius:14px; vertical-align:middle; margin-right:12px; }
+  article p { line-height:1.65; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="../index.html">Home</a>
+    <a href="../market.html">Market</a>
+    <a href="../nft.html" class="active">NFT Market</a>
+    <a href="../sets.html">Set Tracker</a>
+    <a href="../mcp.html">MCP Optimizer</a>
+    <a href="../mint-checker.html">Mint Checker</a>
+    <a href="../special-mints.html">Mint Listings</a>
+    <a href="../ask.html">Ask</a>
+    <a href="../explorer.html">Explorer</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 8px">
+    <h1><img class="cimg" id="cimg" src="" alt="" style="display:none">Quantum Cats <span class="grad">NFT Wiki</span></h1>
+    <p class="small">Part of the cross-platform NFT wiki · <a href="../nft.html">← all collections</a></p>
+    <div><a class="ixchip" href="https://quantumcats.xyz" target="_blank" rel="noopener">Official ↗</a> <a class="ixchip" href="https://magiceden.io/ordinals/marketplace/quantum_cats" target="_blank" rel="noopener">Marketplace ↗</a> <a class="ixchip" href="https://www.coingecko.com/en/nft/quantum-cats" target="_blank" rel="noopener">CoinGecko ↗</a> </div>
+  </section>
+
+  <div class="statgrid" id="stats"></div>
+  <div class="card" style="overflow-x:auto;margin-top:10px"><table class="mcap-table"><tr><td class="small" style="white-space:nowrap;color:var(--muted)">Chain</td><td>Bitcoin (Ordinals protocol)</td></tr><tr><td class="small" style="white-space:nowrap;color:var(--muted)">Supply</td><td>3,333</td></tr><tr><td class="small" style="white-space:nowrap;color:var(--muted)">Launched</td><td>2024-01</td></tr><tr><td class="small" style="white-space:nowrap;color:var(--muted)">Creator</td><td>Taproot Wizards (co-founders Udi Wertheimer and Eric Wall; art by Francisco &quot;FAR&quot; Alarcon; evolving-inscriptions architecture by CTO &quot;Rijndael&quot;)</td></tr><tr><td class="small" style="white-space:nowrap;color:var(--muted)">Contract / inscriptions</td><td>No smart contract -- Ordinals inscriptions on Bitcoin using the project&#x27;s &quot;Evolving Inscriptions&quot; architecture: each cat is a ~109-byte inscription referencing a shared Dispatcher inscription (rendering logic) plus Layer Connector inscriptions that map cat IDs to artwork assets across 40 art layers; artwork (~10MB total, spanning ~10 blocks) was inscribed in advance encrypted per-layer, with presigned transactions whose broadcast reveals decryption keys, so the art evolves in predetermined, pre-committed stages over time</td></tr></table></div>
+
+  <h2 class="sech">📖 Overview</h2>
+  <article class="card" style="padding:16px 18px"><p>Quantum Cats is a collection of 3,333 Ordinals inscriptions on Bitcoin created by Taproot Wizards, the Bitcoin-native NFT venture co-founded by Udi Wertheimer and Eric Wall, with artwork led by artist and engineer Francisco &quot;FAR&quot; Alarcon. Announced on January 12, 2024, the collection was conceived explicitly as a marketing and funding campaign to revive OP_CAT, a Bitcoin script opcode (short for &quot;concatenate&quot;) present in Satoshi Nakamoto&#x27;s original code but disabled in 2010, whose reactivation proponents argue would enable covenants, smart contracts, and bridges on Bitcoin. The cat imagery is a deliberate play on both the opcode&#x27;s name and Schrodinger&#x27;s cat: the official site frames the cats as existing in a &quot;quantum realm,&quot; and the artwork itself changes state over time.</p><p>The collection&#x27;s signature technology is &quot;Evolving Inscriptions,&quot; billed as the first Ordinals collection whose art evolves on-chain. Multiple future versions of each cat were inscribed ahead of time in encrypted form (roughly 10MB of on-chain data spanning about 10 Bitcoin blocks, at an inscription cost reported around $66,000), with evolutions committed in advance so they unfold in predetermined ways as the OP_CAT proposal process advances. Per a technical write-up by Taproot Wizards CTO &quot;Rijndael&quot; in Bitcoin Magazine, each cat is a tiny (~109-byte) inscription that references a shared &quot;Dispatcher&quot; inscription for rendering logic, which in turn reads &quot;Layer Connector&quot; inscriptions mapping each cat to artwork assets across 40 art layers (backgrounds, body, eyes, mouth, etc.); artwork is encrypted per-layer and decryption keys are only revealed when presigned Layer Connector transactions are broadcast, hiding future traits and rarity until reveal.</p><p>The launch was one of the most-watched -- and most chaotic -- events of the early Ordinals era. The one-of-one &quot;Genesis Cat&quot; by FAR sold first, fetching 6.31 BTC (about $254,000, roughly 12x the high estimate) in Sotheby&#x27;s &quot;Natively Digital&quot; curated Ordinals auction that closed January 22, 2024. The main sale of about 3,000 cats at a fixed 0.1 BTC (~$4,265) each began January 29, 2024, but was halted mid-sale by severe technical failures and postponed three times before completing on February 5, 2024, when the collection sold out for roughly $13 million -- most units going to whitelisted buyers in a five-hour exclusive window, with 313 cats selling in the first two seconds of the public phase. Within a day, the floor price on Magic Eden had more than doubled to 0.243 BTC.</p><p>Taproot Wizards had raised $7.5 million in seed funding in November 2023 (led by Standard Crypto, with StarkWare, UTXO Management, Bitcoin Frontier Fund and others) ahead of the drop. The campaign&#x27;s political goal saw a milestone in April 2024 when the OP_CAT reactivation proposal received an official Bitcoin Improvement Proposal number, BIP-347 -- after the community, egged on by the Quantum Cats project, had tried to meme it into existence as &quot;BIP-420.&quot; As of the most recent verified reporting, OP_CAT remains a proposal under debate rather than an activated Bitcoin upgrade.</p></article>
+
+  <h2 class="sech">🌍 Cultural significance</h2>
+  <article class="card" style="padding:16px 18px"><p>Quantum Cats sits at the center of the 2023-2024 Ordinals movement that brought NFT-style collectibles -- and a bitter culture war -- to Bitcoin. Wertheimer and Wall, already famous as provocateurs for the original Taproot Wizards inscriptions, positioned the collection as more than art: it was an activism vehicle, using collectible sales to bankroll and popularize a soft-fork lobbying effort (OP_CAT / &quot;BIP-420&quot;) -- a novel model where a meme collection doubles as protocol politics. The Sotheby&#x27;s sale of the Genesis Cat at 12x its estimate was widely covered as a legitimization moment for Bitcoin-native digital art.</p><p>The mint itself became part of the lore: three public delays and a halted sale made headlines as an &quot;embarrassment,&quot; yet the collection still sold out for ~$13M and immediately traded at multiples of mint, dominating Ordinals secondary volume in the following days. The &quot;Evolving Inscriptions&quot; mechanism -- encrypted, pre-committed art that changes as the OP_CAT campaign progresses -- is also cited as a genuine technical contribution to on-chain art on Bitcoin.</p></article>
+
+  <h2 class="sech">🧬 Traits</h2>
+  <div class="card" style="overflow-x:auto"><table class="mcap-table">
+    <tr><th>Trait category</th><th class="r">Distinct values</th></tr><tr><td>Background</td><td class="r">?</td></tr><tr><td>Body</td><td class="r">?</td></tr><tr><td>Eyes</td><td class="r">?</td></tr><tr><td>Mouth</td><td class="r">?</td></tr><tr><td>(40 art layers total per the Bitcoin Magazine technical write-up; full public trait-category list and counts not documented in verified sources)</td><td class="r">?</td></tr></table></div>
+  <h3 style="margin:16px 0 8px">Famous rare traits</h3><ul class="rlist"><li><strong>Genesis Cat (1/1)</strong> (1) — The only one-of-one in the collection, created by artist FAR; sold at Sotheby&#x27;s for 6.31 BTC (~$254,000) on 2024-01-22, ~12x the high estimate</li><li><strong>Evolving artwork (all cats)</strong> (3,333) — Every cat carries encrypted future art states that reveal in predetermined stages tied to the OP_CAT campaign -- the collection-defining mechanic rather than a conventional rarity trait</li></ul>
+  <h2 class="sech">🏆 Record sales</h2>
+  <div class="card" style="overflow-x:auto"><table class="mcap-table">
+    <tr><th>Piece</th><th class="r">Price</th><th class="r">Date</th><th>Context</th></tr><tr><td style="font-weight:700">Genesis Cat (1/1)</td><td class="r" style="font-weight:800">$254,000 (6.31 BTC)</td><td class="r">2024-01-22</td><td>Sotheby&#x27;s &#x27;Natively Digital&#x27; curated Ordinals auction; over 50 bids, ~12x the $15,000-$20,000 high estimate; sold before the main mint</td></tr></table></div>
+  <div class="note warn" style="margin-top:18px"><strong>⚠ Unverified / disputed claims</strong> (found during research but not confirmed — excluded from the article above):<ul style="margin:8px 0 0 18px"><li>Allocation of the ~333 cats outside the ~3,000-unit whitelist/public sale (team/community/partner reserves) -- not documented in verified sources</li><li>Per-category trait counts and the full public trait taxonomy (Magic Eden attribute filters exist but exact counts could not be confirmed from fetched sources)</li><li>Top secondary-market sales of individual Quantum Cats after the mint (aggregators report ~257.67 BTC / ~$11.1M early secondary volume on Magic Eden, but no specific single-sale records could be confirmed)</li><li>NFT Price Floor&#x27;s claim that mint price &#x27;started at around 0.05 BTC&#x27; and a &#x27;1-8-2024&#x27; release date -- contradicted by CoinDesk&#x27;s reporting of a fixed 0.1 BTC price and the Jan 29/Feb 5 sale dates; treated as aggregator error</li><li>A search-result claim that mint price varied by rarity/traits -- contradicted by CoinDesk&#x27;s fixed-price reporting</li><li>Decrypt&#x27;s paraphrase that OP_CAT reactivation could enable &#x27;quantum-resistant&#x27; Bitcoin functionality (a claim attributed to the team; technical merit not independently verified)</li><li>Udi Wertheimer&#x27;s 2025 statement (via RootData/Odaily) that OP_CAT activation probability is &#x27;close to 100%&#x27; -- secondary-source aggregators only</li><li>Exact start date of the Sotheby&#x27;s Genesis Cat auction (Decrypt says Jan 12-22, The Defiant says it opened Jan 17; only the Jan 22 close is firmly corroborated)</li><li>Whether &#x27;0xfar&#x27; is an alias used by Francisco &#x27;FAR&#x27; Alarcon (one search summary listed &#x27;0xfar&#x27; as a Taproot Wizards founder; CoinDesk credits Francisco Alarcon)</li></ul></div>
+  <details style="margin-top:14px"><summary class="small" style="cursor:pointer">Sources (15)</summary><ul class='small' style='margin:8px 0 0 18px'><li><a href="https://www.coindesk.com/tech/2024/01/12/taproot-wizards-bitcoin-ordinals-project-that-raised-75m-to-sell-quantum-cats-collection" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/01/12/taproot-wizards-bitcoin-ordinals-project-that-raised-75m-to-sell-quantum-cats-collection</a></li><li><a href="https://www.coindesk.com/tech/2024/01/22/bitcoin-based-digital-art-image-genesis-cat-sells-for-254k-in-sothebys-auction" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/01/22/bitcoin-based-digital-art-image-genesis-cat-sells-for-254k-in-sothebys-auction</a></li><li><a href="https://www.coindesk.com/tech/2024/01/29/taproot-wizards-debut-sale-of-bitcoin-nfts-quantum-cats-marred-by-tech-issues" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/01/29/taproot-wizards-debut-sale-of-bitcoin-nfts-quantum-cats-marred-by-tech-issues</a></li><li><a href="https://www.coindesk.com/tech/2024/02/01/taproot-wizards-delays-quantum-cats-for-3rd-time-as-mint-site-gets-fixed-tested" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/02/01/taproot-wizards-delays-quantum-cats-for-3rd-time-as-mint-site-gets-fixed-tested</a></li><li><a href="https://www.coindesk.com/tech/2024/02/05/taproot-wizards-recovers-from-tech-marred-debut-selling-11m-of-bitcoin-nfts" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/02/05/taproot-wizards-recovers-from-tech-marred-debut-selling-11m-of-bitcoin-nfts</a></li><li><a href="https://www.coindesk.com/tech/2024/02/06/taproot-wizards-new-bitcoin-nfts-already-trading-at-twice-the-initial-sale-price" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/02/06/taproot-wizards-new-bitcoin-nfts-already-trading-at-twice-the-initial-sale-price</a></li><li><a href="https://decrypt.co/212594/taproot-wizards-launch-quantum-cats-bitcoin-ordinals-collection" target="_blank" rel="noopener">https://decrypt.co/212594/taproot-wizards-launch-quantum-cats-bitcoin-ordinals-collection</a></li><li><a href="https://decrypt.co/213779/bitcoin-ordinals-quantum-cat-sells-for-over-250k-at-sothebys" target="_blank" rel="noopener">https://decrypt.co/213779/bitcoin-ordinals-quantum-cat-sells-for-over-250k-at-sothebys</a></li><li><a href="https://bitcoinmagazine.com/technical/the-technical-architecture-of-the-quantum-cats" target="_blank" rel="noopener">https://bitcoinmagazine.com/technical/the-technical-architecture-of-the-quantum-cats</a></li><li><a href="https://thedefiant.io/news/nfts-and-web3/quantum-cats-ordinals-collection-pays-homage-to-satoshi" target="_blank" rel="noopener">https://thedefiant.io/news/nfts-and-web3/quantum-cats-ordinals-collection-pays-homage-to-satoshi</a></li><li><a href="https://app.leather.io/posts/guide-to-bitcoin-ordinal-collections-quantum-cats" target="_blank" rel="noopener">https://app.leather.io/posts/guide-to-bitcoin-ordinal-collections-quantum-cats</a></li><li><a href="https://quantumcats.xyz" target="_blank" rel="noopener">https://quantumcats.xyz</a></li><li><a href="https://www.theblock.co/post/290429/bip-420-op-cat-covenants-bitcoin" target="_blank" rel="noopener">https://www.theblock.co/post/290429/bip-420-op-cat-covenants-bitcoin</a></li><li><a href="https://www.coindesk.com/tech/2024/04/24/op-cat-proposal-to-bring-smart-contracts-to-bitcoin-finally-gets-a-bip-number" target="_blank" rel="noopener">https://www.coindesk.com/tech/2024/04/24/op-cat-proposal-to-bring-smart-contracts-to-bitcoin-finally-gets-a-bip-number</a></li><li><a href="https://news.bitcoin.com/quantum-cats-nft-collection-jumps-in-value-dominates-secondary-market-trade-volume/" target="_blank" rel="noopener">https://news.bitcoin.com/quantum-cats-nft-collection-jumps-in-value-dominates-secondary-market-trade-volume/</a></li></ul></details>
+
+  <footer class="foot">NFT Wiki · researched from cited public sources · market stats via CoinGecko, refreshed every 2h · not financial advice.</footer>
+</div>
+
+<script src="../data/nft_market.js?v=1"></script>
+<script>
+(function () {
+  var r = ((window.NFT_MARKET || {}).rows || []).filter(function (x) { return x.id === "quantum-cats"; })[0];
+  if (!r) return;
+  if (r.img) { var im = document.getElementById('cimg'); im.src = r.img; im.style.display = 'inline-block'; }
+  function money(n) { return n == null ? '—' : n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? '$' + Math.round(n / 1000).toLocaleString() + 'k' : '$' + Math.round(n).toLocaleString(); }
+  var badHolders = r.holders != null && r.holders <= 100 && (r.supply || 0) > 2000;   // CoinGecko placeholder junk (e.g. CryptoPunks "100")
+  var tiles = [['Floor', r.floor_usd != null ? '$' + Math.round(r.floor_usd).toLocaleString() : '—'],
+               ['Marketcap', money(r.cap)], ['24h volume', money(r.vol24)],
+               ['Sales 24h', r.sales24 != null ? r.sales24.toLocaleString() : '—'],
+               ['Supply', r.supply != null ? r.supply.toLocaleString() : '—'],
+               ['Holders', (r.holders != null && !badHolders) ? r.holders.toLocaleString() : '—']];
+  document.getElementById('stats').innerHTML = tiles.map(function (t) {
+    return '<div class="stat"><div class="k">' + t[0] + '</div><div class="v">' + t[1] + '</div></div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>
