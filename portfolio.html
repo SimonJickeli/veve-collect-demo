@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Portfolio PNL — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=6" />
+<style>
+  .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .mcap-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table tr:last-child td { border-bottom:0; }
+  .mcap-table .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .sech { margin:26px 0 10px; font-size:18px; }
+  .up { color:#3ddc84; } .down { color:#ff5d5d; }
+  .statgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:16px 0 6px; }
+  .stat { border:1px solid var(--border); border-radius:12px; padding:12px 14px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); }
+  .stat .k { font-size:11px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); }
+  .stat .v { font-size:21px; font-weight:800; margin-top:2px; }
+  .stat .s { font-size:11px; color:var(--muted); margin-top:2px; }
+  .addrrow { display:flex; gap:10px; flex-wrap:wrap; margin:14px 0 6px; }
+  .addrrow input { flex:1 1 420px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; color:var(--text); padding:12px 14px; font-size:14px; font-family:ui-monospace,monospace; }
+  .addrrow button { background:linear-gradient(135deg,var(--accent),#5b7cff); color:#fff; border:0; border-radius:12px; font-weight:800; padding:12px 22px; font-size:14px; cursor:pointer; }
+  .addrrow button:disabled { opacity:.5; cursor:wait; }
+  .estchip { font-size:10.5px; font-weight:800; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:1px 7px; margin-left:6px; vertical-align:1px; }
+  .rankn { color:var(--muted); font-weight:800; font-size:12px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="market.html">Market</a>
+    <a href="nft.html">NFT Market</a>
+    <a href="portfolio.html" class="active">Portfolio</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 10px">
+    <h1>Portfolio <span class="grad">PNL</span></h1>
+    <p>Paste your VeVe wallet address — every buy, sell and burn is reconstructed from the chain and valued against <strong>real market sales at the time</strong>. All-time profit &amp; loss, estimated honestly.</p>
+  </section>
+
+  <div class="note" style="margin-bottom:4px">
+    🔒 <strong>Who can see this?</strong> Only someone who knows the wallet address. Your 0x address is shown <em>only to you</em> inside the VeVe app (Wallet → Send/Receive OMI → <strong>Receive</strong>) — there is <strong>no public way to look up an address from a username</strong>, and this page adds none: no address lists, no name linking, no counterparties shown, and nothing you enter here is stored or sent anywhere except the public chain explorer. Proper account login arrives with StackR integration.
+  </div>
+
+  <div class="addrrow">
+    <input id="addr" placeholder="0x… your VeVe wallet address" autocomplete="off" spellcheck="false" />
+    <button id="run">Analyze</button>
+  </div>
+  <div class="small" id="status"></div>
+
+  <div id="out" style="display:none">
+    <div class="statgrid" id="tiles"></div>
+
+    <h2 class="sech">📦 Holdings <span class="small" id="holdn"></span></h2>
+    <div class="card" style="overflow-x:auto"><table class="mcap-table" id="holds"></table></div>
+
+    <h2 class="sech">💸 Sold / sent away <span class="small" id="soldn"></span></h2>
+    <div class="card" style="overflow-x:auto"><table class="mcap-table" id="sells"></table></div>
+
+    <div class="note warn" style="margin-top:18px">
+      <strong>How the numbers are estimated</strong> — VeVe does not publish what <em>you</em> actually paid, so:
+      · <strong>cost</strong> = the item's market median in the month you received it (chain timestamp × real sales history; items received from VeVe itself are counted at drop price);
+      · <strong>proceeds</strong> = the market median in the month it left your wallet;
+      · <strong>value now</strong> = trailing-30d median of real sales, else the cheapest live listing.
+      Comics have no public sale feed here — they are <strong>counted but not valued</strong> (no invented numbers; comic totals arrive when a comic price source exists). Transfers to the burn wallet count as $0 proceeds. Everything marked <span class="estchip">est</span> is an estimate from market data, not your receipts. Not financial advice.
+    </div>
+  </div>
+  <footer class="foot">Portfolio PNL · chain data via collectscan · sale history from both markets · runs entirely in your browser.</footer>
+</div>
+
+<script src="assets/collectscan.js?v=6"></script>
+<script src="data/price_history.js?v=1"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var PH = (window.PRICE_HISTORY || { byName: {} }).byName;
+  var CONTRACT = window.COLLECTSCAN.CONTRACT.toLowerCase();
+  var SYSTEM = { '0x39e3816a8c549ec22cd1a34a8cf7034b3941d8b1': 'burn',
+                 '0x7be178ba43a9828c22997a3ec3640497d88d2fd3': 'reserve',
+                 '0x0000000000000000000000000000000000000000': 'mint' };
+  function money(n) { var a = Math.abs(n); var s = a >= 1e6 ? '$' + (a / 1e6).toFixed(2) + 'M' : a >= 1000 ? '$' + Math.round(a).toLocaleString() : '$' + a.toFixed(2); return (n < 0 ? '−' : '') + s; }
+  function pnlCell(v) { return v == null ? '—' : '<span class="' + (v >= 0 ? 'up' : 'down') + '" style="font-weight:800">' + (v >= 0 ? '+' : '') + money(v) + '</span>'; }
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+
+  function keyFor(md) {
+    var name = md.name || 'Unknown';
+    var comicNo = md.comicNumber;
+    var isComic = comicNo != null && String(comicNo).trim() !== '' && String(comicNo) !== '0';
+    return { k: window.normName(name) + (isComic ? ' ' + comicNo : ''), name: name, comic: isComic, mint: parseInt(md.edition, 10) || null };
+  }
+  // price at (or nearest before, else after) a month; PH months are "YYYY-MM"
+  function monthPrice(rec, ym) {
+    if (!rec || !rec.m) return null;
+    if (rec.m[ym] != null) return rec.m[ym];
+    var ks = Object.keys(rec.m).sort(), best = null;
+    for (var i = 0; i < ks.length; i++) { if (ks[i] <= ym) best = ks[i]; }
+    if (best == null && ks.length) best = ks[0];             // history starts after acquisition
+    return best != null ? rec.m[best] : null;
+  }
+  function costOf(rec, ym, primary) {
+    if (primary && rec && rec.drop > 0) return { v: rec.drop, how: 'drop price' };
+    var p = monthPrice(rec, ym);
+    if (p != null) return { v: p, how: 'market median ' + ym };
+    if (rec && rec.drop > 0) return { v: rec.drop, how: 'drop price' };
+    if (rec && rec.fl > 0) return { v: rec.fl, how: 'listing' };
+    return { v: null, how: 'unknown' };
+  }
+  function valueNow(rec) {
+    if (!rec) return { v: null, how: 'no data' };
+    if (rec.cur != null && rec.n30 >= 1) return { v: rec.cur, how: '30d median (' + rec.n30 + ' sales)' };
+    var fl = window.saneVeveFloor(rec.fl, 0);                // troll/repdigit asks → 0, NOT restored
+    if (fl > 0) return { v: fl, how: 'cheapest listing' };
+    var ks = rec.m ? Object.keys(rec.m).sort() : [];
+    if (ks.length) return { v: rec.m[ks[ks.length - 1]], how: 'last sale ' + ks[ks.length - 1] };
+    if (rec.drop > 0) return { v: rec.drop, how: 'drop price' };
+    return { v: null, how: 'no data' };
+  }
+
+  async function fetchTransfers(addr, onProgress) {
+    var base = 'https://collectscan.com/api/v2/addresses/' + addr + '/token-transfers?type=ERC-721';
+    var out = [], next = null, page = 0, MAX = 400;
+    do {
+      var url = base;
+      if (next) url += '&' + Object.keys(next).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(next[k]); }).join('&');
+      var res = await fetch(url, { headers: { accept: 'application/json' } });
+      if (!res.ok) throw new Error('collectscan ' + res.status);
+      var data = await res.json();
+      (data.items || []).forEach(function (t) {
+        var tok = t.token || {};
+        var ta = (tok.address_hash || tok.address || '').toLowerCase();
+        if (ta !== CONTRACT) return;
+        var tot = t.total || {};
+        out.push({ id: tot.token_id || t.token_id, ts: t.timestamp,
+                   from: ((t.from || {}).hash || '').toLowerCase(), to: ((t.to || {}).hash || '').toLowerCase(),
+                   md: (tot.token_instance || {}).metadata || {} });
+      });
+      next = data.next_page_params || null; page++;
+      onProgress(out.length, page);
+    } while (next && page < MAX);
+    out.truncated = !!next;
+    return out;
+  }
+
+  async function run() {
+    var addr = $('#addr').value.trim();
+    if (!window.COLLECTSCAN.isAddress(addr)) { $('#status').textContent = 'That does not look like a 0x wallet address.'; return; }
+    addr = addr.toLowerCase();
+    $('#run').disabled = true; $('#out').style.display = 'none';
+    try {
+      var tx = await fetchTransfers(addr, function (n, p) { $('#status').textContent = 'Reading chain history… ' + n + ' transfers (page ' + p + ')'; });
+      if (!tx.length) { $('#status').textContent = 'No VeVe transfers found for this address.'; $('#run').disabled = false; return; }
+      tx.sort(function (a, b) { return a.ts < b.ts ? -1 : 1; });
+
+      var inst = {};                                   // token_id -> instance state
+      tx.forEach(function (t) {
+        var r = inst[t.id] || (inst[t.id] = { events: [], md: null });
+        if (t.md && t.md.name) r.md = t.md;
+        r.events.push(t);
+      });
+
+      var held = [], sold = [], unpriced = 0, comics = 0;
+      Object.keys(inst).forEach(function (id) {
+        var r = inst[id]; if (!r.md) { unpriced++; return; }
+        // comics have NO public sale feed and the price history covers collectibles only —
+        // a name-coincidence match would invent values, so comics are counted, never valued
+        var kf = keyFor(r.md), rec = kf.comic ? null : (PH[kf.k] || null);
+        if (kf.comic) comics++;
+        var acq = null;
+        r.events.forEach(function (t) {
+          if (t.to === addr) {
+            acq = { ym: t.ts.slice(0, 7), date: t.ts.slice(0, 10), primary: !!SYSTEM[t.from] && SYSTEM[t.from] !== 'burn' };
+          } else if (t.from === addr && acq) {
+            var cost = costOf(rec, acq.ym, acq.primary);
+            var burned = SYSTEM[t.to] === 'burn';
+            var pm = burned ? { v: 0, how: 'burned' } : (function () { var p = monthPrice(rec, t.ts.slice(0, 7)); return p != null ? { v: p, how: 'market median ' + t.ts.slice(0, 7) } : { v: null, how: 'unknown' }; })();
+            sold.push({ kf: kf, date: t.ts.slice(0, 10), cost: cost, proceeds: pm,
+                        pnl: (pm.v != null && cost.v != null) ? pm.v - cost.v : null });
+            acq = null;
+          }
+        });
+        if (acq) {
+          var cost2 = costOf(rec, acq.ym, acq.primary);
+          var now = valueNow(rec);
+          held.push({ kf: kf, date: acq.date, primary: acq.primary, cost: cost2, now: now,
+                      pnl: (now.v != null && cost2.v != null) ? now.v - cost2.v : null });
+        }
+      });
+
+      var vNow = held.reduce(function (s, h) { return s + (h.now.v || 0); }, 0);
+      var cHeld = held.reduce(function (s, h) { return s + (h.cost.v || 0); }, 0);
+      var unreal = held.reduce(function (s, h) { return s + (h.pnl || 0); }, 0);
+      var real = sold.reduce(function (s, x) { return s + (x.pnl || 0); }, 0);
+      var tiles = [
+        ['Portfolio value now', money(vNow), held.length + ' items held'],
+        ['Est. cost of holdings', money(cHeld), 'market price when received'],
+        ['Unrealized PNL', null, 'held items, now vs then', unreal],
+        ['Realized PNL', null, sold.length + ' exits (sells, sends, burns)', real],
+        ['All-time PNL', null, 'realized + unrealized', unreal + real]
+      ];
+      $('#tiles').innerHTML = tiles.map(function (t) {
+        var v = t[3] !== undefined ? pnlCell(t[3]) : '<span>' + t[1] + '</span>';
+        return '<div class="stat"><div class="k">' + t[0] + ' <span class="estchip">est</span></div><div class="v">' + v + '</div><div class="s">' + t[2] + '</div></div>';
+      }).join('');
+
+      held.sort(function (a, b) { return (b.now.v || 0) - (a.now.v || 0); });
+      var HMAX = 150;
+      $('#holdn').textContent = '· ' + held.length + ' items' + (held.length > HMAX ? ' (top ' + HMAX + ' by value shown)' : '') + (comics ? ' · ' + comics + ' comics NOT valued (no public comic sale feed yet)' : '');
+      $('#holds').innerHTML = '<tr><th>Collectible</th><th class="r">Mint #</th><th class="r">Received</th><th class="r">Est. cost</th><th class="r">Value now</th><th class="r">±</th></tr>' +
+        held.slice(0, HMAX).map(function (h) {
+          return '<tr><td style="font-weight:700">' + esc(h.kf.name) + (h.kf.comic ? ' <span class="estchip">comic</span>' : '') + '</td>' +
+            '<td class="r">' + (h.kf.mint || '—') + '</td>' +
+            '<td class="r">' + h.date + (h.primary ? ' <span class="estchip" title="received from VeVe — drop price used">drop</span>' : '') + '</td>' +
+            '<td class="r" title="' + esc(h.cost.how) + '">' + (h.cost.v != null ? money(h.cost.v) : '—') + '</td>' +
+            '<td class="r" title="' + esc(h.now.how) + '">' + (h.now.v != null ? money(h.now.v) : '—') + '</td>' +
+            '<td class="r">' + pnlCell(h.pnl) + '</td></tr>';
+        }).join('');
+
+      sold.sort(function (a, b) { return b.date < a.date ? -1 : 1; });
+      $('#soldn').textContent = '· ' + sold.length + ' exits';
+      $('#sells').innerHTML = '<tr><th>Collectible</th><th class="r">Mint #</th><th class="r">Left wallet</th><th class="r">Est. cost</th><th class="r">Est. proceeds</th><th class="r">±</th></tr>' +
+        (sold.slice(0, 150).map(function (x) {
+          return '<tr><td style="font-weight:700">' + esc(x.kf.name) + '</td>' +
+            '<td class="r">' + (x.kf.mint || '—') + '</td>' +
+            '<td class="r">' + x.date + '</td>' +
+            '<td class="r" title="' + esc(x.cost.how) + '">' + (x.cost.v != null ? money(x.cost.v) : '—') + '</td>' +
+            '<td class="r" title="' + esc(x.proceeds.how) + '">' + (x.proceeds.v != null ? money(x.proceeds.v) : '—') + '</td>' +
+            '<td class="r">' + pnlCell(x.pnl) + '</td></tr>';
+        }).join('') || '<tr><td colspan="6" class="rankn">nothing has left this wallet</td></tr>');
+
+      var warn = tx.truncated ? ' ⚠ history truncated at 400 pages — totals are a lower bound.' : '';
+      $('#status').textContent = tx.length + ' transfers analyzed.' + (unpriced ? ' ' + unpriced + ' without readable metadata skipped.' : '') + warn;
+      $('#out').style.display = '';
+    } catch (e) {
+      $('#status').textContent = 'Chain explorer error: ' + e.message + ' — try again in a moment.';
+    }
+    $('#run').disabled = false;
+  }
+  $('#run').addEventListener('click', run);
+  $('#addr').addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
+  var qs = new URLSearchParams(location.search).get('wallet');
+  if (qs) { $('#addr').value = qs; run(); }
+})();
+</script>
+</body>
+</html>

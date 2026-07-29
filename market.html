@@ -40,6 +40,7 @@
     <a href="index.html">Home</a>
     <a href="market.html" class="active">Market</a>
     <a href="nft.html">NFT Market</a>
+    <a href="portfolio.html">Portfolio</a>
     <a href="sets.html">Set Tracker</a>
     <a href="mcp.html">MCP Optimizer</a>
     <a href="mint-checker.html">Mint Checker</a>
@@ -206,11 +207,12 @@
   });
 
   // ── marketcap tables (weighting-independent) ──
-  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r">7d</th><th class="r">30d</th></tr>' +
+  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">7d (same items)</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">30d (same items)</th><th class="r" title="marketcap added by items that newly started trading in the last 7 days (new drops + items resuming trade) — kept separate so it never reads as gains">🆕 7d new</th></tr>' +
     (MC.rows || []).slice(0, 20).map(function (r, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700">' + uname(r.universe) + '</td>' +
         '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
-        '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td></tr>';
+        '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td>' +
+        '<td class="r">' + (r.new7 ? '+' + money(r.new7) : '—') + '</td></tr>';
     }).join('');
   $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">30d trades</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
     (MC.top || []).map(function (r, i) {
