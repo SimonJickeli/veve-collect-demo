@@ -346,7 +346,13 @@ button.ghost:hover { border-color: var(--border-2); background: var(--panel-2); 
 .doc code { background: #14141a; border: 1px solid var(--border); border-radius: 6px; padding: 1.5px 6px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.8px; color: var(--gem); }
 .doc pre { background: #14141a; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; overflow-x: auto; }
 .doc pre code { border: 0; background: none; padding: 0; color: #cfd3e0; }
-.doc table { margin: 14px 0; font-size: 13.6px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.doc .tablewrap { overflow-x: auto; margin: 14px 0; max-width: 100%; -webkit-overflow-scrolling: touch; }
+.doc table { margin: 0; font-size: 13.6px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; min-width: 100%; }
+.doc pre, .doc .tablewrap, .doc p, .doc li, .doc h1, .doc h2, .doc h3 { max-width: 100%; overflow-wrap: anywhere; }
+/* Nothing may make the PAGE scroll sideways — but do NOT use `body{overflow-x:hidden}` for that:
+   it makes body a scroll container, which zeroes window.scrollY (killing the TOC scroll-spy) and
+   breaks position:sticky. Containment via min-width:0 on the grid tracks does the job properly. */
+.doclayout, .doclayout > main, .doclayout > aside, .doc { min-width: 0; }
 .doc thead th { background: var(--bg-2); }
 .doc tbody tr:hover td { background: #ffffff07; }
 .doc img { max-width: 100%; border-radius: 12px; }
@@ -402,6 +408,20 @@ a.tag:hover { color: var(--accent-2); border-color: var(--accent); text-decorati
 .t-set         { color: #6be0e0; border-color: #22605e; background: #0b2322; }
 .t-reference, .t-concept, .t-meta, .t-question, .t-comparison, .t-source,
 .t-nft-collection { color: var(--muted); border-color: var(--border); background: var(--bg-2); }
+
+/* sidebar is always open on desktop; on mobile it collapses so the ARTICLE is what you land on
+   (stacked open, the 14-section list pushed every page a full screen down) */
+.sidebox > summary { display: none; }
+.sidebox[open] > summary { display: none; }
+@media (max-width: 860px) {
+  .sidebox > summary, .sidebox[open] > summary {
+    display: block; cursor: pointer; list-style: none; margin: 4px 0 8px;
+    font-size: 13px; font-weight: 800; color: var(--muted);
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 11px; padding: 10px 13px;
+  }
+  .sidebox > summary::-webkit-details-marker { display: none; }
+  .sidebox[open] > summary { color: var(--text); border-color: var(--border-2); }
+}
 
 /* data-page hero: artwork + quick numbers (wiki browser, live-rendered pages) */
 .dhero { display: grid; grid-template-columns: minmax(0,240px) 1fr; gap: 18px; align-items: start; margin: 4px 0 20px; }

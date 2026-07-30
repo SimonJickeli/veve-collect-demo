@@ -35,7 +35,10 @@
         <kbd id="kbd">⌘K</kbd>
       </div>
       <div id="sres"></div>
-      <nav class="sidenav" id="side"></nav>
+      <details class="sidebox" id="sidebox">
+        <summary>☰ Browse sections</summary>
+        <nav class="sidenav" id="side"></nav>
+      </details>
     </aside>
 
     <!-- ── middle: the page ───────────────────────────────────────────── -->
@@ -114,13 +117,19 @@
   }
 
   // ── link resolution: [[target]] → slug ──────────────────────────────────
-  var BY_BASE = null;
+  // canon() mirrors gen_wiki_browser.py: some vault pages are titled with spaces + capitals
+  // ('concepts/Secret Rare.md'), so [[Secret Rare]] / [[Gems]] must fold to the same key as their
+  // filename — without this they rendered as dead links even though the pages exist.
+  function canon(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  var BY_BASE = null, CANON = null;
   function byBase() {
     if (BY_BASE) return BY_BASE;
-    BY_BASE = {};
+    BY_BASE = {}; CANON = {};
     for (var i = 0; i < SLUGS.length; i++) {
-      var b = SLUGS[i].split('/').pop();
+      var b = canon(SLUGS[i].split('/').pop());
       (BY_BASE[b] || (BY_BASE[b] = [])).push(i);
+      var ck = SLUGS[i].split('/').map(canon).join('/');
+      if (CANON[ck] == null) CANON[ck] = SLUGS[i];
     }
     return BY_BASE;
   }
@@ -130,7 +139,10 @@
     if (SI[t] != null) return t;
     var low = t.toLowerCase().replace(/\s+/g, '-');
     if (SI[low] != null) return low;
-    var hits = byBase()[low.split('/').pop()];
+    byBase();
+    var ck = t.split('/').map(canon).join('/');
+    if (CANON[ck]) return CANON[ck];
+    var hits = BY_BASE[canon(t.split('/').pop())];
     if (!hits || !hits.length) return null;
     for (var p = 0; p < PREF.length; p++) {
       for (var h = 0; h < hits.length; h++) if (pdir(hits[h]) === PREF[p]) return SLUGS[hits[h]];
@@ -203,12 +215,13 @@
         i += 2;
         var rows = [];
         while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
-        var t = '<table><thead><tr>' + head.map(function (c, n) {
+        // wrapped in its own scroll container: a wide table must never make the PAGE scroll sideways
+        var t = '<div class="tablewrap"><table><thead><tr>' + head.map(function (c, n) {
           return '<th style="text-align:' + (align[n] || 'left') + '">' + inline(c) + '</th>'; }).join('') +
           '</tr></thead><tbody>' + rows.map(function (r) {
             return '<tr>' + r.map(function (c, n) {
               return '<td style="text-align:' + (align[n] || 'left') + '">' + inline(c) + '</td>'; }).join('') + '</tr>';
-          }).join('') + '</tbody></table>';
+          }).join('') + '</tbody></table></div>';
         out.push(t); continue;
       }
       // lists
@@ -322,6 +335,18 @@
     else if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
   });
   if (!/Mac|iPhone|iPad/.test(navigator.platform || '')) $('#kbd').textContent = 'Ctrl K';
+  // desktop: sidebar always expanded (its <summary> is hidden by CSS). mobile: collapsed by default,
+  // and it closes again after you pick a section so the article is what fills the screen.
+  function syncSidebox() {
+    var wide = window.innerWidth > 860;
+    $('#sidebox').open = wide;
+    $('#kbd').style.display = wide ? '' : 'none';
+  }
+  syncSidebox();
+  window.addEventListener('resize', syncSidebox);
+  $('#side').addEventListener('click', function () {
+    if (window.innerWidth <= 860) $('#sidebox').open = false;
+  });
 
   // ── views ───────────────────────────────────────────────────────────────
   function setRail(html) { $('#rail').innerHTML = html || ''; }
