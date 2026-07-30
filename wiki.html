@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wiki — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=7" />
+</head>
+<body>
+<header class="topbar"><div class="wrap wide">
+  <div class="brand"><a href="index.html" style="color:inherit">VeVe<span class="dot">.</span>Collect</a></div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="wiki.html" class="active">Wiki</a>
+    <a href="market.html">Market</a>
+    <a href="nft.html">NFT Market</a>
+    <a href="portfolio.html">Portfolio</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+
+<div class="wrap wide" style="padding-top:22px">
+  <div class="doclayout">
+
+    <!-- ── left: sections ─────────────────────────────────────────────── -->
+    <aside>
+      <div class="searchbar" style="margin-bottom:6px">
+        <span class="mag">🔍</span>
+        <input id="q" type="text" placeholder="Search the wiki…" autocomplete="off" spellcheck="false" />
+        <kbd id="kbd">⌘K</kbd>
+      </div>
+      <div id="sres"></div>
+      <nav class="sidenav" id="side"></nav>
+    </aside>
+
+    <!-- ── middle: the page ───────────────────────────────────────────── -->
+    <main id="main">
+      <div class="skel line w40" style="height:26px"></div>
+      <div class="skel line"></div><div class="skel line"></div><div class="skel line w60"></div>
+    </main>
+
+    <!-- ── right: TOC / backlinks / facts ─────────────────────────────── -->
+    <aside class="rail" id="rail"></aside>
+  </div>
+</div>
+
+<script src="data/wikiindex.js?v=1"></script>
+<script>
+(function () {
+  'use strict';
+  var IX = window.WIKIINDEX || { slugs: [], meta: [], dirs: [], types: [], counts: {}, tags: {} };
+  var $ = function (s) { return document.querySelector(s); };
+  var SLUGS = IX.slugs || [], META = IX.meta || [];
+  var SI = {};                                        // slug -> index
+  for (var i = 0; i < SLUGS.length; i++) SI[SLUGS[i]] = i;
+  var EDITORIAL = IX.editorial || [], DATADIRS = IX.dataDirs || [];
+  var BUCKETS = IX.linkBuckets || 32;
+  // shard/bucket fetches carry the index's own build date, so a rebuild busts their cache too
+  // (the pipeline's ?v= rewrite only touches <script src> attributes, not fetch() strings)
+  var DV = '?v=' + (IX.asOf || '1');
+
+  // ── tiny helpers ────────────────────────────────────────────────────────
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function title(i) { return (META[i] && META[i][0]) || pretty(SLUGS[i].split('/').pop()); }
+  var LABEL = { nft: 'NFT collections', _root: 'Overview', dc: 'DC', tmnt: 'TMNT' };
+  function pretty(s) {
+    if (LABEL[s]) return LABEL[s];
+    return String(s).replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+  function ptype(i) { return IX.types[META[i][1]]; }
+  function pdir(i) { return IX.dirs[META[i][2]]; }
+  function shardOf(i) { return META[i][3]; }
+  function isData(dir) { return DATADIRS.indexOf(dir) >= 0; }
+  function bucketOf(slug) {                            // mirrors gen_wiki_browser.py bucket_of
+    var h = 0;
+    for (var k = 0; k < slug.length; k++) h = (h * 31 + slug.charCodeAt(k)) >>> 0;
+    return h % BUCKETS;
+  }
+  function typechip(t) { return '<span class="typechip t-' + esc(String(t).replace(/[^a-z-]/gi, '')) + '">' + esc(t) + '</span>'; }
+  var DIR_ICON = { domains: '🌌', entities: '🦸', collectibles: '🎴', collections: '🗂', sets: '📦',
+                   comics: '📖', nft: '🌐', platform: '⚙️', concepts: '💡', comparisons: '⚖️',
+                   questions: '❓', meta: '🧭', sources: '📚', folds: '🧵', _root: '🏠' };
+
+  // ── async data: doc shards + link buckets (cached forever in-memory) ────
+  var shardCache = {}, linkCache = {}, extraLoaded = {};
+  function loadJSON(url) {
+    if (!shardCache[url]) {
+      shardCache[url] = fetch(url).then(function (r) {
+        if (!r.ok) throw new Error(r.status + ' ' + url);
+        return r.json();
+      }).catch(function () { return null; });
+    }
+    return shardCache[url];
+  }
+  function loadScript(src) {                           // lazy catalog.js / wiki.js
+    if (extraLoaded[src]) return extraLoaded[src];
+    extraLoaded[src] = new Promise(function (res) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = function () { res(true); }; s.onerror = function () { res(false); };
+      document.head.appendChild(s);
+    });
+    return extraLoaded[src];
+  }
+  function links(slug) {
+    var b = bucketOf(slug);
+    if (!linkCache[b]) linkCache[b] = loadJSON('data/wikilinks/' + b + '.json' + DV);
+    return linkCache[b].then(function (d) { return (d && d[slug]) || {}; });
+  }
+
+  // ── link resolution: [[target]] → slug ──────────────────────────────────
+  var BY_BASE = null;
+  function byBase() {
+    if (BY_BASE) return BY_BASE;
+    BY_BASE = {};
+    for (var i = 0; i < SLUGS.length; i++) {
+      var b = SLUGS[i].split('/').pop();
+      (BY_BASE[b] || (BY_BASE[b] = [])).push(i);
+    }
+    return BY_BASE;
+  }
+  var PREF = EDITORIAL.concat(DATADIRS);
+  function resolve(target) {
+    var t = String(target || '').trim().replace(/^\/+/, '').split('#')[0];
+    if (SI[t] != null) return t;
+    var low = t.toLowerCase().replace(/\s+/g, '-');
+    if (SI[low] != null) return low;
+    var hits = byBase()[low.split('/').pop()];
+    if (!hits || !hits.length) return null;
+    for (var p = 0; p < PREF.length; p++) {
+      for (var h = 0; h < hits.length; h++) if (pdir(hits[h]) === PREF[p]) return SLUGS[hits[h]];
+    }
+    return SLUGS[hits[0]];
+  }
+
+  // ── markdown → HTML (compact renderer, wikilink aware) ──────────────────
+  var CALLOUT = /^>\s*\[!(\w+)\]\s*(.*)$/;
+  function inline(s) {
+    s = esc(s);
+    // images first, then md links, then wikilinks, then emphasis
+    s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)[^)]*\)/g, function (m, alt, url) {
+      return /^https?:/.test(url) ? '<img src="' + esc(url) + '" alt="' + alt + '" loading="lazy">' : '';
+    });
+    s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)[^)]*\)/g, '<a class="ext" href="$2" target="_blank" rel="noopener">$1</a>');
+    s = s.replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]+))?\]\]/g, function (m, tgt, label) {
+      var r = resolve(tgt.replace(/\\\|/g, '|'));
+      var text = esc((label || tgt).replace(/\\\|/g, '|').trim());
+      if (!r) return '<a class="wl missing" href="#/search?q=' + encodeURIComponent(tgt.trim()) +
+        '" title="no page yet — search instead">' + text + '</a>';
+      return '<a class="wl" href="#/' + r + '">' + text + '</a>';
+    });
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.replace(/(^|[\s(])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    s = s.replace(/~~([^~]+)~~/g, '<s>$1</s>');
+    s = s.replace(/(^|\s)(https?:\/\/[^\s<]+)/g, '$1<a class="ext" href="$2" target="_blank" rel="noopener">$2</a>');
+    return s;
+  }
+  function md2html(md) {
+    var out = [], lines = String(md || '').split('\n'), i = 0, heads = [];
+    function slugify(t) { return t.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+    while (i < lines.length) {
+      var L = lines[i];
+      // fenced code
+      if (/^```/.test(L)) {
+        var buf = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
+        i++;
+        out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
+        continue;
+      }
+      // headings
+      var h = L.match(/^(#{1,4})\s+(.*)$/);
+      if (h) {
+        var lvl = h[1].length, txt = h[2].trim(), id = slugify(txt);
+        if (lvl === 2 || lvl === 3) heads.push({ lvl: lvl, txt: txt, id: id });
+        out.push('<h' + lvl + ' id="' + id + '">' + inline(txt) + '</h' + lvl + '>');
+        i++; continue;
+      }
+      // callouts / blockquotes
+      if (/^>/.test(L)) {
+        var co = L.match(CALLOUT), kind = co ? co[1].toLowerCase() : null;
+        var ct = co ? (co[2] || co[1]) : null, body = [];
+        i++;
+        while (i < lines.length && /^>/.test(lines[i])) { body.push(lines[i].replace(/^>\s?/, '')); i++; }
+        if (kind) {
+          out.push('<div class="callout ' + esc(kind) + '"><div class="ct">' + inline(ct) + '</div>' +
+                   blocks(body) + '</div>');
+        } else {
+          out.push('<blockquote>' + blocks([L.replace(/^>\s?/, '')].concat(body)) + '</blockquote>');
+        }
+        continue;
+      }
+      // tables
+      if (/^\s*\|/.test(L) && i + 1 < lines.length && /^\s*\|[-\s:|]+\|?\s*$/.test(lines[i + 1])) {
+        var head = cells(L), align = cells(lines[i + 1]).map(function (c) {
+          return /^:?-+:$/.test(c.trim()) ? 'center' : /-+:$/.test(c.trim()) ? 'right' : 'left'; });
+        i += 2;
+        var rows = [];
+        while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
+        var t = '<table><thead><tr>' + head.map(function (c, n) {
+          return '<th style="text-align:' + (align[n] || 'left') + '">' + inline(c) + '</th>'; }).join('') +
+          '</tr></thead><tbody>' + rows.map(function (r) {
+            return '<tr>' + r.map(function (c, n) {
+              return '<td style="text-align:' + (align[n] || 'left') + '">' + inline(c) + '</td>'; }).join('') + '</tr>';
+          }).join('') + '</tbody></table>';
+        out.push(t); continue;
+      }
+      // lists
+      if (/^\s*([-*+]|\d+\.)\s+/.test(L)) {
+        var ordered = /^\s*\d+\./.test(L), items = [];
+        while (i < lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i])) {
+          items.push(lines[i].replace(/^\s*([-*+]|\d+\.)\s+/, '')); i++;
+        }
+        out.push('<' + (ordered ? 'ol' : 'ul') + '>' + items.map(function (it) {
+          return '<li>' + inline(it) + '</li>'; }).join('') + '</' + (ordered ? 'ol' : 'ul') + '>');
+        continue;
+      }
+      if (/^\s*(---|___|\*\*\*)\s*$/.test(L)) { out.push('<hr>'); i++; continue; }
+      if (!L.trim()) { i++; continue; }
+      // paragraph
+      var para = [L]; i++;
+      while (i < lines.length && lines[i].trim() && !/^(#{1,4}\s|>|\s*\||\s*([-*+]|\d+\.)\s|```)/.test(lines[i])) para.push(lines[i++]);
+      out.push('<p>' + inline(para.join(' ')) + '</p>');
+    }
+    return { html: out.join('\n'), heads: heads };
+  }
+  function blocks(arr) { return md2html(arr.join('\n')).html; }
+  function cells(line) {
+    return line.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split(/(?<!\\)\|/).map(function (c) {
+      return c.replace(/\\\|/g, '|').trim(); });
+  }
+
+  // ── sidebar ─────────────────────────────────────────────────────────────
+  var GROUPS = [
+    ['Start here', ['_root', 'platform', 'concepts', 'questions', 'comparisons']],
+    ['The taxonomy', ['domains', 'entities', 'collections', 'sets', 'collectibles', 'comics']],
+    ['Beyond VeVe', ['nft']],
+    ['Meta', ['meta', 'sources', 'folds']]
+  ];
+  function renderSide(active) {
+    var h = '';
+    GROUPS.forEach(function (g) {
+      var rows = g[1].filter(function (d) { return IX.counts[d]; });
+      if (!rows.length) return;
+      h += '<div class="grouphead">' + esc(g[0]) + '</div>';
+      rows.forEach(function (d) {
+        h += '<a href="#/dir/' + d + '"' + (active === d ? ' class="on"' : '') + '>' +
+             '<span>' + (DIR_ICON[d] || '📄') + ' ' + esc(d === '_root' ? 'Overview' : pretty(d)) + '</span>' +
+             '<span class="n">' + IX.counts[d].toLocaleString() + '</span></a>';
+      });
+    });
+    h += '<div class="grouphead">Tools</div>' +
+         '<a href="market.html"><span>📈 Market indexes</span></a>' +
+         '<a href="explorer.html"><span>🔭 Explorer</span></a>' +
+         '<a href="ask.html"><span>💬 Ask</span></a>';
+    $('#side').innerHTML = h;
+  }
+
+  // ── search ──────────────────────────────────────────────────────────────
+  function score(q, i) {
+    var t = title(i).toLowerCase(), s = SLUGS[i].toLowerCase();
+    if (t === q || s === q) return 1000;
+    var ti = t.indexOf(q);
+    if (ti === 0) return 500 - t.length * 0.1;
+    if (ti > 0) return 300 - ti - t.length * 0.05;
+    var si2 = s.indexOf(q);
+    if (si2 >= 0) return 150 - si2 * 0.5;
+    return -1;
+  }
+  var DIRBOOST = { platform: 30, concepts: 28, domains: 26, questions: 24, comparisons: 22, nft: 20, entities: 14, meta: 8 };
+  function search(qs, limit) {
+    var q = qs.trim().toLowerCase();
+    if (!q) return [];
+    var hits = [];
+    for (var i = 0; i < SLUGS.length; i++) {
+      var sc = score(q, i);
+      if (sc > 0) hits.push([sc + (DIRBOOST[pdir(i)] || 0), i]);
+    }
+    hits.sort(function (a, b) { return b[0] - a[0]; });
+    return hits.slice(0, limit || 12).map(function (h) { return h[1]; });
+  }
+  function hl(text, q) {
+    var t = esc(text), i = t.toLowerCase().indexOf(q.toLowerCase());
+    return i < 0 ? t : t.slice(0, i) + '<mark>' + t.slice(i, i + q.length) + '</mark>' + t.slice(i + q.length);
+  }
+  var selIdx = -1, lastHits = [];
+  function renderSearch(q) {
+    if (!q.trim()) { $('#sres').innerHTML = ''; lastHits = []; return; }
+    lastHits = search(q, 10);
+    if (!lastHits.length) {
+      $('#sres').innerHTML = '<div class="results"><a><span class="rt" style="color:var(--muted)">no match for “' + esc(q) + '”</span></a></div>';
+      return;
+    }
+    $('#sres').innerHTML = '<div class="results">' + lastHits.map(function (i, n) {
+      return '<a href="#/' + SLUGS[i] + '"' + (n === selIdx ? ' class="sel"' : '') + '>' +
+        '<span><span class="rt">' + hl(title(i), q) + '</span>' +
+        '<span class="rs">' + (DIR_ICON[pdir(i)] || '') + ' ' + esc(pdir(i)) + '</span></span>' +
+        typechip(ptype(i)) + '</a>';
+    }).join('') + '</div>';
+  }
+  $('#q').addEventListener('input', function () { selIdx = -1; renderSearch(this.value); });
+  $('#q').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!lastHits.length) return;
+      selIdx = (selIdx + (e.key === 'ArrowDown' ? 1 : -1) + lastHits.length) % lastHits.length;
+      renderSearch(this.value);
+    } else if (e.key === 'Enter') {
+      var pick = lastHits[selIdx >= 0 ? selIdx : 0];
+      if (pick != null) { location.hash = '#/' + SLUGS[pick]; this.blur(); }
+      else location.hash = '#/search?q=' + encodeURIComponent(this.value);
+    } else if (e.key === 'Escape') { this.value = ''; renderSearch(''); this.blur(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('#q').focus(); $('#q').select(); }
+    else if (e.key === '/' && document.activeElement !== $('#q')) { e.preventDefault(); $('#q').focus(); }
+  });
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || '')) $('#kbd').textContent = 'Ctrl K';
+
+  // ── views ───────────────────────────────────────────────────────────────
+  function setRail(html) { $('#rail').innerHTML = html || ''; }
+
+  function crumbs(parts) {
+    return '<div class="crumbs">' + parts.map(function (p, n) {
+      var el = p[1] ? '<a href="' + p[1] + '">' + esc(p[0]) + '</a>' : '<span>' + esc(p[0]) + '</span>';
+      return (n ? '<span class="sep">›</span>' : '') + el;
+    }).join('') + '</div>';
+  }
+
+  function viewHome() {
+    setRail('');
+    renderSide(null);
+    var featured = ['platform/record-sales', 'nft/_index', 'domains/_index', 'entities/_index',
+                    'platform/master-collector-points', 'collections/_index']
+      .filter(function (s) { return SI[s] != null; });
+    var total = SLUGS.length;
+    var h = '<section class="hero" style="padding:14px 0 18px">' +
+      '<span class="badge">' + total.toLocaleString() + ' pages · updated ' + esc(IX.asOf) + '</span>' +
+      '<h1>The VeVe <span class="grad">Wiki</span></h1>' +
+      '<p class="lede">Every universe, character, collectible, set and comic on VeVe / Collect Chain — ' +
+      'cross-linked so you can click your way from a franchise down to a single mint. ' +
+      'Hit <kbd style="font:700 11px ui-monospace;background:var(--bg-2);border:1px solid var(--border);border-radius:5px;padding:2px 5px">/</kbd> to search.</p></section>';
+
+    h += '<div class="grid cols-3" style="margin-bottom:22px">';
+    [['domains', 'Universes', 'Marvel, Star Wars, DC — the IP worlds VeVe licenses'],
+     ['entities', 'Characters & brands', 'Spider-Man to Lamborghini, each linking up to its universe'],
+     ['collectibles', 'Collectibles', 'Every individual NFT with rarity, edition and market data'],
+     ['collections', 'Collections', 'The 15-axis taxonomy layer with first-appearance scoring'],
+     ['comics', 'Comics', 'The full VeVe Comics catalogue by publisher and series'],
+     ['nft', 'Beyond VeVe', 'CryptoPunks, BAYC, Pudgy Penguins and 17 more, researched']
+    ].forEach(function (c) {
+      if (!IX.counts[c[0]]) return;
+      h += '<a class="card lift feature-card rise" href="#/dir/' + c[0] + '">' +
+        '<div class="emoji">' + (DIR_ICON[c[0]] || '📄') + '</div>' +
+        '<h3>' + esc(c[1]) + ' <span class="n" style="font-size:12px;color:var(--muted)">' + IX.counts[c[0]].toLocaleString() + '</span></h3>' +
+        '<p class="sub">' + esc(c[2]) + '</p></a>';
+    });
+    h += '</div>';
+
+    if (featured.length) {
+      h += '<div class="sec-title">⭐ Start here</div><div class="grid cols-2">';
+      featured.forEach(function (s) {
+        var i = SI[s];
+        h += '<a class="card lift" href="#/' + s + '" style="padding:15px 17px">' +
+          '<div class="rowbetween"><strong>' + esc(title(i)) + '</strong>' + typechip(ptype(i)) + '</div>' +
+          '<div class="small" style="margin-top:4px">' + esc(pdir(i)) + '/</div></a>';
+      });
+      h += '</div>';
+    }
+    var tagNames = Object.keys(IX.tags).sort(function (a, b) { return IX.tags[b].length - IX.tags[a].length; }).slice(0, 26);
+    if (tagNames.length) {
+      h += '<div class="sec-title">🏷 Popular tags</div><div class="tagrow">' + tagNames.map(function (t) {
+        return '<a class="tag" href="#/tag/' + encodeURIComponent(t) + '">' + esc(t) + ' <b style="color:var(--muted)">' + IX.tags[t].length + '</b></a>';
+      }).join('') + '</div>';
+    }
+    $('#main').innerHTML = h;
+  }
+
+  function viewDir(dir, page) {
+    renderSide(dir);
+    var idxs = [];
+    for (var i = 0; i < SLUGS.length; i++) if (pdir(i) === dir) idxs.push(i);
+    idxs.sort(function (a, b) { return title(a).localeCompare(title(b)); });
+    var PER = 120, pg = Math.max(1, page || 1), pages = Math.ceil(idxs.length / PER);
+    var slice = idxs.slice((pg - 1) * PER, pg * PER);
+    var h = crumbs([['Wiki', '#/'], [pretty(dir === '_root' ? 'Overview' : dir), null]]) +
+      '<h1 class="doc" style="margin:0 0 6px">' + (DIR_ICON[dir] || '📄') + ' ' + esc(dir === '_root' ? 'Overview' : pretty(dir)) + '</h1>' +
+      '<p class="small" style="margin:0 0 16px">' + idxs.length.toLocaleString() + ' pages' +
+      (isData(dir) ? ' · rendered live from the catalog data' : '') + '</p>';
+    var seek = SI[dir + '/_index'];
+    if (seek != null) h += '<div class="note" style="margin-bottom:16px">📑 There is a curated index for this section: <a href="#/' + dir + '/_index">' + esc(title(seek)) + '</a></div>';
+    h += '<div class="grid cols-3">' + slice.map(function (i) {
+      return '<a class="card lift" href="#/' + SLUGS[i] + '" style="padding:13px 15px">' +
+        '<div style="font-weight:700;font-size:14px;line-height:1.35">' + esc(title(i)) + '</div>' +
+        '<div class="small" style="margin-top:5px">' + typechip(ptype(i)) + '</div></a>';
+    }).join('') + '</div>';
+    if (pages > 1) {
+      h += '<div class="rowbetween" style="margin-top:20px">' +
+        (pg > 1 ? '<a class="pill" href="#/dir/' + dir + '/' + (pg - 1) + '">‹ previous</a>' : '<span></span>') +
+        '<span class="small">page ' + pg + ' of ' + pages + '</span>' +
+        (pg < pages ? '<a class="pill" href="#/dir/' + dir + '/' + (pg + 1) + '">next ›</a>' : '<span></span>') + '</div>';
+    }
+    $('#main').innerHTML = h;
+    setRail('');
+    window.scrollTo(0, 0);
+  }
+
+  function viewTag(tag) {
+    renderSide(null);
+    var idxs = IX.tags[tag] || [];
+    $('#main').innerHTML = crumbs([['Wiki', '#/'], ['Tags', null], [tag, null]]) +
+      '<h1 class="doc" style="margin:0 0 14px">🏷 ' + esc(tag) + '</h1>' +
+      '<p class="small">' + idxs.length + ' pages tagged</p><div class="grid cols-3">' +
+      idxs.map(function (i) {
+        return '<a class="card lift" href="#/' + SLUGS[i] + '" style="padding:13px 15px">' +
+          '<div style="font-weight:700;font-size:14px">' + esc(title(i)) + '</div>' +
+          '<div class="small" style="margin-top:5px">' + typechip(ptype(i)) + ' ' + esc(pdir(i)) + '</div></a>';
+      }).join('') + '</div>';
+    setRail('');
+    window.scrollTo(0, 0);
+  }
+
+  function viewSearch(q) {
+    renderSide(null);
+    var hits = search(q, 80);
+    $('#main').innerHTML = crumbs([['Wiki', '#/'], ['Search', null]]) +
+      '<h1 class="doc" style="margin:0 0 6px">🔍 “' + esc(q) + '”</h1>' +
+      '<p class="small" style="margin-bottom:16px">' + hits.length + ' match' + (hits.length === 1 ? '' : 'es') + '</p>' +
+      (hits.length ? '<div class="grid cols-2">' + hits.map(function (i) {
+        return '<a class="card lift" href="#/' + SLUGS[i] + '" style="padding:13px 15px">' +
+          '<div class="rowbetween"><strong>' + hl(title(i), q) + '</strong>' + typechip(ptype(i)) + '</div>' +
+          '<div class="small" style="margin-top:4px">' + esc(SLUGS[i]) + '</div></a>';
+      }).join('') + '</div>'
+        : '<div class="empty"><span class="ic">🤷</span>Nothing matched. Try a shorter term.</div>');
+    setRail('');
+    window.scrollTo(0, 0);
+  }
+
+  // frontmatter → facts table (skip noise, linkify slugs)
+  var FM_ORDER = ['type', 'status', 'universe', 'licensor', 'parent', 'character', 'set', 'season',
+                  'rarity', 'edition_size', 'drop_price_gems', 'lowest_public_mint', 'nft_drop_date',
+                  'comic_debut', 'comic_debut_ref', 'created', 'updated'];
+  var FM_LABEL = { type: 'Type', status: 'Status', universe: 'Universe', licensor: 'Licensor',
+    parent: 'Parent company', character: 'Character', set: 'Set', season: 'Season', rarity: 'Rarity',
+    edition_size: 'Edition size', drop_price_gems: 'Drop price', lowest_public_mint: 'Lowest public mint',
+    nft_drop_date: 'NFT drop date', comic_debut: 'First appearance', comic_debut_ref: 'Debut issue',
+    created: 'Page created', updated: 'Page updated' };
+  function factsTable(fm) {
+    var rows = [];
+    FM_ORDER.forEach(function (k) {
+      var v = fm[k];
+      if (v == null || v === '' || (Array.isArray(v) && !v.length)) return;
+      if (String(v).indexOf('# TODO') === 0) return;
+      var val = esc(String(v));
+      if (k === 'universe') {
+        var r = resolve('domains/' + v) || resolve(String(v));
+        if (r) val = '<a class="wl" href="#/' + r + '">' + esc(v) + '</a>';
+      }
+      if (k === 'drop_price_gems') val = '💎 ' + val;
+      rows.push('<tr><td class="k">' + esc(FM_LABEL[k] || k) + '</td><td>' + val + '</td></tr>');
+    });
+    return rows.length ? '<table class="facts">' + rows.join('') + '</table>' : '';
+  }
+
+  function railFor(slug, heads, fm, lk) {
+    var h = '';
+    if (heads && heads.length > 1) {
+      h += '<div class="railblock"><div class="railhead">On this page</div><div class="toc">' +
+        heads.map(function (x) {
+          return '<a class="' + (x.lvl === 3 ? 'h3' : '') + '" href="#/' + slug + '#' + x.id + '" data-id="' + x.id + '">' + esc(x.txt) + '</a>';
+        }).join('') + '</div></div>';
+    }
+    if (fm && Object.keys(fm).length) {
+      var ft = factsTable(fm);
+      if (ft) h += '<div class="railblock"><div class="railhead">Facts</div>' + ft + '</div>';
+    }
+    var b = (lk && lk.b) || [];
+    if (b.length) {
+      h += '<div class="railblock"><div class="railhead">Linked from (' + b.length + ')</div><div class="backlinks">' +
+        b.slice(0, 40).map(function (s) {
+          var i = SI[s];
+          return '<a href="#/' + s + '">' + esc(i != null ? title(i) : s) + '</a>';
+        }).join('') + (b.length > 40 ? '<div class="small" style="padding:6px 9px">+' + (b.length - 40) + ' more</div>' : '') + '</div></div>';
+    }
+    var o = (lk && lk.o) || [];
+    if (o.length) {
+      h += '<div class="railblock"><div class="railhead">Links out (' + o.length + ')</div><div class="backlinks">' +
+        o.slice(0, 25).map(function (s) {
+          var i = SI[s];
+          return '<a href="#/' + s + '">' + esc(i != null ? title(i) : s) + '</a>';
+        }).join('') + (o.length > 25 ? '<div class="small" style="padding:6px 9px">+' + (o.length - 25) + ' more</div>' : '') + '</div></div>';
+    }
+    setRail(h);
+    scrollSpy();
+  }
+
+  var spyRAF = null;
+  function scrollSpy() {
+    var toc = document.querySelectorAll('.toc a');
+    if (!toc.length) return;
+    function upd() {
+      spyRAF = null;
+      var best = null, bestTop = -1e9;
+      toc.forEach(function (a) {
+        var el = document.getElementById(a.dataset.id);
+        if (!el) return;
+        var top = el.getBoundingClientRect().top - 90;
+        if (top <= 0 && top > bestTop) { bestTop = top; best = a; }
+      });
+      toc.forEach(function (a) { a.classList.toggle('cur', a === best); });
+    }
+    window.removeEventListener('scroll', onScroll);
+    function onScroll() { if (!spyRAF) spyRAF = requestAnimationFrame(upd); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    upd();
+  }
+
+  // ── the page view: editorial markdown OR live data render ───────────────
+  function viewPage(slug, anchor) {
+    var i = SI[slug];
+    if (i == null) { viewMissing(slug); return; }
+    var dir = pdir(i);
+    renderSide(dir);
+    $('#main').innerHTML = '<div class="skel line w40" style="height:26px"></div><div class="skel line"></div>' +
+      '<div class="skel line"></div><div class="skel line w60"></div>';
+    setRail('');
+    var head = crumbs([['Wiki', '#/'], [pretty(dir === '_root' ? 'Overview' : dir), '#/dir/' + dir], [title(i), null]]);
+
+    if (isData(dir)) { renderDataPage(slug, i, head, anchor); return; }
+    var sh = shardOf(i);
+    loadJSON('data/wikidocs/' + sh + '.json' + DV).then(function (bundle) {
+      var rec = bundle && bundle[slug];
+      if (!rec) { renderStub(slug, i, head, 'This page exists in the vault but its text is not bundled yet.'); return; }
+      var r = md2html(rec.md);
+      var fm = rec.fm || {};
+      var tagsHtml = (fm.tags || []).length ? '<div class="tagrow">' + fm.tags.map(function (t) {
+        return '<a class="tag" href="#/tag/' + encodeURIComponent(t) + '">' + esc(t) + '</a>'; }).join('') + '</div>' : '';
+      $('#main').innerHTML = head +
+        '<div class="rowbetween" style="margin-bottom:2px">' + typechip(ptype(i)) +
+        (fm.status ? '<span class="small">status: <strong>' + esc(fm.status) + '</strong></span>' : '') + '</div>' +
+        '<article class="doc rise">' + r.html + '</article>' + tagsHtml +
+        '<div class="divider"></div><div class="small">Vault path: <code>wiki/' + esc(slug) + '.md</code></div>';
+      links(slug).then(function (lk) { railFor(slug, r.heads, fm, lk); });
+      jump(anchor);
+    });
+  }
+
+  function renderStub(slug, i, head, why) {
+    $('#main').innerHTML = head + '<article class="doc"><h1>' + esc(title(i)) + '</h1>' +
+      '<div class="callout warning"><div class="ct">Not bundled</div><p>' + esc(why) + '</p></div></article>';
+    links(slug).then(function (lk) { railFor(slug, [], {}, lk); });
+  }
+
+  function viewMissing(slug) {
+    renderSide(null);
+    $('#main').innerHTML = crumbs([['Wiki', '#/'], ['Not found', null]]) +
+      '<div class="empty"><span class="ic">🧭</span><strong>No page at <code>' + esc(slug) + '</code></strong>' +
+      '<p class="small" style="margin-top:8px">It may not exist yet. <a href="#/search?q=' +
+      encodeURIComponent(slug.split('/').pop().replace(/-/g, ' ')) + '">Search for it instead →</a></p></div>';
+    setRail('');
+  }
+
+  // Live-rendered collectible / collection / set / comic pages (data, not markdown)
+  function renderDataPage(slug, i, head, anchor) {
+    Promise.all([loadScript('data/catalog.js?v=1'), loadScript('data/wiki.js?v=1')]).then(function () {
+      var CAT = (window.CATALOG && window.CATALOG.items) || [];
+      var W = window.WIKI || {};
+      var base = slug.split('/').pop();
+      var item = null;
+      for (var n = 0; n < CAT.length; n++) if (CAT[n].slug === base) { item = CAT[n]; break; }
+      var summary = (W.coll && W.coll[base]) || (W.col && W.col[base]) || (W.ent && W.ent[base]) || null;
+      var h = head + '<article class="doc rise"><h1>' + esc(title(i)) + '</h1>';
+      h += '<div class="chiprow" style="margin:0 0 14px">' + typechip(ptype(i));
+      if (item) {
+        if (item.rarity) h += '<span class="chip r-' + esc(String(item.rarity).replace(/\s/g, '.')) + '">' + esc(item.rarity) + '</span>';
+        if (item.edition) h += '<span class="pill">' + Number(item.edition).toLocaleString() + ' editions</span>';
+        if (item.universe) {
+          var ru = resolve('domains/' + item.universe);
+          h += '<span class="pill">' + (ru ? '<a class="wl" href="#/' + ru + '">' + esc(pretty(item.universe)) + '</a>' : esc(pretty(item.universe))) + '</span>';
+        }
+      }
+      h += '</div>';
+      if (item && item.img) {
+        h += '<div class="dhero"><img src="' + esc(item.img) + '" alt="' + esc(item.name || '') + '" loading="lazy">';
+        var quick = [];
+        if (item.floor) quick.push(['Cheapest listing', '$' + Number(item.floor).toLocaleString()]);
+        if (item.price) quick.push(['Drop price', '💎 ' + Number(item.price).toLocaleString()]);
+        if (item.issued || item.edition) quick.push(['Issued', Number(item.issued || item.edition).toLocaleString()]);
+        if (item.lowmint) quick.push(['Lowest public mint', '#' + item.lowmint]);
+        h += '<div class="dquick">' + quick.map(function (q) {
+          return '<div class="qi"><div class="k">' + esc(q[0]) + '</div><div class="v">' + q[1] + '</div></div>';
+        }).join('') + '</div></div>';
+      }
+      // wiki.js ships ov (short) and ab (long); for auto-generated collectible entries the two are
+      // identical, so print the lede only when it is not just the head of the body text
+      var ov = (summary && summary.ov) || '', ab = (summary && summary.ab) || '';
+      var dupe = ov && ab && ab.slice(0, 40).trim() === ov.slice(0, 40).trim();
+      if (ov && !dupe) h += '<p class="lede">' + esc(ov) + '</p>';
+      if (ab) h += md2html(ab).html;
+      else if (ov && dupe) h += '<p class="lede">' + esc(ov) + '</p>';
+      if (!summary && !item) h += '<div class="callout info"><div class="ct">Index page</div><p>This page is generated from catalog data. Open the section index for the full list.</p></div>';
+      if (item) {
+        var rows = [];
+        function row(k, v) { if (v != null && v !== '' && v !== 0) rows.push('<tr><td class="k">' + k + '</td><td>' + v + '</td></tr>'); }
+        row('Rarity', item.rarity ? esc(item.rarity) : null);
+        row('Editions issued', item.issued ? Number(item.issued).toLocaleString() : (item.edition ? Number(item.edition).toLocaleString() : null));
+        row('Lowest public mint', item.lowmint ? '#' + item.lowmint : null);
+        row('Held back (reserve)', item.lowmint ? (item.lowmint - 1) + ' editions' : null);
+        row('Burnt', item.burnt ? Number(item.burnt).toLocaleString() : null);
+        row('Unsold in store', item.store ? Number(item.store).toLocaleString() : null);
+        row('Drop date', item.drop ? esc(item.drop) : null);
+        row('Drop price', item.price ? '💎 ' + Number(item.price).toLocaleString() : null);
+        row('Season', item.season ? esc(String(item.season)) : null);
+        row('Licensor', item.license ? esc(item.license) : null);
+        if (item.set) {
+          var rs = resolve('sets/' + String(item.set).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''));
+          row('Set', rs ? '<a class="wl" href="#/' + rs + '">' + esc(item.set) + '</a>' : esc(item.set));
+        }
+        if (item.character) {
+          var rc = resolve('entities/' + String(item.character).toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+          row('Character', rc ? '<a class="wl" href="#/' + rc + '">' + esc(item.character) + '</a>' : esc(item.character));
+        }
+        row('Cheapest listing', item.floor ? '$' + Number(item.floor).toLocaleString() : null);
+        if (rows.length) h += '<h2 id="data">Catalog data</h2><table class="facts">' + rows.join('') + '</table>';
+        h += '<h2 id="elsewhere">Open elsewhere</h2><div class="chiprow">' +
+          '<a class="pill" href="explorer.html#/c/' + esc(base) + '">🔭 Explorer</a>' +
+          '<a class="pill" href="mint-checker.html">🔢 Mint checker</a>' +
+          (item.tid ? '<a class="pill ext" href="https://www.veve.me/collectibles/en/collectibles/' + esc(item.tid) + '" target="_blank" rel="noopener">VeVe store</a>' : '') +
+          '</div>';
+      }
+      h += '</article><div class="divider"></div><div class="small">Vault path: <code>wiki/' + esc(slug) + '.md</code> · rendered live from catalog data</div>';
+      $('#main').innerHTML = h;
+      var heads = [];
+      if (item) heads = [{ lvl: 2, txt: 'Catalog data', id: 'data' }, { lvl: 2, txt: 'Open elsewhere', id: 'elsewhere' }];
+      links(slug).then(function (lk) { railFor(slug, heads, item ? { type: ptype(i), rarity: item.rarity, universe: item.universe, set: item.set, character: item.character, nft_drop_date: item.drop } : {}, lk); });
+      jump(anchor);
+    });
+  }
+
+  function jump(anchor) {
+    if (!anchor) { window.scrollTo(0, 0); return; }
+    setTimeout(function () {
+      var el = document.getElementById(anchor);
+      if (el) window.scrollTo(0, el.getBoundingClientRect().top + window.scrollY - 80);
+    }, 30);
+  }
+
+  // ── router ──────────────────────────────────────────────────────────────
+  function route() {
+    var raw = location.hash.replace(/^#\/?/, '');
+    if (!raw) { viewHome(); return; }
+    if (raw.indexOf('search?q=') === 0) { viewSearch(decodeURIComponent(raw.slice(9))); return; }
+    if (raw.indexOf('tag/') === 0) { viewTag(decodeURIComponent(raw.slice(4))); return; }
+    if (raw.indexOf('dir/') === 0) {
+      var rest = raw.slice(4).split('/');
+      viewDir(rest[0], parseInt(rest[1] || '1', 10));
+      return;
+    }
+    var parts = raw.split('#');
+    viewPage(decodeURIComponent(parts[0]), parts[1] || null);
+  }
+  window.addEventListener('hashchange', route);
+  route();
+})();
+</script>
+</body>
+</html>
