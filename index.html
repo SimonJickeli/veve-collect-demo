@@ -35,6 +35,23 @@
     <div class="stats" id="stats" style="margin-top:18px"></div>
   </section>
 
+  <div class="grid cols-2" style="margin-bottom:16px">
+    <a class="card lift feature-card rise" href="wiki.html" style="background:linear-gradient(150deg, rgba(11,153,255,.16), rgba(166,120,255,.07) 60%, var(--panel));border-color:#2f5db8">
+      <div class="emoji">📖</div>
+      <h3>Browse the Wiki <span class="pill-best">new</span></h3>
+      <p class="sub">Every universe, character, collectible, set and comic — <strong id="wikicount">10,000+</strong> cross-linked
+         pages you can click straight through, from a franchise down to a single mint. Instant search, backlinks, live catalog data.</p>
+      <span class="pill-best">open the wiki →</span>
+    </a>
+    <a class="card lift feature-card rise" href="portfolio.html">
+      <div class="emoji">💼</div>
+      <h3>Portfolio &amp; PNL <span class="pill-best">new</span></h3>
+      <p class="sub">Paste a wallet: every buy, sell and burn reconstructed from the chain and valued against
+         <strong>real market sales at the time</strong>. All-time profit &amp; loss, allocation by universe, biggest movers.</p>
+      <span class="pill-best">analyze a wallet →</span>
+    </a>
+  </div>
+
   <div class="grid cols-3">
     <a class="card feature-card" href="sets.html">
       <div class="emoji">🧩</div>
@@ -63,7 +80,12 @@
       <p class="sub">"What are the scarcest 5 Spider-Man collectibles?" · "Which Disney collectibles are held back?" — ask in plain English, answered live from the catalog + wiki knowledge. <strong>New.</strong></p>
       <span class="pill-best">ask →</span>
     </a>
-    <div class="card"><h3>📚 The Wiki</h3><p class="sub">An encyclopedic, cited reference for every universe, character, drop, and mechanic — the Obsidian vault that powers this app and the <a href="ask.html">Ask</a> feature.</p></div>
+    <a class="card feature-card" href="nft.html">
+      <div class="emoji">🌐</div>
+      <h3>Cross-Platform NFT Market</h3>
+      <p class="sub">VeVe's franchises ranked against Ethereum, Solana and Bitcoin blue chips — CryptoPunks, BAYC, Pudgy Penguins, NodeMonkes — each with a researched wiki page.</p>
+      <span class="pill-best">compare →</span>
+    </a>
     <div class="card"><h3>🔗 Built on-chain</h3><p class="sub">Holdings + floors read live from the public <span class="mono">collectscan</span> explorer for Collect Chain (VeVe Gem / StackR OMI floors). Read-only, no login, no keys.</p></div>
   </div>
 
@@ -74,6 +96,7 @@
   <footer class="foot">VeVe Collect community tools · not affiliated with VeVe / Collect · data via collectscan + community sources.</footer>
 </div>
 
+<script src="data/wikiindex.js?v=1"></script>
 <script src="data/catalog.js?v=202607301258"></script>
 <script>
 (function () {
@@ -83,9 +106,14 @@
   var stat = function (k, v) { return '<div class="stat"><div class="k">' + k + '</div><div class="v accent">' + v + '</div></div>'; };
   document.getElementById('stats').innerHTML =
     stat('Collectibles', CATALOG.items.length.toLocaleString()) +
+    stat('Wiki pages', (window.WIKIINDEX ? window.WIKIINDEX.slugs.length : 10675).toLocaleString()) +
     stat('Sets', sets.toLocaleString()) +
     stat('Universes', unis) +
-    stat('Live tools', '4');
+    stat('Live tools', '6');
+  if (window.WIKIINDEX) {
+    var wc = document.getElementById('wikicount');
+    if (wc) wc.textContent = window.WIKIINDEX.slugs.length.toLocaleString();
+  }
 })();
 </script>
 </body>
