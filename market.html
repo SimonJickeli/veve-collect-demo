@@ -96,8 +96,8 @@
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
 </div>
 
-<script src="data/indexes.js?v=202607301258"></script>
-<script src="data/marketcap.js?v=202607301258"></script>
+<script src="data/indexes.js?v=202607301415"></script>
+<script src="data/marketcap.js?v=202607301415"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -155,7 +155,7 @@
       var story = (W === 'ew')
         ? 'One of every traded <b>' + name + '</b> item, bought at its first sale, is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> today.'
         : 'The <b>' + name + '</b> market as a whole (weighted by size) is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> since ' + w.series[0][0] + '.';
-      return '<div class="ixcard"><h3>' + name + '</h3>' +
+      return '<div class="ixcard"><h3><a href="wiki.html#/domains/' + ix.key + '" style="color:inherit" title="open the ' + name + ' wiki page">' + name + ' <span style="font-size:11px;color:var(--accent-2)">wiki \u2197</span></a></h3>' +
         '<div class="big ' + cls(w.r_all) + '">' + pct(w.r_all) + ' <span class="small" style="font-weight:600">since ' + w.series[0][0] + '</span></div>' +
         '<div class="ixchips">' +
           (ix.floor != null ? '<span class="ixchip" title="cheapest ' + name + ' listing right now: ' + (ix.floor_item || '') + '">🛒 from $' + ix.floor.toLocaleString() + '</span>' : '') +
@@ -182,7 +182,7 @@
       return '<th' + s + '>' + h[0] + arrow + '</th>';
     }).join('') + '</tr>' + ch.map(function (ix, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td>' +
-        '<td style="font-weight:700">' + ix.label.replace(' Index', '') + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠</span>' : '') + '</td>' +
+        '<td style="font-weight:700"><a href="wiki.html#/entities/' + ix.key.replace(/^char-/, '') + '" style="color:inherit" title="open wiki page">' + ix.label.replace(' Index', '') + '</a>' + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠</span>' : '') + '</td>' +
         '<td class="r ' + cls(ix[W].r_all) + '" style="font-weight:800" title="value change of holding one of each since its first sale">' + pct(ix[W].r_all) + '</td>' +
         '<td class="r ' + cls(ix[W].r7) + '">' + pct(ix[W].r7) + '</td>' +
         '<td class="r ' + cls(ix[W].r30) + '">' + pct(ix[W].r30) + '</td>' +
@@ -210,7 +210,7 @@
   // ── marketcap tables (weighting-independent) ──
   $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">7d (same items)</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">30d (same items)</th><th class="r" title="marketcap added by items that newly started trading in the last 7 days (new drops + items resuming trade) — kept separate so it never reads as gains">🆕 7d new</th></tr>' +
     (MC.rows || []).slice(0, 20).map(function (r, i) {
-      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700">' + uname(r.universe) + '</td>' +
+      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700"><a href="wiki.html#/domains/' + r.universe + '" style="color:inherit" title="open wiki page">' + uname(r.universe) + '</a></td>' +
         '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
         '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td>' +
         '<td class="r">' + (r.new7 ? '+' + money(r.new7) : '—') + '</td></tr>';
@@ -218,7 +218,7 @@
   $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">30d trades</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
     (MC.top || []).map(function (r, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td>' +
-        '<td style="font-weight:700"><a href="explorer.html#/c/' + r.slug + '" style="color:var(--text)">' + r.name + '</a></td>' +
+        '<td style="font-weight:700"><a href="explorer.html#/c/' + r.slug + '" style="color:var(--text)">' + r.name + '</a> <a href="wiki.html#/collectibles/' + r.slug + '" title="wiki page" style="font-size:11px;color:var(--accent-2)">\u{1F4D6}</a></td>' +
         '<td>' + uname(r.universe) + '</td>' +
         '<td class="r">$' + Math.round(r.last).toLocaleString() + '</td>' +
         '<td class="r">' + (r.n30 != null ? r.n30 : '—') + '</td>' +
