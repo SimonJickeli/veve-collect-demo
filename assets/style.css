@@ -409,6 +409,11 @@ a.tag:hover { color: var(--accent-2); border-color: var(--accent); text-decorati
 .t-reference, .t-concept, .t-meta, .t-question, .t-comparison, .t-source,
 .t-nft-collection { color: var(--muted); border-color: var(--border); background: var(--bg-2); }
 
+/* connections graph (wiki browser) */
+.graphsec { margin-top: 30px; }
+.graphsec .card { padding: 8px; overflow: hidden; }
+.graphsec canvas { display: block; width: 100%; border-radius: 12px; }
+
 /* sidebar is always open on desktop; on mobile it collapses so the ARTICLE is what you land on
    (stacked open, the 14-section list pushed every page a full screen down) */
 .sidebox > summary { display: none; }

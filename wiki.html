@@ -569,9 +569,9 @@
       $('#main').innerHTML = head +
         '<div class="rowbetween" style="margin-bottom:2px">' + typechip(ptype(i)) +
         (fm.status ? '<span class="small">status: <strong>' + esc(fm.status) + '</strong></span>' : '') + '</div>' +
-        '<article class="doc rise">' + r.html + '</article>' + tagsHtml +
+        '<article class="doc rise">' + r.html + '</article>' + tagsHtml + GRAPHBOX +
         '<div class="divider"></div><div class="small">Vault path: <code>wiki/' + esc(slug) + '.md</code></div>';
-      links(slug).then(function (lk) { railFor(slug, r.heads, fm, lk); });
+      links(slug).then(function (lk) { railFor(slug, r.heads, fm, lk); renderGraph(slug, lk); });
       jump(anchor);
     });
   }
@@ -659,13 +659,114 @@
           (item.tid ? '<a class="pill ext" href="https://www.veve.me/collectibles/en/collectibles/' + esc(item.tid) + '" target="_blank" rel="noopener">VeVe store</a>' : '') +
           '</div>';
       }
-      h += '</article><div class="divider"></div><div class="small">Vault path: <code>wiki/' + esc(slug) + '.md</code> · rendered live from catalog data</div>';
+      h += '</article>' + GRAPHBOX + '<div class="divider"></div><div class="small">Vault path: <code>wiki/' + esc(slug) + '.md</code> · rendered live from catalog data</div>';
       $('#main').innerHTML = h;
       var heads = [];
       if (item) heads = [{ lvl: 2, txt: 'Catalog data', id: 'data' }, { lvl: 2, txt: 'Open elsewhere', id: 'elsewhere' }];
-      links(slug).then(function (lk) { railFor(slug, heads, item ? { type: ptype(i), rarity: item.rarity, universe: item.universe, set: item.set, character: item.character, nft_drop_date: item.drop } : {}, lk); });
+      links(slug).then(function (lk) { railFor(slug, heads, item ? { type: ptype(i), rarity: item.rarity, universe: item.universe, set: item.set, character: item.character, nft_drop_date: item.drop } : {}, lk); renderGraph(slug, lk); });
       jump(anchor);
     });
+  }
+
+  var GRAPHBOX = '<div class="graphsec"><div class="sec-title">🕸 Connections '
+    + '<span class="count">click a node to jump</span></div><div class="card" id="graphbox"></div></div>';
+
+  // ── connections graph: the page's 1-hop neighbourhood, clickable ────────
+  var DIR_HUE = { domains: '#ffb86b', entities: '#8fc9ff', collectibles: '#7fe3a3', collections: '#c79bff',
+                  sets: '#6be0e0', comics: '#ff9bb0', nft: '#5ad1ff', platform: '#0b99ff',
+                  concepts: '#ffcc66', comparisons: '#a678ff', questions: '#34d8c4', meta: '#9d9ca0',
+                  sources: '#9d9ca0', _root: '#41d693' };
+  function renderGraph(slug, lk) {
+    var host = document.getElementById('graphbox');
+    if (!host) return;
+    var seen = {}, nodes = [], MAXN = 26;
+    (lk.o || []).concat(lk.b || []).forEach(function (s) {
+      if (seen[s] || s === slug || SI[s] == null || nodes.length >= MAXN) return;
+      seen[s] = 1;
+      nodes.push({ s: s, out: (lk.o || []).indexOf(s) >= 0, back: (lk.b || []).indexOf(s) >= 0 });
+    });
+    if (!nodes.length) { host.parentNode.style.display = 'none'; return; }
+    var cv = document.createElement('canvas');
+    host.innerHTML = ''; host.appendChild(cv);
+    var dpr = window.devicePixelRatio || 1;
+    var W = host.clientWidth || 640, H = Math.min(420, Math.max(260, 130 + nodes.length * 9));
+    cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    cv.width = W * dpr; cv.height = H * dpr;
+    var c = cv.getContext('2d');
+    c.scale(dpr, dpr);
+    // ring layout + a few relaxation passes so labels stop colliding
+    var cx = W / 2, cy = H / 2, R = Math.min(W, H) / 2 - 46;
+    nodes.forEach(function (n, i) {
+      var a = (i / nodes.length) * Math.PI * 2 - Math.PI / 2;
+      var rr = R * (nodes.length > 14 && i % 2 ? 0.66 : 1);
+      n.x = cx + Math.cos(a) * rr; n.y = cy + Math.sin(a) * rr;
+    });
+    for (var it = 0; it < 40; it++) {
+      for (var i = 0; i < nodes.length; i++) for (var j = i + 1; j < nodes.length; j++) {
+        var dx = nodes[j].x - nodes[i].x, dy = nodes[j].y - nodes[i].y;
+        var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
+        if (d < 74) {
+          var f = (74 - d) / d * 0.28;
+          nodes[i].x -= dx * f; nodes[i].y -= dy * f;
+          nodes[j].x += dx * f; nodes[j].y += dy * f;
+        }
+      }
+      nodes.forEach(function (n) {
+        n.x = Math.max(66, Math.min(W - 66, n.x));
+        n.y = Math.max(24, Math.min(H - 24, n.y));
+      });
+    }
+    function draw(hover) {
+      c.clearRect(0, 0, W, H);
+      nodes.forEach(function (n) {
+        c.strokeStyle = n === hover ? 'rgba(11,153,255,.85)' : 'rgba(150,160,190,.26)';
+        c.lineWidth = n === hover ? 1.8 : 1;
+        c.beginPath(); c.moveTo(cx, cy); c.lineTo(n.x, n.y); c.stroke();
+        if (n.out && !n.back) {                     // arrowhead: we link out to it
+          var a2 = Math.atan2(n.y - cy, n.x - cx), mx = cx + (n.x - cx) * 0.62, my = cy + (n.y - cy) * 0.62;
+          c.fillStyle = 'rgba(150,160,190,.5)';
+          c.beginPath();
+          c.moveTo(mx + Math.cos(a2) * 5, my + Math.sin(a2) * 5);
+          c.lineTo(mx + Math.cos(a2 + 2.5) * 5, my + Math.sin(a2 + 2.5) * 5);
+          c.lineTo(mx + Math.cos(a2 - 2.5) * 5, my + Math.sin(a2 - 2.5) * 5);
+          c.closePath(); c.fill();
+        }
+      });
+      nodes.forEach(function (n) {
+        var i = SI[n.s], hue = DIR_HUE[pdir(i)] || '#9d9ca0';
+        c.fillStyle = hue;
+        c.beginPath(); c.arc(n.x, n.y, n === hover ? 7 : 5, 0, Math.PI * 2); c.fill();
+        c.font = (n === hover ? '800 ' : '600 ') + '11px system-ui, sans-serif';
+        c.fillStyle = n === hover ? '#fff' : 'rgba(230,232,240,.78)';
+        c.textAlign = n.x > cx + 8 ? 'left' : n.x < cx - 8 ? 'right' : 'center';
+        var t = title(i);
+        // keep the label inside the canvas: budget by the space left on that side
+        var room = n.x > cx + 8 ? (W - n.x - 12) : n.x < cx - 8 ? (n.x - 12) : W / 2;
+        var maxch = Math.max(6, Math.floor(room / 5.9));
+        if (t.length > maxch) t = t.slice(0, maxch - 1) + '…';
+        c.fillText(t, n.x + (n.x > cx + 8 ? 10 : n.x < cx - 8 ? -10 : 0), n.y + (n.y < cy ? -10 : 16));
+      });
+      c.fillStyle = '#0b99ff';
+      c.beginPath(); c.arc(cx, cy, 9, 0, Math.PI * 2); c.fill();
+      c.strokeStyle = 'rgba(255,255,255,.55)'; c.lineWidth = 2; c.stroke();
+      c.font = '800 12px system-ui, sans-serif'; c.fillStyle = '#fff'; c.textAlign = 'center';
+      var ct2 = title(SI[slug]);
+      c.fillText(ct2.length > 26 ? ct2.slice(0, 25) + '…' : ct2, cx, cy - 16);
+    }
+    function hit(e) {
+      var r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, best = null;
+      nodes.forEach(function (n) {
+        var d = Math.hypot(n.x - mx, n.y - my);
+        if (d < 26 && (!best || d < Math.hypot(best.x - mx, best.y - my))) best = n;
+      });
+      return best;
+    }
+    cv.addEventListener('mousemove', function (e) {
+      var h = hit(e); cv.style.cursor = h ? 'pointer' : 'default'; draw(h);
+    });
+    cv.addEventListener('mouseleave', function () { draw(null); });
+    cv.addEventListener('click', function (e) { var h = hit(e); if (h) location.hash = '#/' + h.s; });
+    draw(null);
   }
 
   function jump(anchor) {
