@@ -52,7 +52,7 @@
   </div>
 </div>
 
-<script src="data/wikiindex.js?v=202608021345"></script>
+<script src="data/wikiindex.js?v=202608030311"></script>
 <script>
 (function () {
   'use strict';
@@ -593,7 +593,7 @@
 
   // Live-rendered collectible / collection / set / comic pages (data, not markdown)
   function renderDataPage(slug, i, head, anchor) {
-    Promise.all([loadScript('data/catalog.js?v=202608021345'), loadScript('data/wiki.js?v=202608021345')]).then(function () {
+    Promise.all([loadScript('data/catalog.js?v=202608030311'), loadScript('data/wiki.js?v=202608030311')]).then(function () {
       var CAT = (window.CATALOG && window.CATALOG.items) || [];
       var W = window.WIKI || {};
       var base = slug.split('/').pop();
