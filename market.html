@@ -91,6 +91,7 @@
     · <strong>Premium-mint sales are excluded:</strong> when a collectible's price suddenly prints several times its normal level on a single sale (a mint&nbsp;#1 flip, a wash trade), that sale doesn't count. The index tracks <em>ordinary floor-tier items</em> — what a normal collector actually holds.<br>
     · <strong>👤 Collector view</strong> answers: "if I'd bought one of every traded item at its first sale, how am I doing?" <strong>🏦 Whole market</strong> weights items by size, so big editions dominate.<br>
     · <strong>Marketcap</strong> = the item's typical traded price over the last 30 days × copies in circulation. Items with <strong>no sale in 14 days don't count</strong> — we won't value a whole edition off an old print. And when an item has under 3 recent sales but a <em>cheaper live listing</em>, the listing price wins — a special-mint sale can't set the value of something you can buy for less right now. Top collectibles additionally need <strong>≥3 trades in 30 days</strong> to rank.<br>
+    · <strong>Typical item</strong> = the MIDDLE item's change (half the basket did better, half worse), and <strong>breadth</strong> = the share of the basket actually up since entry. Read them together with the headline: a big index number next to low breadth means <em>one item carried the basket</em>, not that the whole franchise rose.<br>
     · <strong>🛒 from $</strong> = the cheapest live listing in that basket right now (an entry price, never used in the index math). <span class="thinb">⚠ few trades</span> = under 12 traded items, take the curve with a grain of salt. Not financial advice.
   </div>
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
@@ -152,16 +153,22 @@
     var fr = IX.indexes.filter(function (i) { return i.type === 'franchise'; });
     $('#fr').innerHTML = fr.map(function (ix) {
       var w = ix[W], name = ix.label.replace(' Index', '');
+      var spread = (ix.breadth != null && ix.med_all != null)
+        ? ' The middle item is <b class="' + cls(ix.med_all) + '">' + (ix.med_all >= 0 ? 'up ' : 'down ') + Math.abs(ix.med_all).toFixed(1) +
+          '%</b> and <b>' + ix.breadth + '%</b> of the basket is up' + (ix.breadth < 50 ? ' — so the headline leans on a minority.' : '.')
+        : '';
       var story = (W === 'ew')
-        ? 'One of every traded <b>' + name + '</b> item, bought at its first sale, is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> today.'
+        ? 'One of every traded <b>' + name + '</b> item, bought at its first sale, is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> today.' + spread
         : 'The <b>' + name + '</b> market as a whole (weighted by size) is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> since ' + w.series[0][0] + '.';
       return '<div class="ixcard"><h3><a href="wiki.html#/domains/' + ix.key + '" style="color:inherit" title="open the ' + name + ' wiki page">' + name + ' <span style="font-size:11px;color:var(--accent-2)">wiki \u2197</span></a></h3>' +
         '<div class="big ' + cls(w.r_all) + '">' + pct(w.r_all) + ' <span class="small" style="font-weight:600">since ' + w.series[0][0] + '</span></div>' +
         '<div class="ixchips">' +
           (ix.floor != null ? '<span class="ixchip" title="cheapest ' + name + ' listing right now: ' + (ix.floor_item || '') + '">🛒 from $' + ix.floor.toLocaleString() + '</span>' : '') +
           '<span class="ixchip" title="items with at least one real sale">' + ix.traded + ' items</span>' +
-          '<span class="ixchip">7d <b class="' + cls(w.r7) + '">' + pct(w.r7) + '</b></span>' +
+          '<span class="ixchip" title="the MIDDLE item\'s change — half the basket did better, half worse">typical item <b class="' + cls(ix.med_all) + '">' + pct(ix.med_all) + '</b></span>' +
+          (ix.breadth != null ? '<span class="ixchip" title="share of the basket that is actually up since entry — a high mean with low breadth means one item carried it">breadth <b class="' + (ix.breadth >= 50 ? 'up' : 'down') + '">' + ix.breadth + '%</b></span>' : '') +
           '<span class="ixchip">30d <b class="' + cls(w.r30) + '">' + pct(w.r30) + '</b></span>' +
+          '<span class="ixchip">90d <b class="' + cls(w.r90) + '">' + pct(w.r90) + '</b></span>' +
           (ix.thin ? '<span class="ixchip thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠ few trades</span>' : '') +
         '</div><canvas class="ix" id="cv-' + ix.key + '"></canvas>' +
         '<div class="ixstory">' + story + '</div></div>';
@@ -173,9 +180,17 @@
   function chTable() {
     var ch = IX.indexes.filter(function (i) { return i.type === 'character'; });
     $('#chn').textContent = '· ' + ch.length + ' characters, ranked';
-    function val(ix, col) { return col === 'floor' ? ix.floor : (col === 'traded' ? ix.traded : ix[W][col]); }
+    function val(ix, col) {
+      if (col === 'floor') return ix.floor;
+      if (col === 'traded') return ix.traded;
+      if (col === 'med_all') return ix.med_all;
+      if (col === 'breadth') return ix.breadth;
+      return ix[W][col];
+    }
     ch.sort(function (a, b) { return ((val(b, chSort.col) == null ? -1e9 : val(b, chSort.col)) - (val(a, chSort.col) == null ? -1e9 : val(a, chSort.col))) * (chSort.dir < 0 ? 1 : -1); });
-    var TH = [['', null], ['Character', null], ['Since start', 'r_all'], ['7d', 'r7'], ['30d', 'r30'], ['Cheapest listing', 'floor'], ['Items', 'traded'], ['Trend', null]];
+    var TH = [['', null], ['Character', null], ['Since start', 'r_all'], ['Typical item', 'med_all'],
+              ['Breadth', 'breadth'], ['30d', 'r30'], ['90d', 'r90'], ['Cheapest listing', 'floor'],
+              ['Items', 'traded'], ['Trend', null]];
     $('#chart-table').innerHTML = '<tr>' + TH.map(function (h) {
       var s = h[1] ? ' class="sortable r" data-col="' + h[1] + '"' : (h[0] === 'Character' || h[0] === '' ? '' : ' class="r"');
       var arrow = (h[1] === chSort.col) ? (chSort.dir < 0 ? ' ↓' : ' ↑') : '';
@@ -184,8 +199,11 @@
       return '<tr><td class="rankn">' + (i + 1) + '</td>' +
         '<td style="font-weight:700"><a href="wiki.html#/entities/' + ix.key.replace(/^char-/, '') + '" style="color:inherit" title="open wiki page">' + ix.label.replace(' Index', '') + '</a>' + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠</span>' : '') + '</td>' +
         '<td class="r ' + cls(ix[W].r_all) + '" style="font-weight:800" title="value change of holding one of each since its first sale">' + pct(ix[W].r_all) + '</td>' +
-        '<td class="r ' + cls(ix[W].r7) + '">' + pct(ix[W].r7) + '</td>' +
+        '<td class="r ' + cls(ix.med_all) + '" title="the middle item — half the basket did better">' + pct(ix.med_all) + '</td>' +
+        '<td class="r" title="share of the basket up since entry">' + (ix.breadth == null ? '—' :
+          '<span class="' + (ix.breadth >= 50 ? 'up' : 'down') + '">' + ix.breadth + '%</span>') + '</td>' +
         '<td class="r ' + cls(ix[W].r30) + '">' + pct(ix[W].r30) + '</td>' +
+        '<td class="r ' + cls(ix[W].r90) + '">' + pct(ix[W].r90) + '</td>' +
         '<td class="r"' + (ix.floor != null ? ' title="' + String(ix.floor_item || '').replace(/"/g, '&quot;') + '"' : '') + '>' + (ix.floor != null ? '$' + ix.floor.toLocaleString() : '—') + '</td>' +
         '<td class="r" title="items with at least one real sale">' + ix.traded + '</td>' +
         '<td><canvas class="spark" id="sp-' + ix.key + '"></canvas></td></tr>';
