@@ -119,11 +119,22 @@
     return null;
   }
   // cost cell: 💎 VeVe (Gem floor) · red OMI circle StackR (OMI floor) · ~ drop (non-blind fixed price only)
+  // MCP/day gained per $1 spent — the inverse of the old "gems per point" rate. Higher = better,
+  // which is the direction people actually think in ("what do I get for my money"). 1 Gem = $1, so
+  // Gems and dollars are the same unit here; StackR costs are converted to USD upstream.
+  function mpd(cpp){
+    if (!isFinite(cpp) || cpp <= 0) return '—';
+    var v = 1 / cpp;
+    return v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? v.toFixed(1) : v.toFixed(3);
+  }
   function venueCell(c){
     var co = costOf(c); if(!co) return '<span class="small">—</span>';
-    var n = Math.round(co.v).toLocaleString();
-    if (co.src==='veve')   return '<span class="gemico" title="VeVe Gem market floor">💎</span> ' + n;
-    if (co.src==='stackr') { var fr=floorRec(c.name); var omi=(fr&&fr.omi>0)?' <span class="small">· '+Math.round(fr.omi).toLocaleString()+' OMI</span>':''; return '<span class="omidot" title="StackR live OMI market floor"></span> ' + n + omi; }
+    var n = co.v < 10 ? co.v.toFixed(2) : Math.round(co.v).toLocaleString();
+    if (co.src==='veve')   return '<span class="gemico" title="VeVe Gem market floor — 1 Gem = $1">💎</span> ' + n + ' <span class="small">Gem' + (co.v === 1 ? '' : 's') + '</span>';
+    if (co.src==='stackr') { var fr=floorRec(c.name);
+      return '<span class="omidot" title="StackR live OMI market floor"></span> ' +
+        ((fr&&fr.omi>0) ? Math.round(fr.omi).toLocaleString() + ' <span class="small">OMI ≈ $' + n + '</span>'
+                        : '$' + n + ' <span class="small">OMI</span>'); }
     return '<span class="small est" title="Original drop/primary price (non-blind-box fixed price) — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
   }
   // item link: StackR page (public) for StackR-sourced floors, VeVe page (login-gated) otherwise. Both keyed by collect_id.
@@ -258,8 +269,8 @@
         '<div class="rank">' + (i+1) + '</div>' +
         rthumb(r.c) +
         '<div style="min-width:0"><div class="rname">' + r.c.name + '</div><div class="rmeta">' + badges + '</div></div>' +
-        '<div class="rval"><div class="big">💎 ' + cppNum + ' <span class="u">/ MCP·day</span></div>' +
-          '<div class="sub">' + venueCell(r.c) + ' → +' + r.delta.toFixed(2) + '/day</div></div>' +
+        '<div class="rval"><div class="big">' + mpd(r.cpp) + ' <span class="u">MCP/day per $1</span></div>' +
+          '<div class="sub">costs ' + venueCell(r.c) + ' → <b>+' + r.delta.toFixed(2) + ' MCP/day</b></div></div>' +
       '</div>';
     }).join('');
 
@@ -267,9 +278,9 @@
         ? 'Every priceable pick here is already in your wallet. Switch to <strong>All</strong> to see duplicate value, or <strong>Only items I own</strong>.'
         : ownedFilter==='owned' ? 'No owned items have a usable market price right now.' : 'Nothing to show.') + '</div>';
     $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>💰 Cheapest collectible points to add</h3>' +
-      '<p class="sub">Ranked by <strong>💎 per MCP/day</strong> (lower = better value), factoring your holdings &amp; duplicates. Venue: 💎 VeVe ask · <span class="omidot"></span> StackR floor.</p>' +
+      '<p class="sub">Ranked by <strong>MCP/day per $1</strong> (higher = better value), factoring your holdings &amp; duplicates. Price shown in what you actually pay — 💎 Gems on VeVe, OMI on StackR (1 Gem = $1).</p>' +
       filterCtlHtml() +
-      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day' + (isFinite(best.cpp)?' at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
+      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day for ' + venueCell(best.c) + (isFinite(best.cpp)?' — <strong>' + mpd(best.cpp) + ' MCP/day per $1</strong>':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
       (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
       '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. Duplicates you own earn <strong>diminished</strong> points (a 2nd copy of a Common = +0.75/day), so they rank below new items.</p></div>';
     wireRecControls();
@@ -308,8 +319,11 @@
         '<div class="rank">' + (i+1) + '</div>' +
         '<span class="rthumb noimg" style="background:#1b1b2f;display:flex;align-items:center;justify-content:center;font-size:20px">📖</span>' +
         '<div style="min-width:0"><div class="rname">' + name + '</div><div class="rmeta">' + badges + '</div></div>' +
-        '<div class="rval"><div class="big">💎 ' + cppNum + ' <span class="u">/ MCP·day</span></div>' +
-          '<div class="sub"><span class="gemico">💎</span> ' + Math.round(r.cost).toLocaleString() + ' → +' + r.daily.toFixed(2) + '/day</div></div>' +
+        '<div class="rval"><div class="big">' + mpd(r.cpp) + ' <span class="u">MCP/day per $1</span></div>' +
+          '<div class="sub">costs <span class="gemico">💎</span> ' +
+          (r.cost < 10 ? r.cost.toFixed(2) : Math.round(r.cost).toLocaleString()) +
+          ' <span class="small">Gem' + (r.cost === 1 ? '' : 's') + '</span> → <b>+' +
+          r.daily.toFixed(2) + ' MCP/day</b></div></div>' +
       '</div>';
     }).join('');
 
@@ -318,7 +332,7 @@
     $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>📖 Cheapest comic points to add</h3>' +
       '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = live VeVe cover floor — only covers <strong>currently listed for sale</strong> appear' + (asof?', as of '+asof:'') + '.</p>' +
       filterCtlHtml() +
-      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day at 💎 ' + (best.cpp<10?best.cpp.toFixed(2):Math.round(best.cpp).toLocaleString()) + ' per point.</div>' : '') +
+      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day for 💎 ' + (best.cost<10?best.cost.toFixed(2):Math.round(best.cost).toLocaleString()) + ' Gems — <strong>' + mpd(best.cpp) + ' MCP/day per $1</strong>.</div>' : '') +
       (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
       '<p class="small" style="margin-top:12px">Cover floors are VeVe market lows (troll/vanity listings filtered). A comic\'s Common cover earns little; the value is in Rare+ covers priced low.</p></div>';
     wireRecControls();
