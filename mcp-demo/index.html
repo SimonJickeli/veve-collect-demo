@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MCP Optimizer — feature demo</title>
+<link rel="stylesheet" href="../assets/style.css?v=7" />
+<style>
+  .rectabs { display:flex; gap:8px; margin-bottom:14px; }
+  .rtab { background:var(--bg-2); color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:8px 16px; font-weight:600; font-size:14px; cursor:pointer; }
+  .rtab:hover { color:var(--text); }
+  .rtab.on { color:#fff; border-color:var(--accent); background:linear-gradient(135deg, var(--accent), #50abff); }
+  .buylink { display:inline-block; font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:999px; border:1px solid var(--border); color:var(--accent-2); background:var(--bg-2); margin:2px 2px 2px 0; white-space:nowrap; }
+  .buylink:hover { border-color:var(--accent); text-decoration:none; }
+
+  .demobadge { font-size:10.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+    color:#fff; background:linear-gradient(135deg,var(--accent),#50abff); border-radius:999px;
+    padding:3px 9px; margin-left:8px; vertical-align:2px; }
+  nav.main a { font-size:13px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect <span class="demobadge">feature demo</span></div>
+  <nav class="main">
+    <a href="../index.html" title="the full community toolset">← all tools</a>
+  </nav>
+</div></header>
+
+<div class="wrap">
+  <section class="hero" style="padding:30px 0 6px">
+    <span class="badge">Master Collector Points · live on-chain</span>
+    <h1>MCP <span class="grad">Optimizer</span></h1>
+    <p>Paste a VeVe wallet and this reads its <strong>real on-chain holdings</strong>, recomputes
+       <strong>Master Collector Points</strong> with VeVe's own published formula, then ranks the whole
+       catalogue by <strong>how much MCP each purchase buys per dollar</strong> — so you can see the
+       cheapest points available to that collection right now.</p>
+  </section>
+
+  <div class="grid cols-3" style="margin:6px 0 4px">
+    <div class="card" style="padding:14px 16px"><h3 style="font-size:15px">1 · Paste a wallet</h3>
+      <p class="sub" style="margin:0">Read-only. No login, no signing, no keys — just the public 0x address.</p></div>
+    <div class="card" style="padding:14px 16px"><h3 style="font-size:15px">2 · See today's MCP</h3>
+      <p class="sub" style="margin:0">Every scorable edition is counted with VeVe's real formula, including set bonuses and comic-duplicate diminishing.</p></div>
+    <div class="card" style="padding:14px 16px"><h3 style="font-size:15px">3 · Get the cheapest points</h3>
+      <p class="sub" style="margin:0">Ranked by MCP/day per $1, priced from the live VeVe Gem and StackR OMI markets.</p></div>
+  </div>
+
+  <details class="whelp" style="margin:10px 0 0">
+    <summary>Where do I find my VeVe wallet address?</summary>
+    <ol>
+      <li>Open the VeVe app → <strong>Wallet</strong></li>
+      <li>Tap <strong>Send/Receive OMI</strong> → <strong>Receive</strong></li>
+      <li>Copy the <code>0x…</code> address shown there (it is not on the balance screen)</li>
+    </ol>
+    <p class="small" style="margin:6px 0 0">That address is public on-chain data. Nothing is stored by this page —
+      the lookup runs in your browser against the public Collect Chain explorer.</p>
+  </details>
+</div>
+
+<script src="../assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <label class="field" for="wallet">Wallet address</label>
+        <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
+        <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
+          <li>It's your VeVe <strong>Collect Chain (OMI) address</strong> — starts <span class="mono">0x…</span>, 42 characters. VeVe manages it for you (self-custody isn't live yet), so you only need to <em>read</em> it.</li>
+          <li><strong>Where it is (if your app has it):</strong> in the VeVe app (or <a href="https://www.veve.me/en/wallet/" target="_blank" rel="noopener">veve.me/en/wallet</a>, log in) open your <strong>OMI wallet → Receive</strong> — the <span class="mono">0x…</span> with the QR code is your address; tap to copy.</li>
+          <li><strong>Only see “Send OMI”, no address?</strong> VeVe is bridging OMI to StackR and is hiding the <strong>Receive</strong> screen on newer app versions, so the raw <span class="mono">0x…</span> isn't shown in-app there. It's the same address that holds your collectibles and it <strong>never changes</strong> — once you have it, paste it here and we remember it. <span style="color:var(--muted)">(Username auto-connect is coming with the StackR integration.)</span></li>
+          <li>Paste it above — <strong>we remember it on this device</strong>, so you only enter it once. <span style="color:var(--muted)">Coming: connect StackR to auto-fill.</span></li>
+        </ol></details>
+      </div>
+      <div style="flex:0 0 auto; display:flex; gap:10px">
+        <button class="btn" id="run">Optimize</button>
+        <button class="btn ghost" id="sample">Use sample wallet</button>
+      </div>
+    </div>
+    <p class="small" id="mcpstatus" style="margin:12px 0 0">Enter your wallet for <strong>personalised</strong> results (ranking factors your holdings &amp; duplicates), or use the sample. <span class="small">Your wallet is your <strong>VeVe Collect Chain 0x address</strong> — see “Where do I find my wallet address?” above. Entered once, it's remembered on this device.</span></p>
+  </div>
+
+  <div id="current" style="margin-top:18px"></div>
+  <div id="recs" style="margin-top:18px"></div>
+
+  <div class="note warn" style="margin-top:20px">
+    <strong>How it works.</strong> MCP/day uses VeVe's published formula (rarity, low-mint, duplicate diminishing, set completion). <strong>💎/point</strong> = cost ÷ points added — lower is cheaper, priced at the cheaper of the StackR ⛓ traded floor or a sanitized VeVe 💠 ask. Blind-box items are priced from a real secondary-market floor only — never the sealed-box price. Not financial advice.
+  </div>
+  
+  <div class="note" style="margin-top:24px">
+    <strong>About this demo.</strong> Standalone build of one feature from the VeVe Collect community
+    toolset, for review. Holdings and mint numbers are read live from the public
+    <span class="mono">collectscan</span> explorer; prices come from the live VeVe Gem market and the
+    StackR OMI market, whichever is cheaper. The MCP maths follows VeVe's published formula
+    (including comic-duplicate diminishing for Rare/Ultra&nbsp;Rare/Secret&nbsp;Rare). Read-only, no
+    account needed, nothing stored. Not affiliated with VeVe / Collect.
+    <span class="small">Built 2026-08-06.</span>
+  </div>
+  <footer class="foot">Not financial advice. VeVe may change the MCP formula or act against system-gaming — see the program FAQ.</footer>
+</div>
+
+<script src="../assets/data.js"></script>
+<script src="../assets/mcp.js?v=5"></script>
+<script src="../assets/collectscan.js?v=6"></script>
+<script src="../data/catalog.js?v=202608061259"></script>
+<script src="../data/floor.js?v=202608061259"></script>
+<script src="../data/comics_mcp.js?v=202608061259"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var rClass = function (r) { return 'chip r-' + (r || '').replace(/ /g, ''); };
+  var holdings = [];
+  var liveMode = false;
+  var liveSets = null; // set-completion sets built from the catalog, matched to live holdings by name
+  var portfolioValue = 0; // total market-floor value (💎) of held items, for the MCP-per-$ stat
+  var ownedFilter = 'new'; // recs owned/unowned toggle: 'new' (hide owned) | 'all' | 'owned'
+  var recTab = 'collectibles'; // recs tab: 'collectibles' | 'comics'
+  function setStatus(html) { $('#mcpstatus').innerHTML = html; }
+
+  function ownedCount(id) { return holdings.filter(function (h) { return h.collectibleId === id; }).length; }
+
+  // ---- StackR live floor (app/data/floor.js, on-chain snapshot) ----
+  // Use normName (keeps the distinguishing variant words like "(Water Element)") — the old fnorm
+  // STRIPPED parentheticals, collapsing e.g. ILLAZILLAZ Water/Fire/Earth to one key so a Secret Rare
+  // wrongly borrowed a Common variant's StackR price. A missing price is fine; a WRONG price is not.
+  var _fnN = window.normName || function(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); };
+  var FLOORNORM = {};
+  if (window.FLOOR && FLOOR.byName) Object.keys(FLOOR.byName).forEach(function(n){ var k=_fnN(n); if(k && !(k in FLOORNORM)) FLOORNORM[k]=FLOOR.byName[n]; });
+  function floorRec(name){ if(!window.FLOOR||!FLOOR.byName) return null; return FLOOR.byName[name] || FLOORNORM[_fnN(name)] || null; }
+  function floorAsOf(){ return (window.FLOOR && FLOOR.asOf) ? new Date(FLOOR.asOf*1000).toISOString().slice(0,10) : null; }
+  // acquisition cost: VeVe market floor 💎 / live StackR floor ⛓ (cheaper of the two), else the
+  // original drop price for NON-blind items only. 1 Gem = $1.
+  // BLIND BOXES: a blind box's list price is the SEALED BOX, not this specific rarity — so we NEVER
+  // use the drop price (nor a pull-odds estimate) for a blind-box item. Without a real secondary-market
+  // floor (VeVe Gem or StackR OMI) we cannot honestly price it → return null so it is excluded.
+  function costOf(c){
+    var vRaw = c.floor>0?c.floor:0, f = floorRec(c.name), sRaw = (f && f.usd>0) ? f.usd : 0;
+    var sv = window.saneVeveFloor ? window.saneVeveFloor(vRaw, sRaw) : vRaw;   // ≥20k dropped unless StackR corroborates
+    var veve = (sv>0) ? sv : null;
+    var st = window.saneStackrFloor ? window.saneStackrFloor(sRaw, vRaw) : sRaw;
+    var stackr = (st>0) ? st : null;
+    if (veve!=null && stackr!=null) return veve<=stackr ? {v:veve, src:'veve'} : {v:stackr, src:'stackr'};
+    if (veve!=null) return {v:veve, src:'veve'};
+    if (stackr!=null) return {v:stackr, src:'stackr'};
+    if (c.blind) return null;                                   // blind box, no real floor → cannot price → omit
+    // drop price counts ONLY if the item is STILL in VeVe's store — a sold-out item's drop price is
+    // historical, not a price you can pay today, so ranking it "cheapest to buy" would mislead.
+    var p=Number(c.price); if(p>0 && Number(c.store)>0) return {v:p, src:'drop'};
+    return null;
+  }
+  // cost cell: 💎 VeVe (Gem floor) · red OMI circle StackR (OMI floor) · ~ drop (non-blind fixed price only)
+  // MCP/day gained per $1 spent — the inverse of the old "gems per point" rate. Higher = better,
+  // which is the direction people actually think in ("what do I get for my money"). 1 Gem = $1, so
+  // Gems and dollars are the same unit here; StackR costs are converted to USD upstream.
+  function mpd(cpp){
+    if (!isFinite(cpp) || cpp <= 0) return '—';
+    var v = 1 / cpp;
+    return v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? v.toFixed(1) : v.toFixed(3);
+  }
+  function venueCell(c){
+    var co = costOf(c); if(!co) return '<span class="small">—</span>';
+    var n = co.v < 10 ? co.v.toFixed(2) : Math.round(co.v).toLocaleString();
+    if (co.src==='veve')   return '<span class="gemico" title="VeVe Gem market floor — 1 Gem = $1">💎</span> ' + n + ' <span class="small">Gem' + (co.v === 1 ? '' : 's') + '</span>';
+    if (co.src==='stackr') { var fr=floorRec(c.name);
+      return '<span class="omidot" title="StackR live OMI market floor"></span> ' +
+        ((fr&&fr.omi>0) ? Math.round(fr.omi).toLocaleString() + ' <span class="small">OMI ≈ $' + n + '</span>'
+                        : '$' + n + ' <span class="small">OMI</span>'); }
+    return '<span class="small est" title="Original drop/primary price (non-blind-box fixed price) — NOT a secondary-market floor.">~ ' + n + ' <em>drop</em></span>';
+  }
+  // item link: StackR page (public) for StackR-sourced floors, VeVe page (login-gated) otherwise. Both keyed by collect_id.
+  function itemUrl(tid, kind, src){
+    if(!tid) return null;
+    if(src==='stackr') return 'https://www.stackr.world/collections/veve/' + (kind==='comic'?'comic':'collectible') + '/' + tid;
+    return 'https://www.veve.me/collectibles/en/' + (kind==='comic'?'comics':'collectibles') + '/' + tid;
+  }
+  function buyLink(tid, src, kind){
+    var url = itemUrl(tid, kind||'collectible', src); if(!url) return '';
+    var isS = src==='stackr';
+    return '<a class="buylink" href="' + url + '" target="_blank" rel="noopener" title="View this item on ' + (isS?'StackR':'VeVe') + '">' + (isS?'🛒 StackR':'🛒 VeVe') + ' ↗</a>';
+  }
+  function thumb(c){
+    return c.img
+      ? '<img class="thumb" src="' + c.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">'
+      : '<span class="thumb noimg"></span>';
+  }
+
+  // ---- normalized catalog indices (match on-chain holding names to the catalog) ----
+  var nN = window.normName || function (s) { return (s||'').toLowerCase(); };
+  // canonical key: prefer the on-chain alias (`aka`) over the embellished display name
+  function ck(o){ return nN((o && (o.aka || o.name)) || ''); }
+  var _byNameN = null, _byKeyN = null;
+  function reg(it, key){ if(key){ if(!_byNameN[key]) _byNameN[key]=it; var kk=key+'|'+nN(it.rarity); if(!_byKeyN[kk]) _byKeyN[kk]=it; } }
+  function catIndex(){
+    if (_byNameN) return;
+    _byNameN = {}; _byKeyN = {};
+    var items = (typeof CATALOG !== 'undefined' && CATALOG.items) ? CATALOG.items : [];
+    items.forEach(function (it) {
+      reg(it, nN(it.name));            // embellished display name
+      if (it.aka) reg(it, nN(it.aka)); // authoritative on-chain name (alias)
+    });
+  }
+
+  function renderCurrent() {
+    var d = MCP.computeDaily(holdings, liveMode ? (liveSets || []) : DATA.sets);
+    $('#current').innerHTML =
+      '<div class="card glow"><h3>⚡ Your daily Master Collector Points' + (liveMode ? ' <span class="pill-best">LIVE</span>' : ' <span class="pill">sample</span>') + '</h3>' +
+      '<div class="stats" style="margin-top:12px">' +
+        heroStat('Total MCP / day', d.total.toFixed(2)) +
+        stat('From items', d.itemPoints.toFixed(2), 'accent') +
+        stat('From sets', d.setPoints.toFixed(2), 'accent') +
+        stat('Editions held', holdings.length.toLocaleString()) +
+        (liveMode && portfolioValue > 0
+          ? stat('Collection value', '💎 ' + Math.round(portfolioValue).toLocaleString())
+          : '') +
+      '</div>' +
+      (d.setBreakdown.length
+        ? '<p class="small" style="margin:14px 0 0">🧩 <strong>' + d.setBreakdown.length + '</strong> completed set' + (d.setBreakdown.length > 1 ? 's' : '') + ' earning <strong>' + d.setPoints.toFixed(1) + ' MCP/day</strong> in set points.</p>'
+        : '') +
+      '</div>';
+  }
+  function stat(k, v, cls) { return '<div class="stat"><div class="k">' + k + '</div><div class="v ' + (cls || '') + '">' + v + '</div></div>'; }
+  function heroStat(k, v) { return '<div class="stat hero-stat" style="flex:0 0 100%;min-width:220px"><div class="k">' + k + '</div><div class="v accent">' + v + '</div></div>'; }
+
+  // ---- recs tab bar (Collectibles / Comics) + shared control wiring ----
+  function tabBar() {
+    return '<div class="rectabs">' +
+      '<button class="rtab' + (recTab==='collectibles'?' on':'') + '" data-tab="collectibles">🎴 Collectibles</button>' +
+      '<button class="rtab' + (recTab==='comics'?' on':'') + '" data-tab="comics">📖 Comics</button></div>';
+  }
+  function filterCtlHtml() {
+    return '<div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin:2px 0 12px">' +
+      '<span class="small">Show</span>' +
+      '<select id="ownedsel" style="width:auto; min-width:180px; padding:8px 11px">' +
+        '<option value="new">New to me (unowned)</option>' +
+        '<option value="all">All — include duplicates</option>' +
+        '<option value="owned">Only items I own</option>' +
+      '</select>' +
+      '<span class="small" style="color:var(--muted)">' + (ownedFilter==='new'?'hiding items already in your wallet' : ownedFilter==='owned'?'only items you already hold' : 'includes items you own') + '</span></div>';
+  }
+  function wireRecControls() {
+    [].forEach.call(document.querySelectorAll('#recs .rtab'), function (b) { b.addEventListener('click', function () { recTab = b.getAttribute('data-tab'); renderRecs(); }); });
+    var os = $('#ownedsel'); if (os) { os.value = ownedFilter; os.addEventListener('change', function () { ownedFilter = this.value; renderRecs(); }); }
+  }
+  function renderRecs() { if (recTab === 'comics') renderComicRecs(); else renderCollectibleRecs(); }
+
+  function renderCollectibleRecs() {
+    catIndex();   // ensure the normalized catalog index exists (for pull-cost set lookups) in sample mode too
+    var src = (typeof CATALOG !== 'undefined' && CATALOG.items) ? CATALOG.items : [];
+    var sets = (typeof CATALOG !== 'undefined' && CATALOG.sets) ? CATALOG.sets : {};
+    var ownedByName = {}, ownedNames = {};
+    holdings.forEach(function (h) { var nk = h.nameKey || nN(h.collectibleId); ownedByName[nk] = (ownedByName[nk] || 0) + 1; ownedNames[nk] = 1; });
+    // how many of this catalog item you own — match on the on-chain alias (ck) AND the display name,
+    // so an item counts as owned whichever form the wallet stored (fixes owned items showing as "new").
+    function ownCount(c){ return ownedByName[ck(c)] || (c.aka ? (ownedByName[nN(c.name)] || 0) : 0); }
+    // candidate = acquire one more of any catalog item; cost = live StackR floor if listed, else drop price
+    var floorHits = 0;
+    var rows = src.filter(function (c) { return c.rarity && costOf(c); }).map(function (c) {
+      // key the candidate to MATCH your holdings, so the marginal reflects duplicate diminishing
+      // if you already own it (was keyed to c.name → never matched → wrongly showed full value).
+      var cand = { collectibleId: ck(c) + '|' + nN(c.rarity), rarity: c.rarity, format: 'collectible', lowMint: false };
+      var m = MCP.marginalDaily(holdings, cand, []);
+      // set-completion: does acquiring this finish a REAL (series) BASE set you're one away from?
+      // Special editions (m.sp) are master-set extras, NOT required for VeVe completion, so a special
+      // never "completes" and specials are excluded from the base member count.
+      var completes = null, setBonus = 0;
+      if (c.set && sets[c.set] && !c.sp) {
+        var members = sets[c.set].members.filter(function (m2) { return !m2.sp; });
+        if (members.length >= 2) {
+          var ownedM = members.filter(function (x) { return ownedNames[ck(x)]; }).length;
+          if (!ownedNames[ck(c)] && ownedM === members.length - 1) {
+            completes = c.set; setBonus = MCP.setBaseBySize(members.length);
+          }
+        }
+      }
+      var cost = costOf(c);
+      if (cost.src !== 'drop') floorHits++;
+      var total = m.delta + setBonus;  // ranking value (item + first-completion set bonus)
+      var cpp = total > 0 ? (cost.v / total) : Infinity;
+      return { c: c, delta: m.delta, setBonus: setBonus, completes: completes, total: total, cost: cost.v, costSrc: cost.src, cpp: cpp, owned: ownCount(c) };
+    }).filter(function (r) { return r.total > 0.0001 && isFinite(r.cpp); })
+      // owned/unowned toggle — 'new' hides items already in your wallet (what most people want:
+      // "what should I BUY next"); 'owned' shows only duplicates you could add; 'all' shows both.
+      .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
+      // STRICT best-deal-per-💎 first: sort by raw 💎-per-MCP/day ascending, so the displayed
+      // 💎/point column is monotonic (best value on top). The old blind-box 1.6× de-prioritization
+      // pushed well-priced blind singles BELOW worse deals, which read as "not sorted by best deal".
+      .sort(function (a, b) { return a.cpp - b.cpp; }).slice(0, 60);
+
+    var best = rows.length ? rows[0] : null;
+    var body = rows.map(function (r, i) {
+      var setName = r.completes ? String(r.completes).replace(/"/g,'') : '';
+      var badges = '<span class="' + rClass(r.c.rarity) + '">' + r.c.rarity + '</span>' +
+        (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
+        (r.completes ? '<span class="setbadge" title="Completing the base set &quot;' + setName + '&quot; adds +' + r.setBonus.toFixed(1) + ' MCP/day in set points (special editions not required).">🧩 completes set +' + r.setBonus.toFixed(1) + '/day</span>' : '') +
+        (r.owned >= 1 && !r.completes ? '<span class="dupwarn" title="you already own ' + r.owned + ' — additional copies are diminished">×' + r.owned + ' owned</span>' : '') +
+        buyLink(r.c.tid, r.costSrc, 'collectible');
+      var cppNum = isFinite(r.cpp) ? (r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString()) : '—';
+      return '<div class="rankrow' + (i===0?' top':'') + '">' +
+        '<div class="rank">' + (i+1) + '</div>' +
+        rthumb(r.c) +
+        '<div style="min-width:0"><div class="rname">' + r.c.name + '</div><div class="rmeta">' + badges + '</div></div>' +
+        '<div class="rval"><div class="big">' + mpd(r.cpp) + ' <span class="u">MCP/day per $1</span></div>' +
+          '<div class="sub">costs ' + venueCell(r.c) + ' → <b>+' + r.delta.toFixed(2) + ' MCP/day</b></div></div>' +
+      '</div>';
+    }).join('');
+
+    var empty = '<div class="note">' + (ownedFilter==='new'
+        ? 'Every priceable pick here is already in your wallet. Switch to <strong>All</strong> to see duplicate value, or <strong>Only items I own</strong>.'
+        : ownedFilter==='owned' ? 'No owned items have a usable market price right now.' : 'Nothing to show.') + '</div>';
+    $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>💰 Cheapest collectible points to add</h3>' +
+      '<p class="sub">Ranked by <strong>MCP/day per $1</strong> (higher = better value), factoring your holdings &amp; duplicates. Price shown in what you actually pay — 💎 Gems on VeVe, OMI on StackR (1 Gem = $1).</p>' +
+      filterCtlHtml() +
+      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.name + '</strong> — +' + best.delta.toFixed(2) + ' MCP/day for ' + venueCell(best.c) + (isFinite(best.cpp)?' — <strong>' + mpd(best.cpp) + ' MCP/day per $1</strong>':'') + (best.completes ? ' · 🧩 plus +' + best.setBonus.toFixed(1) + '/day if it completes the set' : '') + '.</div>' : '') +
+      (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
+      '<p class="small" style="margin-top:12px">🧩 A <strong>completes set</strong> badge means buying that item finishes a base set, adding the daily set points shown. Duplicates you own earn <strong>diminished</strong> points (a 2nd copy of a Common = +0.75/day), so they rank below new items.</p></div>';
+    wireRecControls();
+  }
+
+  // ---- Comics recs: comic covers ranked by 💎 per MCP/day (COMIC_BASE by rarity; comics stack FULL) ----
+  function comicOwned() {
+    var m = {};
+    holdings.forEach(function (h) { if (h.format === 'comic') { var k = (h.nameKey || nN(h.name)) + '|' + nN(h.rarity || ''); m[k] = (m[k] || 0) + 1; } });
+    return m;
+  }
+  function renderComicRecs() {
+    var src = (window.COMICS_MCP && COMICS_MCP.items) ? COMICS_MCP.items : [];
+    var owned = comicOwned();
+    var rows = src.map(function (c) {
+      var daily = MCP.comicIntrinsic(c.r, false);                 // COMIC_BASE by rarity (fresh copy → not low-mint)
+      if (!(daily > 0)) return null;
+      var cost = window.saneVeveFloor ? window.saneVeveFloor(c.f) : (c.f > 0 ? c.f : 0);
+      if (!(cost > 0)) return null;
+      var own = owned[nN(c.t) + ' ' + c.n + '|' + nN(c.r)] || 0;  // match on-chain comic holding: normName(title)+' '+issue+'|'+rarity
+      return { c: c, daily: daily, cost: cost, cpp: cost / daily, owned: own };
+    }).filter(Boolean)
+      .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
+      .sort(function (a, b) { return a.cpp - b.cpp; }).slice(0, 60);   // strict best 💎/point first
+
+    var best = rows.length ? rows[0] : null;
+    var body = rows.map(function (r, i) {
+      var c = r.c, name = c.t + (c.n ? ' #' + c.n : '');
+      var badges = '<span class="' + rClass(c.r) + '">' + c.r + '</span>' +
+        (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
+        (c.s && nN(c.s) !== nN(c.t) ? '<span class="pill" style="white-space:normal;max-width:100%">' + c.s + '</span>' : '') +
+        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' (comics earn full value per copy)">×' + r.owned + ' owned</span>' : '') +
+        buyLink(c.tid, 'veve', 'comic');
+      var cppNum = r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString();
+      return '<div class="rankrow' + (i===0?' top':'') + '">' +
+        '<div class="rank">' + (i+1) + '</div>' +
+        '<span class="rthumb noimg" style="background:#1b1b2f;display:flex;align-items:center;justify-content:center;font-size:20px">📖</span>' +
+        '<div style="min-width:0"><div class="rname">' + name + '</div><div class="rmeta">' + badges + '</div></div>' +
+        '<div class="rval"><div class="big">' + mpd(r.cpp) + ' <span class="u">MCP/day per $1</span></div>' +
+          '<div class="sub">costs <span class="gemico">💎</span> ' +
+          (r.cost < 10 ? r.cost.toFixed(2) : Math.round(r.cost).toLocaleString()) +
+          ' <span class="small">Gem' + (r.cost === 1 ? '' : 's') + '</span> → <b>+' +
+          r.daily.toFixed(2) + ' MCP/day</b></div></div>' +
+      '</div>';
+    }).join('');
+
+    var asof = (window.COMICS_MCP && COMICS_MCP.asOf) ? new Date(COMICS_MCP.asOf*1000).toISOString().slice(0,10) : null;
+    var empty = '<div class="note">' + (ownedFilter==='new' ? 'No unowned comic covers priced right now — switch <strong>Show</strong> to All.' : ownedFilter==='owned' ? 'No comics you own have a market price right now.' : (src.length? 'No priced comic covers.' : 'Comic data not loaded.')) + '</div>';
+    $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>📖 Cheapest comic points to add</h3>' +
+      '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = live VeVe cover floor — only covers <strong>currently listed for sale</strong> appear' + (asof?', as of '+asof:'') + '.</p>' +
+      filterCtlHtml() +
+      (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day for 💎 ' + (best.cost<10?best.cost.toFixed(2):Math.round(best.cost).toLocaleString()) + ' Gems — <strong>' + mpd(best.cpp) + ' MCP/day per $1</strong>.</div>' : '') +
+      (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
+      '<p class="small" style="margin-top:12px">Cover floors are VeVe market lows (troll/vanity listings filtered). A comic\'s Common cover earns little; the value is in Rare+ covers priced low.</p></div>';
+    wireRecControls();
+  }
+  function rthumb(c){ return c.img ? '<img class="rthumb" src="' + c.img + '" loading="lazy" onerror="this.classList.add(\'noimg\')">' : '<span class="rthumb noimg"></span>'; }
+
+  function run() {
+    if (!holdings.length) {
+      $('#current').innerHTML = '<div class="note">Enter a wallet (or <strong>Use sample wallet</strong>) to analyze your MCP.</div>';
+      $('#recs').innerHTML = '';
+      return;
+    }
+    renderCurrent();
+    renderRecs();
+  }
+
+  async function loadAndRun() {
+    var v = $('#wallet').value.trim();
+    if (COLLECTSCAN.isAddress(v)) {
+      try { localStorage.setItem('veve_wallet', v); } catch (e) {}   // remember once entered
+      $('#run').disabled = true; setStatus('Fetching holdings from collectscan…');
+      try {
+        var raw = await COLLECTSCAN.fetchHoldings(v, { maxPages: 400, onProgress: function (n) { setStatus('Fetched ' + n + ' editions…'); } });
+        catIndex();
+        portfolioValue = 0;
+        holdings = raw.filter(function (h) { return h.rarity && h.mintNumber && h.editionSize; })
+          .map(function (h) {
+            var nk = h.nameKey || nN(h.name);
+            var rk = h.rarityKey || nN(h.rarity);
+            // EXACT name+rarity catalog match only — used for the reserve (low-mint) lookup.
+            // We do NOT fall back to a name-only match: edition size & rarity differ PER variant,
+            // so a Common entry must never define an SR holding's rarity/edition (that mis-scored SRs as Common).
+            var ci = _byKeyN[nk + '|' + rk] || null;
+            var rar = h.rarity || (ci && ci.rarity) || '';                         // on-chain rarity is authoritative for the held item
+            var ed = h.editionSize || (ci && ci.edition);                          // on-chain edition is authoritative per-variant
+            var fp = (ci && ci.lowmint) ? ci.lowmint : 1;                          // first PUBLIC mint (#41 etc.)
+            var pool = Math.max(1, Math.ceil(((ed - (fp - 1)) || ed) * 0.05));     // lowest 5% of the PUBLIC pool
+            var low = h.mintNumber >= fp && h.mintNumber <= fp + pool - 1;
+            // dup-group by collectible TYPE = name+rarity (collectibles) / "name #issue"+rarity (comics),
+            // so different-rarity covers/variants of the same title are NOT wrongly merged as duplicates
+            var base = (h.format === 'comic') ? nk : nk;   // nameKey already includes the comic number
+            var id = base + '|' + nN(rar);
+            // accrue this edition's value: StackR live TRADED floor, else a SANITIZED VeVe ask
+            // (raw floor can be a troll listing — see saneVeveFloor — so never sum it directly).
+            var _fr = floorRec(h.name), _sv = ci ? (window.saneVeveFloor ? window.saneVeveFloor(ci.floor) : ci.floor) : 0;
+            portfolioValue += (_fr && _fr.usd > 0) ? _fr.usd : (_sv > 0 ? _sv : 0);
+            return { collectibleId: id, nameKey: nk, rarity: rar, format: h.format, lowMint: low };
+          });
+        // build set-completion sets from the catalog, keyed by normalized member name+rarity (matches the holding key)
+        liveSets = [];
+        if (typeof CATALOG !== 'undefined' && CATALOG.sets) {
+          Object.keys(CATALOG.sets).forEach(function (k) {
+            var s = CATALOG.sets[k];
+            liveSets.push({ id: s.id, name: s.id, memberCollectibleIds: s.members.map(function (m) { return ck(m) + '|' + nN(m.rarity); }) });
+          });
+        }
+        // NOTE: comics do NOT earn set-completion points (VeVe official: set points are collectibles-only,
+        // verified 2026-06-29). An earlier comic-set construct was removed — it was based on a misread.
+        liveMode = true;
+        setStatus('✓ <strong>' + holdings.length + '</strong> scorable editions on-chain for <span class="mono">' + v.slice(0, 6) + '…' + v.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(v) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (raw.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — total is partial</strong>' : ''));
+      } catch (e) {
+        setStatus('⚠️ ' + (e && e.message ? e.message : 'fetch failed') + ' (collectscan may be rate-limiting — try again).');
+        $('#run').disabled = false; return;
+      }
+      $('#run').disabled = false;
+    } else {
+      holdings = []; liveMode = false; setStatus('Enter a valid <span class="mono">0x…</span> address, or click <strong>Use sample wallet</strong>.');
+    }
+    run();
+  }
+
+  $('#sample').addEventListener('click', function () {
+    $('#wallet').value = ''; holdings = DATA.sampleHoldings.slice(); liveMode = false; setStatus('Sample wallet (mock data) — enter your wallet for personalised results.'); run();
+  });
+  $('#run').addEventListener('click', loadAndRun);
+  $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') loadAndRun(); });
+
+  // Wallet-first: auto-connect from ?wallet=0x… (StackR can deep-link the signed-in account here).
+  var qw = (new URLSearchParams(location.search)).get('wallet') || '';
+  var saved = ''; try { saved = localStorage.getItem('veve_wallet') || ''; } catch (e) {}
+  if (COLLECTSCAN.isAddress(qw)) { $('#wallet').value = qw; loadAndRun(); }
+  else if (COLLECTSCAN.isAddress(saved)) { $('#wallet').value = saved; loadAndRun(); }   // remembered from a previous visit
+  else { run(); }
+})();
+</script>
+</body>
+</html>
