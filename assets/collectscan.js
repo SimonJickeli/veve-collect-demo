@@ -107,9 +107,24 @@
         }).join('&');
         url += '&' + qs;
       }
-      var res = await fetch(url, { headers: { accept: 'application/json' } });
-      if (!res.ok) throw new Error('collectscan ' + res.status + ' ' + res.statusText);
-      var data = await res.json();
+      // A big wallet is ~120 rapid pages. collectscan (Cloudflare) rate-limits bursts, and the
+      // throttle response carries NO Access-Control-Allow-Origin — so the browser reports a bare
+      // "CORS policy" error and the scan dies mid-wallet. curl shows the API itself is fine
+      // (200 + ACAO:*), so this is throughput, not permissions: retry with backoff and pace pages.
+      var data = null, lastErr = null;
+      for (var attempt = 0; attempt < 4; attempt++) {
+        try {
+          var res = await fetch(url, { headers: { accept: 'application/json' } });
+          if (!res.ok) throw new Error('collectscan ' + res.status + ' ' + res.statusText);
+          data = await res.json();
+          break;
+        } catch (e) {
+          lastErr = e;
+          if (attempt === 3) throw new Error('collectscan unreachable after 4 tries (' + e.message + ')');
+          await new Promise(function (r) { setTimeout(r, 700 * Math.pow(2, attempt)); });
+        }
+      }
+      if (page > 0) await new Promise(function (r) { setTimeout(r, 90); });   // be a good citizen
       (data.items || []).forEach(function (it) {
         var tok = it.token || {};
         var tokAddr = tok.address_hash || tok.address; // Blockscout renamed the field address → address_hash
