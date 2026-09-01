@@ -105,7 +105,7 @@
 </div>
 
 <script src="assets/collectscan.js?v=6"></script>
-<script src="data/price_history.js?v=202609010146"></script>
+<script src="data/price_history.js?v=202609010311"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -135,7 +135,7 @@
     if (CATBY) return Promise.resolve(CATBY);
     return new Promise(function (res) {
       var s = document.createElement('script');
-      s.src = 'data/catalog.js?v=202608311104';
+      s.src = 'data/catalog.js?v=202609010311';
       s.onload = s.onerror = function () {
         CATBY = {};
         var items = (window.CATALOG && window.CATALOG.items) || [];
