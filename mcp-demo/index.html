@@ -329,11 +329,21 @@
     var src = (window.COMICS_MCP && COMICS_MCP.items) ? COMICS_MCP.items : [];
     var owned = comicOwned();
     var rows = src.map(function (c) {
-      var daily = MCP.comicIntrinsic(c.r, false);                 // COMIC_BASE by rarity (fresh copy → not low-mint)
-      if (!(daily > 0)) return null;
       var cost = window.saneVeveFloor ? window.saneVeveFloor(c.f) : (c.f > 0 ? c.f : 0);
       if (!(cost > 0)) return null;
       var own = owned[nN(c.t) + ' ' + c.n + '|' + nN(c.r)] || 0;  // match on-chain comic holding: normName(title)+' '+issue+'|'+rarity
+      // MARGINAL value of the NEXT copy — not the first-copy value. This tab used to score every
+      // cover at full comicIntrinsic() regardless of how many you already held, so a duplicate you
+      // had just bought still advertised its full MCP/day and stayed near the top of the ranking
+      // (user report, 2026-09-28). Rare/Ultra Rare/Secret Rare duplicates diminish 2nd 50% · 3rd 25%
+      // · 4th+ 10%; Common/Uncommon are exempt. Reusing stackDailyPoints keeps this identical to the
+      // engine that scores the dashboard above — one rule, one implementation.
+      var copies = [];
+      for (var k = 0; k < own; k++) copies.push({ rarity: c.r, lowMint: false });
+      var before = own ? MCP.stackDailyPoints(copies, 'comic') : 0;
+      copies.push({ rarity: c.r, lowMint: false });
+      var daily = MCP.stackDailyPoints(copies, 'comic') - before;
+      if (!(daily > 0)) return null;
       return { c: c, daily: daily, cost: cost, cpp: cost / daily, owned: own };
     }).filter(Boolean)
       .filter(function (r) { return ownedFilter === 'all' ? true : ownedFilter === 'owned' ? r.owned >= 1 : r.owned === 0; })
@@ -345,7 +355,7 @@
       var badges = '<span class="' + rClass(c.r) + '">' + c.r + '</span>' +
         (i === 0 ? '<span class="pill-best">BEST VALUE</span>' : '') +
         (c.s && nN(c.s) !== nN(c.t) ? '<span class="pill" style="white-space:normal;max-width:100%">' + c.s + '</span>' : '') +
-        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' (comics earn full value per copy)">×' + r.owned + ' owned</span>' : '') +
+        (r.owned >= 1 ? '<span class="dupwarn" title="you already own ' + r.owned + ' — the value shown is what the NEXT copy adds after duplicate diminishing">×' + r.owned + ' owned</span>' : '') +
         buyLink(c.tid, 'veve', 'comic');
       var cppNum = r.cpp < 10 ? r.cpp.toFixed(2) : Math.round(r.cpp).toLocaleString();
       return '<div class="rankrow' + (i===0?' top':'') + '">' +
@@ -363,7 +373,7 @@
     var asof = (window.COMICS_MCP && COMICS_MCP.asOf) ? new Date(COMICS_MCP.asOf*1000).toISOString().slice(0,10) : null;
     var empty = '<div class="note">' + (ownedFilter==='new' ? 'No unowned comic covers priced right now — switch <strong>Show</strong> to All.' : ownedFilter==='owned' ? 'No comics you own have a market price right now.' : (src.length? 'No priced comic covers.' : 'Comic data not loaded.')) + '</div>';
     $('#recs').innerHTML = '<div class="card">' + tabBar() + '<h3>📖 Cheapest comic points to add</h3>' +
-      '<p class="sub">Comic covers ranked by <strong>💎 per MCP/day</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day) and — unlike collectibles — <strong>every copy counts full</strong> (no duplicate diminishing), so cheap high-rarity covers are strong value. 💎 = live VeVe cover floor — only covers <strong>currently listed for sale</strong> appear' + (asof?', as of '+asof:'') + '.</p>' +
+      '<p class="sub">Comic covers ranked by <strong>MCP/day per $1</strong>. Comics earn by cover rarity (Rare +2 · Ultra Rare +3 · Secret Rare +6 /day). Duplicates of the <strong>same cover diminish</strong> — 2nd copy 50%, 3rd 25%, 4th+ 10% — except <strong>Common and Uncommon, which stack full</strong>. The figure shown is what the <em>next</em> copy adds <strong>to your collection</strong>, so a cover you already own ranks lower automatically. 💎 = live VeVe cover floor — only covers <strong>currently listed for sale</strong> appear' + (asof?', as of '+asof:'') + '.</p>' +
       filterCtlHtml() +
       (best ? '<div class="note" style="margin-bottom:14px">🏆 Best value: <strong>' + best.c.t + (best.c.n?' #'+best.c.n:'') + '</strong> (' + best.c.r + ') — +' + best.daily.toFixed(2) + ' MCP/day for 💎 ' + (best.cost<10?best.cost.toFixed(2):Math.round(best.cost).toLocaleString()) + ' Gems — <strong>' + mpd(best.cpp) + ' MCP/day per $1</strong>.</div>' : '') +
       (rows.length ? '<div class="ranklist">' + body + '</div>' : empty) +
