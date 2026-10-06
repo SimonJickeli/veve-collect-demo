@@ -110,10 +110,11 @@
 </div>
 
 <script src="data/catalog.js?v=202610061002"></script>
+<script src="data/veve_floors.js?v=202610062335"></script>
 <script src="data/historic-years.js?v=202610061002"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202610062235"></script>
+<script src="data/special_listings.js?v=202610062335"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -169,8 +170,14 @@
     $('#mk').closest('label').style.display = saleOnly;
     $('#maxp').closest('label').style.display = saleOnly;
     if (MODE === 'sale') {
-      var asOf = SL.asOf ? new Date(SL.asOf * 1000).toISOString().slice(0, 10) : '—';
-      $('#stat').textContent = SL.count.toLocaleString() + ' listings · snapshot ' + asOf;
+      // per-market freshness: StackR is pulled from the mirror hourly; the VeVe-gem side depends on a
+      // harvest that can go stale for days — say so rather than stamping everything "today"
+      function ago(ts) { if (!ts) return '—'; var h = (Date.now() / 1000 - ts) / 3600; return h < 1.5 ? 'just now' : h < 48 ? Math.round(h) + 'h ago' : Math.round(h / 24) + 'd ago'; }
+      var vHours = SL.veveAsOf ? (Date.now() / 1000 - SL.veveAsOf) / 3600 : null;
+      var veveTxt = SL.veveAsOf ? ('VeVe side ' + ago(SL.veveAsOf) + (vHours > 48 ? ' ⚠ stale' : '')) : '';
+      var stTxt = 'StackR side ' + ago(SL.stackrAsOf || SL.asOf);
+      $('#stat').textContent = SL.count.toLocaleString() + ' listings · ' + stTxt + (veveTxt ? ' · ' + veveTxt : '');
+      $('#stat').title = 'StackR listings come from the on-chain mirror every hour. VeVe-gem listings need a VeVe session token and refresh only while it is valid.';
     } else {
       $('#stat').textContent = CM ? CM.collectibles.toLocaleString() + ' collectibles · ' + CM.mints.toLocaleString() + ' significant mints' : 'loading…';
     }
@@ -324,7 +331,7 @@
     if (window.CATALOG_MINTS) { CM = window.CATALOG_MINTS; cb && cb(); return; }
     if (_cmLoading) { return; }                   // one in-flight fetch of the 1.5MB file
     _cmLoading = true;
-    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202610062235';
+    var s = document.createElement('script'); s.src = 'data/catalog_mints.js?v=202610062335';
     s.onload = function () { _cmLoading = false; CM = window.CATALOG_MINTS || null; $('#mc-cat').textContent = CM ? CM.collectibles.toLocaleString() : '—'; cb && cb(); };
     s.onerror = function () { _cmLoading = false; $('#mc-cat').textContent = '—'; };
     document.head.appendChild(s);
