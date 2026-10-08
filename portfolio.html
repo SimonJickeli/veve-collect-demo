@@ -105,7 +105,7 @@
 </div>
 
 <script src="assets/collectscan.js?v=6"></script>
-<script src="data/price_history.js?v=202610080943"></script>
+<script src="data/price_history.js?v=202610081002"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -135,7 +135,7 @@
     if (CATBY) return Promise.resolve(CATBY);
     return new Promise(function (res) {
       var s = document.createElement('script');
-      s.src = 'data/catalog.js?v=202610080311';
+      s.src = 'data/catalog.js?v=202610081002';
       s.onload = s.onerror = function () {
         // hourly VeVe floors ride a small overlay (data/veve_floors.js) that patches CATALOG in place —
         // chain it here so the lazily-loaded catalog carries current floors too
