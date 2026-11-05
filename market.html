@@ -97,8 +97,8 @@
   <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
 </div>
 
-<script src="data/indexes.js?v=202611052312"></script>
-<script src="data/marketcap.js?v=202611052312"></script>
+<script src="data/indexes.js?v=202611052333"></script>
+<script src="data/marketcap.js?v=202611052333"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -226,12 +226,12 @@
   });
 
   // ── marketcap tables (weighting-independent) ──
-  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">7d (same items)</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">30d (same items)</th><th class="r" title="marketcap added by items that newly started trading in the last 7 days (new drops + items resuming trade) — kept separate so it never reads as gains">🆕 7d new</th></tr>' +
+  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">7d (same items)</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">30d (same items)</th><th class="r" title="marketcap added by items that newly started trading in the last 7 days (new drops + items resuming trade) — kept separate so it never reads as gains">🆕 7d newly priced</th></tr>' +
     (MC.rows || []).slice(0, 20).map(function (r, i) {
       return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700"><a href="wiki.html#/domains/' + r.universe + '" style="color:inherit" title="open wiki page">' + uname(r.universe) + '</a></td>' +
         '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
         '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td>' +
-        '<td class="r">' + (r.new7 ? '+' + money(r.new7) : '—') + '</td></tr>';
+        '<td class="r">' + (r.new7 ? '<span title="value of items that started counting this week: ' + money(r.drop7 || 0) + ' from new drops, ' + money(r.resumed7 != null ? r.resumed7 : r.new7) + ' from older items trading again after 14+ quiet days">+' + money(r.new7) + '</span>' : '—') + '</td></tr>';
     }).join('');
   $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">30d trades</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
     (MC.top || []).map(function (r, i) {

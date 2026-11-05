@@ -10,10 +10,11 @@
     var s1 = sum(w1, 1), s0 = sum(w0, 1), v1 = sum(w1, 2), v0 = sum(w0, 2);
     var traded = AN.items.filter(function (c) { return c._a; });
     var active7 = traded.filter(function (c) { return c._a.n7 > 0; }).length;
-    var vs = mk.venue30 || {}, au = mk.auction || {};
+    var vs = mk.venue30 || {}, au = mk.auction || {}, F = AN.facts(), VG = F.venueGap;
 
     var h = '<section class="an-hero"><h1>The VeVe market, <span>in real sales</span></h1>' +
-      '<p>Every number on this page comes from completed trades on the VeVe gem market, StackR and auctions — not from what sellers are asking. Ask-based totals overstate the market about 2×; this is what collectibles actually change hands for.</p></section>';
+      '<p>Every number on this page comes from completed trades on the VeVe gem market, StackR and auctions — not from what sellers are asking.' +
+      (F.veveFloorRatio ? ' VeVe’s floor prices, multiplied by supply, would value the same collectibles <strong>' + F.veveFloorRatio.toFixed(1) + '×</strong> higher than they actually sell for.' : '') + '</p></section>';
 
     h += '<div class="an-grid c23"><div class="an-card"><div class="an-biglab">Market value · trade-based</div><div class="an-big">' + money(T.cap) + '</div>' +
       '<div class="an-chips" style="margin-top:10px">' + AN.delta(T.d7, '7 days, same items') + (T.new7 ? AN.chip('+' + money(T.new7) + ' from new drops', 'acc') : '') + '</div>' +
@@ -22,6 +23,7 @@
       AN.split([{ label: 'StackR', value: vs.stackr || 0, color: AN.COLORS.stackr }, { label: 'VeVe market', value: vs.fixed || 0, color: AN.COLORS.veve }, { label: 'Auctions', value: vs.auction || 0, color: AN.COLORS.auction }]) +
       AN.note('Completed collectible sales by venue. When trading moves to Collect, this view shows the migration as it happens.') + '</div></div>';
 
+    if (VG && VG.n) h += '<div class="an-callout" style="margin-top:14px"><strong>Same collectible, two prices.</strong> On StackR (paid in OMI) an item sells for <strong>' + VG.ratio.toFixed(2) + '×</strong> its price on the VeVe gem market — median of ' + VG.n + ' collectibles with 3+ sales on both in 30 days; for the middle half of them the ratio is ' + VG.p25.toFixed(2) + '–' + VG.p75.toFixed(2) + '×. Every comparison in this prototype is therefore made venue by venue.</div>';
     var spark = daily.slice(-29, -1).map(function (d) { return d[1]; }), vspark = daily.slice(-29, -1).map(function (d) { return d[2]; });
     h += '<div class="an-kpis" style="margin-top:14px">' +
       AN.kpi('Sales · last 7 days', AN.num(s1), (s0 ? AN.delta((s1 / s0 - 1) * 100, 'vs prior week') : ''), AN.spark(spark, { label: 'daily sales, 4 weeks' })) +

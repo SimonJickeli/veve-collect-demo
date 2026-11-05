@@ -64,8 +64,33 @@
     if (a && a.last) return { v: a.last[1], basis: 'last', thin: true, how: 'last sale, ' + AN.daysAgo(a.last[0]) + ' — no trade in the last 30 days' };
     return { v: null, basis: null, thin: true, how: 'no recorded sale since July 2025' };
   };
-  /* GAP — cheapest ask vs typical traded price, in %. null when either side is missing or the value is not 30d-traded. */
-  AN.gap = function (c) { var v = AN.value(c), k = AN.asks(c); return (!v.v || v.basis !== 'traded' || !k.best) ? null : (k.best.usd / v.v - 1) * 100; };
+  /* TWO-PRICE MARKET — the same item trades at different dollar prices on the VeVe gem market and on StackR
+     (OMI). Compare like with like: a venue's ask against that venue's own sales. */
+  AN.venues = function (c) {
+    var vm = (c && c._a && c._a.vm) || [0, 0, 0, 0, 0, 0], l = (c && c._a && c._a.l) || [];
+    function lastOf(code) { for (var i = 0; i < l.length; i++) if (l[i][2] === code) return l[i]; return null; }
+    return { veve: { med: vm[0], n: vm[1], last: lastOf(0) }, stackr: { med: vm[2], n: vm[3], last: lastOf(1) }, auction: { med: vm[4], n: vm[5], last: lastOf(2) } };
+  };
+  AN.MIN_VENUE_SALES = 3;
+  /* like-for-like gap, %: that venue's cheapest ask vs that venue's 30-day median sale. null without 3+ sales or an ask. */
+  AN.likeGap = function (c, venue) {
+    var vs = AN.venues(c)[venue], k = AN.asks(c), ask = venue === 'veve' ? k.veve : k.stackr;
+    return (vs && vs.n >= AN.MIN_VENUE_SALES && vs.med > 0 && ask > 0) ? (ask / vs.med - 1) * 100 : null;
+  };
+  /* GAP for "is the cheapest listing fair?": the cheapest ask, judged against its OWN venue's sales. */
+  AN.gap = function (c) { var k = AN.asks(c); return k.best ? AN.likeGap(c, k.best.venue === 'VeVe' ? 'veve' : 'stackr') : null; };
+  /* Market-wide facts behind the page copy — computed from the shipped data on every load, never typed in. */
+  AN.facts = function () {
+    if (AN._facts) return AN._facts;
+    var veveAsk = 0, veveTrade = 0, n = 0, raw = 0;
+    AN.items.forEach(function (c) {
+      var a = c._a, sup = c.circ || c.issued || c.edition || 0; raw += (+c.floor || 0) * sup;
+      if (!a || !(a.n30 > 0) || !(a.t30 > 0) || !sup) return;
+      var v = g.saneVeveFloor ? g.saneVeveFloor(c.floor, a.t30) : 0; if (!v) return;
+      veveAsk += v * sup; veveTrade += a.t30 * sup; n++;
+    });
+    return (AN._facts = { veveFloorRatio: veveTrade ? veveAsk / veveTrade : null, veveFloorItems: n, rawFloorCap: raw, venueGap: (A.market && A.market.venueGap) || null });
+  };
   /* Match an on-chain holding (COLLECTSCAN.fetchHoldings item) to a catalog item — by normalized name, rarity breaks ties. */
   AN.matchHolding = function (h) {
     var list = byKey[h.nameKey] || byKey[norm(h.name)] || [];
@@ -95,10 +120,10 @@
   AN.note = function (html) { return '<div class="an-note">' + html + '</div>'; };
   AN.chip = function (text, tone) { return '<span class="an-chip' + (tone ? ' ' + tone : '') + '">' + AN.esc(text) + '</span>'; };
   AN.venueDot = function (code) { var v = AN.venue(code); return '<span class="an-dot" style="background:' + v.color + '"></span>' + v.label; };
-  AN.compare = function (rows) {            // [{label, value, acc, fmt}] — emphasis: the accent row is the point, the rest is context
+  AN.compare = function (rows) {            // [{label, value, acc, color, fmt}] — emphasis: accent = the point, gray = context; color = venue identity
     var mx = Math.max.apply(null, rows.map(function (r) { return r.value || 0; })) || 1;
     return '<div class="an-cmp">' + rows.map(function (r) {
-      return '<div class="row"><span class="lbl">' + AN.esc(r.label) + '</span><span><span class="bar' + (r.acc ? ' acc' : '') + '" style="display:block;width:' + Math.max(1, (r.value || 0) / mx * 100).toFixed(1) + '%"></span></span><span class="val">' + AN.esc((r.fmt || AN.money)(r.value)) + '</span></div>';
+      return '<div class="row"><span class="lbl">' + AN.esc(r.label) + '</span><span><span class="bar' + (r.acc ? ' acc' : '') + '" style="display:block;width:' + Math.max(1, (r.value || 0) / mx * 100).toFixed(1) + '%' + (r.color ? ';background:' + r.color : '') + '"></span></span><span class="val">' + AN.esc((r.fmt || AN.money)(r.value)) + '</span></div>';
     }).join('') + '</div>';
   };
   AN.split = function (parts) {             // part-to-whole: [{label, value, color}] → stacked bar (2px surface gaps) + labelled legend

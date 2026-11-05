@@ -7,19 +7,19 @@
     var traded = AN.items.filter(function (c) { return c._a && c._a.n30 > 0; });
     var top = traded.slice().sort(function (a, b) { return b._a.n30 - a._a.n30; }).slice(0, 10);
     var gaps = traded.map(function (c) { return { c: c, g: AN.gap(c) }; })
-      .filter(function (x) { return x.g != null && x.g > 0 && x.c._a.n30 >= 5; }).sort(function (a, b) { return b.g - a.g; }).slice(0, 10);
+      .filter(function (x) { return x.g != null && x.g > 25; }).sort(function (a, b) { return b.g - a.g; }).slice(0, 10);
     root.innerHTML =
       '<section class="an-hero"><h1>What is it <span>really worth?</span></h1>' +
       '<p>Search any collectible above. You get what it <strong>actually sells for</strong> — the median of real sales on VeVe, StackR and auctions — next to what sellers are <em>asking</em>. Those two numbers are often far apart.</p></section>' +
       '<div class="an-grid c2"><div class="an-card"><h3>Most traded · last 30 days</h3>' +
       top.map(function (c) { return AN.itemRow(c, '<b>' + money(c._a.t30) + '</b><small>' + c._a.n30 + ' sales</small>'); }).join('') + '</div>' +
       '<div class="an-card"><h3>Asking far more than it sells for</h3>' +
-      gaps.map(function (x) { var k = AN.asks(x.c); return AN.itemRow(x.c, '<b>' + money(x.c._a.t30) + '</b><small>ask ' + money(k.best.usd) + ' · ' + AN.pct(x.g, 0) + '</small>'); }).join('') +
-      AN.note('Items with at least 5 sales in 30 days whose cheapest live listing sits furthest above the typical sale price. The listing price is not the market.') + '</div></div>';
+      gaps.map(function (x) { var k = AN.asks(x.c), s = AN.venues(x.c)[k.best.venue === 'VeVe' ? 'veve' : 'stackr']; return AN.itemRow(x.c, '<b>' + money(s.med) + '</b><small>ask ' + money(k.best.usd) + ' · ' + AN.pct(x.g, 0) + '</small>', esc(AN.uname(x.c.universe)) + ' · ' + k.best.venue + ': sells vs cheapest ask'); }).join('') +
+      AN.note('Even the cheapest listing sits far above what the item sells for on that same venue (3+ sales there in 30 days). The listing price is not the market.') + '</div></div>';
   }
 
   function detail(root, c) {
-    var a = c._a, v = AN.value(c), k = AN.asks(c), gap = AN.gap(c), blind = !!c.blind;
+    var a = c._a, v = AN.value(c), k = AN.asks(c), vn = AN.venues(c), blind = !!c.blind;
     var chips = [c.rarity, AN.uname(c.universe), c.drop ? 'Dropped ' + c.drop : '', c.edition ? AN.num(c.edition) + ' editions' : ''].filter(Boolean).map(function (t) { return AN.chip(t); }).join('');
     var h = '<div class="an-itemhead">' + AN.thumb(c, 112) + '<div style="flex:1;min-width:220px"><h1>' + esc(c.name) + '</h1><div class="an-chips">' + chips + '</div>' +
       '<div class="an-chips" style="margin-top:10px"><a class="an-chip acc" href="wiki.html#/collectibles/' + encodeURIComponent(c.slug) + '">📖 wiki page</a>' +
@@ -31,20 +31,28 @@
       '<div class="an-big">' + (v.v ? money(v.v) : '—') + '</div>' +
       '<div class="an-chips" style="margin-top:10px">' + (a && a.c30 != null ? AN.delta(a.c30, 'vs the 30 days before') : '') +
       (v.basis === 'traded' && v.thin ? AN.chip('thin market — few sales', 'warn') : '') + (v.basis === 'last' ? AN.chip('no sale in 30 days', 'warn') : '') + '</div>' +
-      '<div class="an-basis">' + esc(v.how.charAt(0).toUpperCase() + v.how.slice(1)) + '. Both venues and auctions; one-off premium-mint prints are excluded from this figure.</div></div>';
+      '<div class="an-basis">' + esc(v.how.charAt(0).toUpperCase() + v.how.slice(1)) + '. Both venues and auctions; one-off premium-mint prints are excluded from this figure.</div>' +
+      ((vn.veve.n || vn.stackr.n) ? '<div class="an-chips" style="margin-top:10px">' +
+        (vn.veve.n ? '<span class="an-chip">' + AN.venueDot(0) + ' sells for <b style="color:var(--text);margin-left:4px">' + money(vn.veve.med) + '</b>&nbsp;· ' + vn.veve.n + ' sales</span>' : '') +
+        (vn.stackr.n ? '<span class="an-chip">' + AN.venueDot(1) + ' sells for <b style="color:var(--text);margin-left:4px">' + money(vn.stackr.med) + '</b>&nbsp;· ' + vn.stackr.n + ' sales</span>' : '') +
+        '</div>' : '') + '</div>';
 
-    // ask vs traded — emphasis: the traded value is the point, asks are context
-    var rows = []; if (v.v) rows.push({ label: v.basis === 'last' ? 'Last sale' : 'Typical sale', value: v.v, acc: true });
-    if (k.veve) rows.push({ label: 'Cheapest ask · VeVe', value: k.veve });
-    if (k.stackr) rows.push({ label: 'Cheapest ask · StackR', value: k.stackr });
-    var verdict;
-    if (!k.best) verdict = 'No live listing on either venue right now.';
-    else if (gap == null) verdict = 'There is a live listing, but too few recent sales to say whether the ask is fair.';
-    else if (gap > 15) verdict = 'The cheapest listing is <strong>' + Math.round(gap) + '% above</strong> what this actually sells for. Asks are not prices.';
-    else if (gap < -10) verdict = 'The cheapest listing is <strong>' + Math.round(-gap) + '% below</strong> its typical sale price — unusual, worth a look.';
-    else verdict = 'Live listings are in line with real sales.';
-    if (k.troll) verdict += ' A vanity ask of 💎' + AN.num(k.troll) + ' on VeVe was ignored.';
-    h += '<div class="an-card"><h3>Asking price vs. real sales</h3>' + (rows.length ? AN.compare(rows) : '<div class="an-empty">No sale and no listing.</div>') +
+    // ask vs real sales, LIKE FOR LIKE: each venue's cheapest ask against that venue's own sales.
+    // Emphasis: sales are the point (accent), asks are context (gray).
+    var rows = [], lines = [];
+    [['veve', 'VeVe', k.veve, 0], ['stackr', 'StackR', k.stackr, 1]].forEach(function (x) {
+      var s = vn[x[0]];
+      if (s.n) rows.push({ label: x[1] + ' sales', value: s.med, color: AN.venue(x[3]).color });
+      if (x[2]) rows.push({ label: x[1] + ' ask', value: x[2] });
+      var gp = AN.likeGap(c, x[0]);
+      if (gp == null) { if (x[2] && !s.n) lines.push(x[1] + ': listed at ' + money(x[2]) + ', but no sale there in 30 days to judge it.'); return; }
+      lines.push(x[1] + ': cheapest ask ' + (gp > 10 ? '<strong>' + Math.round(gp) + '% above</strong> what it sells for there.' : gp < -10 ? '<strong>' + Math.round(-gp) + '% below</strong> what it sells for there — worth a look.' : 'in line with sales there.'));
+    });
+    if (!rows.length && v.v) rows.push({ label: v.basis === 'last' ? 'Last sale' : 'Typical sale', value: v.v, acc: true });
+    var verdict = !k.best ? 'No live listing on either venue right now.' : (lines.join('<br>') || 'Too few recent sales on either venue to judge the listings.');
+    if (vn.veve.n >= 3 && vn.stackr.n >= 3) verdict += '<br><span style="color:var(--muted)">Same item, two prices: StackR (paid in OMI) is at ' + (vn.stackr.med / vn.veve.med).toFixed(2) + '× the VeVe gem-market price.</span>';
+    if (k.troll) verdict += '<br><span style="color:var(--muted)">A vanity ask of 💎' + AN.num(k.troll) + ' on VeVe was ignored.</span>';
+    h += '<div class="an-card"><h3>Asking price vs. real sales</h3>' + (rows.length ? AN.compare(rows) + '<p class="an-basis" style="margin-top:8px">Sales = 30-day median on that venue · ask = cheapest live listing (gray).</p>' : '<div class="an-empty">No sale and no listing.</div>') +
       '<p style="font-size:13px;line-height:1.5;margin:12px 0 0">' + verdict + '</p>' +
       (k.listings ? '<p class="an-basis" style="margin-top:6px">' + AN.num(k.listings) + ' live StackR listing' + (k.listings === 1 ? '' : 's') + (k.omi ? ' from ' + AN.num(k.omi) + ' OMI' : '') + '.</p>' : '') + '</div></div>';
 
@@ -84,7 +92,10 @@
 
     function chart(mode) {
       var pts;
-      if (mode === 'm') pts = (a ? a.m : []).map(function (y, i) { var ym = A.months[i] || ''; return { x: ym, xl: ym, y: y }; });
+      if (mode === 'm') {
+        var mm = a ? a.m.slice() : [], off = 0; while (off < mm.length - 1 && !(mm[off] > 0)) off++;   // start at the first traded month
+        pts = mm.slice(off).map(function (y, i) { var ym = A.months[i + off] || '', cur = i + off === A.months.length - 1; return { x: ym, xl: ym + (cur ? ' (month to date)' : ''), y: y }; });
+      }
       else pts = (a ? a.w : []).map(function (y, i) { var end = new Date((A.asOf - 7 * 86400 * (12 - i)) * 1000); var lab = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return { x: lab, xl: 'week to ' + lab, y: y }; });
       AN.lineChart(document.getElementById('it-chart'), { pts: pts, name: 'Typical sale price', h: 240 });
     }

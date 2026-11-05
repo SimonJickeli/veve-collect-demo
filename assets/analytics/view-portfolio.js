@@ -39,22 +39,24 @@
 
   function render(P) {
     var out = document.getElementById('pf-out'), rows = P.rows;
-    var tot = 0, prev = 0, prevBase = 0, askTot = 0, askBase = 0, liquid = 0, unv = 0, n = 0;
+    var tot = 0, prev = 0, prevBase = 0, liquid = 0, unv = 0, n = 0, onV = 0, onS = 0, cmpBase = 0, flV = 0, flBase = 0;
     rows.forEach(function (r) {
-      var v = AN.value(r.c), a = r.c._a, k = AN.asks(r.c); n += r.qty;
+      var v = AN.value(r.c), a = r.c._a, k = AN.asks(r.c), vn = AN.venues(r.c); n += r.qty;
       r.v = v; r.k = k;
       if (v.v) { tot += v.v * r.qty; if (a && a.n30 > 0) liquid += r.qty; } else unv += r.qty;
       if (a && a.c30 != null && v.basis === 'traded') { prev += a.p30 * r.qty; prevBase += a.t30 * r.qty; }
-      if (v.v && k.best) { askTot += k.best.usd * r.qty; askBase += v.v * r.qty; }
+      if (vn.veve.n && vn.stackr.n) { onV += vn.veve.med * r.qty; onS += vn.stackr.med * r.qty; cmpBase += r.qty; }   // only pieces sold on BOTH venues
+      if (v.v && k.veve) { flV += k.veve * r.qty; flBase += v.v * r.qty; }
     });
-    var chg = prev ? (prevBase / prev - 1) * 100 : null, askGap = askBase ? (askTot / askBase - 1) * 100 : null;
+    var chg = prev ? (prevBase / prev - 1) * 100 : null;
     var h = (P.sample ? '<div class="an-callout" style="margin-top:14px">This is a <strong>made-up sample vault</strong> of ' + AN.num(n) + ' collectibles, built from the catalog to show the view. Paste your own address for your real vault.</div>' : '') +
       '<div class="an-grid c23" style="margin-top:14px"><div class="an-card"><div class="an-biglab">Vault value · at real sale prices</div><div class="an-big">' + money(tot) + '</div>' +
       '<div class="an-chips" style="margin-top:10px">' + (chg != null ? AN.delta(chg, '30 days, same items') : '') + AN.chip(AN.num(n) + ' collectibles') + (P.comics ? AN.chip(AN.num(P.comics) + ' comics not valued') : '') + '</div>' +
       '<div class="an-basis">Each piece at its typical sale price (median of the last 30 days; last sale if it hasn’t traded since). ' + (unv ? AN.num(unv) + ' piece' + (unv === 1 ? '' : 's') + ' never traded and count as $0. ' : '') + 'Comics are not in the trade record yet.</div></div>' +
-      '<div class="an-card"><h3>Valued at asking prices instead</h3>' +
-      (askGap != null ? AN.compare([{ label: 'Real sales', value: askBase, acc: true }, { label: 'Cheapest asks', value: askTot }]) +
-        '<p style="font-size:13px;line-height:1.5;margin:12px 0 0">Asking prices would put this vault <strong>' + Math.abs(Math.round(askGap)) + '% ' + (askGap >= 0 ? 'higher' : 'lower') + '</strong> than it would actually sell for. That gap is why this page never uses asks as value.</p>' : '<div class="an-empty">Not enough listed pieces to compare.</div>') + '</div></div>';
+      '<div class="an-card"><h3>Same vault, two prices</h3>' +
+      (cmpBase ? AN.compare([{ label: 'Sold on VeVe', value: onV, color: AN.venue(0).color }, { label: 'Sold on StackR', value: onS, color: AN.venue(1).color }]) +
+        '<p style="font-size:13px;line-height:1.5;margin:12px 0 0">The ' + AN.num(cmpBase) + ' pieces that trade on both venues are worth <strong>' + Math.abs(Math.round((onS / onV - 1) * 100)) + '% ' + (onS < onV ? 'less' : 'more') + '</strong> on StackR (paid in OMI) than on the VeVe gem market.</p>' : '<div class="an-empty">Too few of these pieces trade on both venues to compare.</div>') +
+      (flBase ? '<p class="an-basis">At VeVe’s floor prices the same pieces would show as ' + money(flV) + ' — ' + Math.abs(Math.round((flV / flBase - 1) * 100)) + '% ' + (flV >= flBase ? 'above' : 'below') + ' what they sell for. Floors are asks, not value.</p>' : '') + '</div></div>';
     h += '<div class="an-kpis" style="margin-top:14px">' +
       AN.kpi('Sellable this month', n ? Math.round(liquid / n * 100) + '%' : '—', 'of your pieces traded at least once in 30 days') +
       AN.kpi('Most valuable piece', (function () { var b = rows.filter(function (r) { return r.v.v; }).sort(function (x, y) { return y.v.v - x.v.v; })[0]; return b ? money(b.v.v) : '—'; })(), (function () { var b = rows.filter(function (r) { return r.v.v; }).sort(function (x, y) { return y.v.v - x.v.v; })[0]; return b ? esc(b.c.name) : ''; })()) +

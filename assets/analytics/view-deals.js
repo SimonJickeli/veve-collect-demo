@@ -4,15 +4,19 @@
   var AN = window.AN, esc = AN.esc, money = AN.money;
 
   function under() {
-    /* A deal must beat BOTH the 30-day typical AND the latest week's median: when the whole market is
-       falling, asks drift below a 30-day median without being cheap at all. */
+    /* LIKE FOR LIKE: a venue's cheapest ask against that venue's own sales (StackR trades well below the
+       VeVe gem market, so a blended median makes every StackR listing look cheap). The ask must also beat
+       the venue's MOST RECENT sale: StackR asks are converted at today's OMI price, so a falling OMI or a
+       falling market would otherwise pass for a bargain. */
     var out = [];
     AN.items.forEach(function (c) {
-      var a = c._a; if (!a || a.n30 < 5 || a.n7 < 1 || !(a.t30 > 0)) return;
-      var k = AN.asks(c); if (!k.best) return;
-      var wk = 0; for (var i = a.w.length - 1; i >= Math.max(0, a.w.length - 2); i--) if (a.w[i] > 0) { wk = a.w[i]; break; }
-      var ref = wk ? Math.min(a.t30, wk) : a.t30, d = (k.best.usd / a.t30 - 1) * 100;
-      if (k.best.usd < ref * 0.9) out.push({ c: c, k: k, d: d, wk: wk });
+      var a = c._a; if (!a || a.n7 < 1) return;
+      var k = AN.asks(c), vn = AN.venues(c);
+      [['veve', 0, k.veve], ['stackr', 1, k.stackr]].forEach(function (x) {
+        var s = vn[x[0]], ask = x[2]; if (!(ask > 0) || s.n < AN.MIN_VENUE_SALES || !(s.med > 0)) return;
+        var ref = s.last ? Math.min(s.med, s.last[1]) : s.med;
+        if (ask < ref * 0.9) out.push({ c: c, code: x[1], ask: ask, med: s.med, n: s.n, last: s.last, d: (ask / s.med - 1) * 100 });
+      });
     });
     return out.sort(function (x, y) { return x.d - y.d; });
   }
@@ -53,13 +57,13 @@
       '<p>Live listings priced under the item’s real trading level — checked against the last 30 days <em>and</em> the latest week, so a falling market doesn’t masquerade as a bargain.</p></section>';
     if (staleVeve) h += '<div class="an-callout warn" style="margin-bottom:14px">VeVe-market listings are ' + Math.round((Date.now() / 1000 - SL.veveAsOf) / 86400) + ' days old in this prototype (their feed needs a refreshed session), so special-mint deals below show StackR listings only. Floors from both venues are current.</div>';
 
-    h += AN.h('Under the market', AN.num(u.length) + ' items · 5+ sales in 30 days and at least one this week') + '<div class="an-card">' + (u.length ?
-      '<div class="an-scroll"><table class="an-table"><thead><tr><th>Collectible</th><th>Venue</th><th class="n">Cheapest ask</th><th class="n">Typical sale</th><th class="n">Latest week</th><th class="n">Below typical</th></tr></thead><tbody>' +
+    h += AN.h('Under the market', AN.num(u.length) + ' listings · each judged against sales on its own venue') + '<div class="an-card">' + (u.length ?
+      '<div class="an-scroll"><table class="an-table"><thead><tr><th>Collectible</th><th>Venue</th><th class="n">Cheapest ask</th><th class="n">Sells for there</th><th class="n">Last sale there</th><th class="n">Below</th></tr></thead><tbody>' +
       u.slice(0, 40).map(function (x) {
-        return '<tr><td><a href="' + AN.itemHref(x.c) + '" style="color:var(--text);text-decoration:none;font-weight:700">' + esc(x.c.name) + '</a><br><span style="color:var(--muted);font-size:11.5px">' + esc([x.c.rarity, AN.uname(x.c.universe)].filter(Boolean).join(' · ')) + ' · ' + x.c._a.n30 + ' sales in 30 days</span></td>' +
-          '<td>' + AN.venueDot(x.k.best.venue === 'VeVe' ? 0 : 1) + '</td><td class="n"><b>' + money(x.k.best.usd) + '</b></td><td class="n">' + money(x.c._a.t30) + '</td><td class="n">' + (x.wk ? money(x.wk) : '—') + '</td><td class="n">' + AN.delta(x.d) + '</td></tr>';
+        return '<tr><td><a href="' + AN.itemHref(x.c) + '" style="color:var(--text);text-decoration:none;font-weight:700">' + esc(x.c.name) + '</a><br><span style="color:var(--muted);font-size:11.5px">' + esc([x.c.rarity, AN.uname(x.c.universe)].filter(Boolean).join(' · ')) + ' · ' + x.n + ' sales there in 30 days</span></td>' +
+          '<td>' + AN.venueDot(x.code) + '</td><td class="n"><b>' + money(x.ask) + '</b></td><td class="n">' + money(x.med) + '</td><td class="n">' + (x.last ? money(x.last[1]) + '<br><span style="color:var(--muted);font-size:11px">' + esc(AN.ago(x.last[0])) + '</span>' : '—') + '</td><td class="n">' + AN.delta(x.d) + '</td></tr>';
       }).join('') + '</tbody></table></div>' + (u.length > 40 ? AN.note('Showing the 40 deepest of ' + AN.num(u.length) + '.') : '') : '<div class="an-empty">Nothing is listed meaningfully under its trading level right now.</div>') +
-      AN.note('Listings refresh hourly; StackR listings reach us when the data sync runs, so the best ones may already be gone. A floor copy only — premium mints are below.') + '</div>';
+      AN.note('A listing qualifies when it is 10%+ below both the 30-day median and the latest sale on the same venue (3+ sales there in 30 days). StackR asks are priced in OMI and shown at today’s OMI rate, so part of a StackR gap can be OMI’s own move. Listings refresh hourly and reach us when the data sync runs — the best ones may already be gone. Floor copies only; premium mints are below.') + '</div>';
 
     h += AN.h('Special mints near the floor', 'first public mint, birth years, memes… listed within 20% of the cheapest copy') +
       '<div class="an-card"><label style="display:inline-flex;gap:8px;align-items:center;font-size:12.5px;color:var(--ink2);margin-bottom:10px;cursor:pointer"><input type="checkbox" id="dl-pal"' + (hidePal ? ' checked' : '') + '> Hide palindromes</label>' + (sp.length ?

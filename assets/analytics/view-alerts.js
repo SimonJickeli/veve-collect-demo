@@ -9,16 +9,24 @@
   AN.isWatched = function (tid) { return list().some(function (x) { return x.tid === tid; }); };
   AN.toggleWatch = function (tid) {
     var w = list(), i = -1; w.forEach(function (x, n) { if (x.tid === tid) i = n; });
-    if (i >= 0) w.splice(i, 1); else { var c = AN.byTid[tid], v = c ? AN.value(c).v : 0; w.push({ tid: tid, below: v ? Math.round(v * 0.9 * 100) / 100 : 0, under: 15 }); }
+    if (i >= 0) w.splice(i, 1); else { var c = AN.byTid[tid]; w.push({ tid: tid, below: c ? defaultBelow(c) : 0, under: 15 }); }
     save(w); return i < 0;
   };
   function mints() { return AN.store.get('mints', [21, 221]); }
+  /* default price alert: 10% under the CHEAPER venue's typical sale — StackR runs ~a third below the VeVe
+     gem market, so a default built on the blended price would fire on every ordinary StackR listing */
+  function defaultBelow(c) {
+    var vn = AN.venues(c), meds = [vn.veve, vn.stackr].filter(function (s) { return s.n >= AN.MIN_VENUE_SALES && s.med > 0; }).map(function (s) { return s.med; });
+    var ref = meds.length ? Math.min.apply(null, meds) : AN.value(c).v;
+    return ref ? Math.round(ref * 0.9 * 100) / 100 : 0;
+  }
 
   function evaluate(x) {
     var c = AN.byTid[x.tid]; if (!c) return null;
     var k = AN.asks(c), v = AN.value(c), hits = [];
     if (x.below > 0 && k.best && k.best.usd <= x.below) hits.push('listed at ' + money(k.best.usd) + ' on ' + k.best.venue + ' — under your ' + money(x.below));
-    if (x.under > 0 && k.best && v.basis === 'traded' && k.best.usd <= v.v * (1 - x.under / 100)) hits.push(Math.round((1 - k.best.usd / v.v) * 100) + '% under its typical sale price');
+    var g = AN.gap(c);                                                   // cheapest ask vs sales on its OWN venue
+    if (x.under > 0 && g != null && g <= -x.under) hits.push(Math.round(-g) + '% under what it sells for on ' + k.best.venue);
     return { c: c, k: k, v: v, hits: hits };
   }
 
@@ -30,14 +38,14 @@
     h += AN.h('Your watchlist', w.length ? AN.num(w.length) + ' pieces · rules checked against current listings' : '') + '<div class="an-card" id="al-list">';
     if (!w.length) h += '<div class="an-empty">Nothing watched yet. <button class="an-linkbtn" id="al-demo" type="button">Add three popular pieces to try it</button></div>';
     else {
-      h += '<div class="an-scroll"><table class="an-table"><thead><tr><th>Collectible</th><th class="n">Sells for</th><th class="n">Cheapest ask</th><th>Alert when listed under</th><th>…or this far below typical</th><th>Right now</th><th></th></tr></thead><tbody>';
+      h += '<div class="an-scroll"><table class="an-table"><thead><tr><th>Collectible</th><th class="n">Sells for</th><th class="n">Cheapest ask</th><th>Alert when listed under</th><th>…or this far below its venue</th><th>Right now</th><th><span class="sr-only">Remove</span></th></tr></thead><tbody>';
       w.forEach(function (x, i) {
         var e = evaluate(x); if (!e) return;
         h += '<tr><td><a href="' + AN.itemHref(e.c) + '" style="color:var(--text);text-decoration:none;font-weight:700">' + esc(e.c.name) + '</a></td><td class="n">' + (e.v.v ? money(e.v.v) : '—') + '</td><td class="n">' + (e.k.best ? money(e.k.best.usd) + ' · ' + e.k.best.venue : '—') + '</td>' +
           '<td>$ <input class="an-input" data-i="' + i + '" data-f="below" type="number" min="0" step="0.01" value="' + (x.below || '') + '" style="width:96px;padding:6px 8px" aria-label="Alert price for ' + esc(e.c.name) + '"></td>' +
           '<td><input class="an-input" data-i="' + i + '" data-f="under" type="number" min="0" max="90" step="1" value="' + (x.under || '') + '" style="width:64px;padding:6px 8px" aria-label="Percent below typical for ' + esc(e.c.name) + '"> %</td>' +
-          '<td>' + (e.hits.length ? '<span class="an-chip good">🔔 would fire</span><br><span style="font-size:11.5px;color:var(--ink2)">' + esc(e.hits[0]) + '</span>' : '<span style="color:var(--muted);font-size:12px">quiet</span>') + '</td>' +
-          '<td><button class="an-linkbtn" data-rm="' + i + '" type="button" aria-label="Remove ' + esc(e.c.name) + '">Remove</button></td></tr>';
+          '<td style="white-space:normal;min-width:170px">' + (e.hits.length ? '<span class="an-chip good">🔔 would fire</span><br><span style="font-size:11.5px;color:var(--ink2)">' + esc(e.hits[0]) + '</span>' : '<span style="color:var(--muted);font-size:12px">quiet</span>') + '</td>' +
+          '<td><button class="an-linkbtn" data-rm="' + i + '" type="button" aria-label="Remove ' + esc(e.c.name) + '" title="Remove">✕</button></td></tr>';
       });
       h += '</tbody></table></div>';
     }
