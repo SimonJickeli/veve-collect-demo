@@ -1,7 +1,7 @@
 /* StackR Analytics — concept prototype. Builds on style.css tokens (StackR palette, Montserrat).
-   Chart colours are VALIDATED for dark mode (dataviz validator, both surfaces):
-   series/venue 1 StackR #0b99ff · 2 VeVe #d95926 · 3 Auction #199e70. Status (up/down) is never a series colour. */
-body.an { --s1:#0b99ff; --s2:#d95926; --s3:#199e70; --deem:#6f7080; --grid:#2c2c36; --ink2:#c9cad3;
+   Chart colours VALIDATED for dark mode (dataviz validator, panel + page surfaces, fixed order):
+   blended / brand #0b99ff · VeVe #d95926 · StackR #199e70 · Auction #c98500. Status (up/down) is never a series colour. */
+body.an { --s1:#0b99ff; --s2:#d95926; --s3:#199e70; --s4:#c98500; --deem:#6f7080; --grid:#2c2c36; --ink2:#c9cad3;
   background: radial-gradient(1200px 520px at 50% -180px, rgba(11,153,255,.13), transparent 60%), var(--bg); }
 .an-wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
 .an-top { position: sticky; top: 0; z-index: 30; background: rgba(19,19,23,.92); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
@@ -83,7 +83,7 @@ body.an { --s1:#0b99ff; --s2:#d95926; --s3:#199e70; --deem:#6f7080; --grid:#2c2c
 .an-tt { position: fixed; z-index: 60; pointer-events: none; background: #0f0f13; border: 1px solid var(--border-2); border-radius: 9px; padding: 7px 10px; font-size: 12px; box-shadow: var(--shadow); max-width: 260px; }
 .an-tt b { display: block; font-size: 14px; font-weight: 800; color: var(--text); } .an-tt span { color: var(--muted); }
 .an-cmp { display: grid; gap: 9px; } .an-cmp .row { display: grid; grid-template-columns: minmax(120px, 172px) 1fr auto; align-items: center; gap: 10px; font-size: 12.5px; }
-.an-cmp .lbl { color: var(--ink2); } .an-cmp .bar { height: 12px; border-radius: 0 4px 4px 0; background: var(--deem); min-width: 2px; } .an-cmp .bar.acc { background: var(--s1); }
+.an-cmp .lbl { color: var(--ink2); } .an-cmp .bar { height: 12px; border-radius: 0 4px 4px 0; background: var(--deem); min-width: 2px; } 
 .an-cmp .val { font-weight: 800; font-variant-numeric: tabular-nums; }
 .an-split { display: flex; height: 14px; gap: 2px; border-radius: 4px; overflow: hidden; } .an-split i { display: block; height: 100%; min-width: 2px; }
 .an-itemhead { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
@@ -96,3 +96,21 @@ body.an { --s1:#0b99ff; --s2:#d95926; --s3:#199e70; --deem:#6f7080; --grid:#2c2c
   .an-tabs a { padding: 9px 11px; font-size: 12px; } .an-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .an-kpi .v { font-size: 19px; }
   .an-cmp .row { grid-template-columns: 96px 1fr auto; }
 }
+
+/* v4 — review fixes */
+.an-banner { background: #0f0f13; color: var(--muted); font-size: 11.5px; text-align: center; padding: 6px 14px; border-bottom: 1px solid var(--border); }
+body.an :focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.an-scroll :focus-visible, .an-suggest :focus-visible { outline-offset: -2px; }
+#an-root:focus { outline: none; }
+.an-chart { touch-action: pan-y; }
+.an-tt .ttr { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.an-tt .ttr i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; flex: none; transform: translateY(-3px); }
+.an-tt .ttr:first-child b { font-size: 12px; font-weight: 700; color: var(--muted); }
+.an-tt b { display: inline; }
+.an-chipbtn { cursor: pointer; background: none; font-family: inherit; }
+.an-iconbtn { background: none; border: 0; color: var(--muted); cursor: pointer; font: 700 14px Montserrat, sans-serif; min-width: 32px; min-height: 32px; border-radius: 8px; }
+.an-iconbtn:hover { color: var(--text); background: rgba(255,255,255,.06); }
+.an-iconbtn.sm { min-width: 24px; min-height: 24px; font-size: 12px; margin-left: 2px; }
+.an-stale { display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--warn); margin-top: 2px; }
+.an-legend i { display: inline-block; width: 12px; height: 3px; border-radius: 2px; margin-right: 6px; vertical-align: 3px; }
+@media (max-width: 420px) { .an-tabs a { padding: 9px 8px; letter-spacing: 0; font-size: 11.5px; } }
