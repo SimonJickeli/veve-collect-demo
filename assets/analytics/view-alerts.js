@@ -12,7 +12,9 @@
   /* default price alert: 10% under the CHEAPER venue's typical sale — a default built on the blended price
      would fire on every ordinary StackR listing (StackR runs ~2/3 of the VeVe price) */
   function defaultBelow(c) {
-    var vn = AN.venues(c), meds = [vn.veve, vn.stackr].filter(function (s) { return s.n >= AN.MIN_VENUE_SALES && s.med > 0; }).map(function (s) { return s.med; });
+    var vn = AN.venues(c), st = AN.stackrToday(c), meds = [];             // StackR at today's OMI rate — the rate its asks are shown at
+    if (vn.veve.n >= AN.MIN_VENUE_SALES && vn.veve.med > 0) meds.push(vn.veve.med);
+    if (st.n >= AN.MIN_VENUE_SALES && st.sales > 0) meds.push(st.sales);
     var ref = meds.length ? Math.min.apply(null, meds) : AN.value(c).v;
     return ref ? Math.round(ref * 0.9 * 100) / 100 : 0;
   }

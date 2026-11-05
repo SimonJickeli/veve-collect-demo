@@ -33,9 +33,11 @@
     var out = [];
     AN.specials().forEach(function (s) {
       if (hidePal && s.cats.indexOf('palindrome') >= 0) return;
-      var k = AN.asks(s.c), floor = s.code === 0 ? k.veve : k.stackr;              // the SAME venue's floor copy
+      var k = AN.asks(s.c), ou = AN.ou();                                           // the SAME venue's floor copy; StackR in OMI
+      var floor = s.code === 0 ? k.veve : (k.omi > 0 && ou ? k.omi * ou : k.stackr);
       if (!(floor > 0)) return;
-      var over = (s.usd / floor - 1) * 100; if (over > 20) return;
+      var over = s.code === 1 && k.omi > 0 && s.price > 0 ? (s.price / k.omi - 1) * 100 : (s.usd / floor - 1) * 100;
+      if (over > 20) return;
       out.push({ s: s, over: over, floor: floor });
     });
     return out.sort(function (x, y) { return x.over - y.over; });
@@ -64,7 +66,8 @@
     var u = under(), sp = specials(hidePal), st = setsCheap();
     var h = '<section class="an-hero"><h1>Listed <span>below what it sells for</span></h1>' +
       '<p>Live listings priced under what the same item actually sells for <em>on the same venue</em> — checked against the 30-day median and the latest sale there, with StackR measured in OMI so a falling OMI price doesn’t pass for a bargain.</p></section>';
-    if (!mk.veveListingsFresh) h += '<div class="an-callout warn" style="margin-bottom:14px">VeVe-market special-mint listings are hidden: that feed is currently stale. VeVe floors (the cheapest VeVe ask per item) are current.</div>';
+    var VF = window.VEVE_FLOORS, fAge = VF && VF.floorsAsOf ? AN.ago(VF.floorsAsOf) : null;
+    if (!mk.veveListingsFresh) h += '<div class="an-callout warn" style="margin-bottom:14px">VeVe-market special-mint listings are hidden: that feed is currently stale.' + (fAge ? ' VeVe floors (the cheapest VeVe ask per item) were last updated ' + esc(fAge) + '.' : '') + '</div>';
 
     h += AN.h('Under the market', AN.num(u.length) + ' listings · 5+ sales on that venue in 30 days, latest within 14 days') + '<div class="an-card">' + (u.length ?
       '<div class="an-scroll"><table class="an-table"><thead><tr><th>Collectible</th><th>Venue</th><th class="n">Cheapest ask</th><th class="n">Sells for there</th><th class="n">Latest sale there</th><th class="n">You save</th><th class="n">Below</th></tr></thead><tbody>' +

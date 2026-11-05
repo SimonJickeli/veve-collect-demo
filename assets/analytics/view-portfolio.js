@@ -4,7 +4,7 @@
    joined to a marketplace username. The sample vault is synthetic — never a real person's wallet. */
 (function () {
   'use strict';
-  var AN = window.AN, esc = AN.esc, money = AN.money, last = null, MIN = AN.MIN_VENUE_SALES;
+  var AN = window.AN, esc = AN.esc, money = AN.money, last = null, MIN = AN.MIN_VENUE_SALES, token = 0;
 
   function shell(root, msg) {
     root.innerHTML = '<section class="an-hero"><h1>Your vault, <span>valued honestly</span></h1>' +
@@ -16,15 +16,17 @@
     if (msg) document.getElementById('pf-status').textContent = msg;
     document.getElementById('pf-go').addEventListener('click', go);
     document.getElementById('pf-addr').addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
-    document.getElementById('pf-sample').addEventListener('click', function () { last = { sample: true, rows: AN.samplePortfolio(), other: 0, comics: 0 }; render(last); });
+    document.getElementById('pf-sample').addEventListener('click', function () { token++; last = { sample: true, rows: AN.samplePortfolio(), other: 0, comics: 0 }; render(last); });
   }
 
   async function go() {
-    var addr = document.getElementById('pf-addr').value.trim(), st = document.getElementById('pf-status'), btn = document.getElementById('pf-go');
+    var addr = document.getElementById('pf-addr').value.trim(), st = document.getElementById('pf-status'), btn = document.getElementById('pf-go'), my = ++token;
+    last = null; document.getElementById('pf-out').innerHTML = '';                   // never leave a previous vault under a new lookup
     if (!window.COLLECTSCAN || !window.COLLECTSCAN.isAddress(addr)) { st.textContent = 'That doesn’t look like a 0x wallet address.'; return; }
     btn.disabled = true; st.textContent = 'Reading the vault from the Collect Chain…';
     try {
-      var hs = await window.COLLECTSCAN.fetchHoldings(addr, { onProgress: function (n) { st.textContent = 'Reading the vault… ' + AN.num(n) + ' editions so far'; } });
+      var hs = await window.COLLECTSCAN.fetchHoldings(addr, { onProgress: function (n) { if (my === token) st.textContent = 'Reading the vault… ' + AN.num(n) + ' editions so far'; } });
+      if (my !== token) return;                                                     // a newer lookup (or the sample) superseded this one
       var map = {}, other = 0, comics = 0;
       hs.forEach(function (h) {
         if (h.format === 'comic') { comics++; return; }
@@ -34,7 +36,7 @@
       var rows = Object.keys(map).map(function (k) { var r = map[k]; r.mint = r.mints.sort(function (a, b) { return a - b; })[0]; return r; });
       last = { sample: false, rows: rows, other: other, comics: comics, truncated: !!hs.truncated, read: hs.length };
       st.textContent = AN.num(hs.length) + ' editions read.'; render(last);
-    } catch (e) { st.textContent = 'Could not read that wallet (' + (e && e.message ? e.message : 'network error') + '). The public explorer may be rate-limiting — try again in a minute.'; }
+    } catch (e) { if (my === token) st.textContent = 'Could not read that wallet (' + (e && e.message ? e.message : 'network error') + '). The public explorer may be rate-limiting — try again in a minute.'; }
     btn.disabled = false;
   }
 
@@ -54,7 +56,7 @@
       (P.truncated ? '<div class="an-callout warn" style="margin-top:14px">Only the first ' + AN.num(P.read) + ' editions could be read, so the totals below are a <strong>lower bound</strong>.</div>' : '') +
       '<div class="an-grid c23" style="margin-top:14px"><div class="an-card"><div class="an-biglab">Vault value · at real sale prices</div><div class="an-big">' + money(tot) + '</div>' +
       '<div class="an-chips" style="margin-top:10px">' + (chg != null ? AN.delta(chg, '30 days, same items') : '') + AN.chip(AN.num(n) + ' collectibles') + (P.comics ? AN.chip(AN.num(P.comics) + ' comics not valued') : '') + '</div>' +
-      '<div class="an-basis">Each piece at its typical sale price (median of the last 30 days across venues; its last ordinary sale if it hasn’t traded since). ' + (unv ? AN.num(unv) + ' piece' + (unv === 1 ? '' : 's') + ' never traded and count as $0. ' : '') + 'Comics are not in the trade record yet. The 30-day change is measured within each venue.</div></div>' +
+      '<div class="an-basis">Each piece at its typical sale price (median of the last 30 days across venues; its last ordinary sale if it hasn’t traded since). ' + (unv ? AN.num(unv) + ' piece' + (unv === 1 ? '' : 's') + ' had no recorded sale since ' + AN.since + ' and count as $0. ' : '') + 'Comics are not in the trade record yet. The 30-day change is measured within each venue.</div></div>' +
       '<div class="an-card"><h3>Same vault, two prices</h3>' +
       (both ? AN.compare([{ label: 'Sold on VeVe', value: onV, color: AN.COLORS.veve }, { label: 'Sold on StackR', value: onS, color: AN.COLORS.stackr }]) +
         '<p style="font-size:13px;line-height:1.5;margin:12px 0 0">The ' + AN.num(both) + ' pieces with 3+ sales on both venues are worth <strong>' + Math.abs(Math.round((onS / onV - 1) * 100)) + '% ' + (onS < onV ? 'less' : 'more') + '</strong> on StackR (paid in OMI) than on the VeVe gem market.</p>' : '<div class="an-empty">Too few of these pieces trade on both venues to compare.</div>') +

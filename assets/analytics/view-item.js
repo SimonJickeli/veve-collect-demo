@@ -35,7 +35,7 @@
     h += '<div class="an-grid c23" style="margin-top:18px"><div class="an-card"><div class="an-biglab">' + (v.basis === 'last' ? 'Last sold for' : 'Typically sells for') + '</div>' +
       '<div class="an-big">' + (v.v ? money(v.v) : '—') + '</div>' +
       '<div class="an-chips" style="margin-top:10px">' + (a && a.c30 != null ? AN.delta(a.c30, 'vs the 30 days before, ' + cb) : '') +
-      (v.basis === 'traded' && v.thin ? AN.chip('thin market — few sales', 'warn') : '') + (v.basis === 'last' ? AN.chip('no sale in 30 days', 'warn') : '') + '</div>' +
+      (v.basis === 'traded' && v.thin ? AN.chip('thin market — few sales', 'warn') : '') + (v.basis === 'last' ? AN.chip('no ordinary sale in 30 days', 'warn') : '') + '</div>' +
       '<div class="an-basis">' + esc(v.how.charAt(0).toUpperCase() + v.how.slice(1)) + ', all venues. Premium-mint prints (a #1, a far-above-normal one-off) are left out of this figure and kept as records.</div>' +
       ((vn.veve.n || vn.stackr.n) ? '<div class="an-chips" style="margin-top:10px">' +
         (vn.veve.n ? '<span class="an-chip">' + AN.venueDot(0) + '&nbsp;sells for <b style="color:var(--text);margin-left:4px">' + money(vn.veve.med) + '</b>&nbsp;· ' + vn.veve.n + ' sales</span>' : '') +
@@ -44,9 +44,10 @@
 
     // ask vs sales, like for like (StackR verdict in OMI)
     var rows = [], lines = [];
-    [['veve', 'VeVe', k.veve, 0], ['stackr', 'StackR', k.stackr, 1]].forEach(function (x) {
+    var st = AN.stackrToday(c);                                      // StackR bars on the SAME basis as the OMI verdict
+    [['veve', 'VeVe', k.veve, 0, vn.veve.med], ['stackr', 'StackR', st.ask, 1, st.sales]].forEach(function (x) {
       var s = vn[x[0]];
-      if (s.n) rows.push({ label: x[1] + ' sales', value: s.med, color: AN.venue(x[3]).color });
+      if (s.n && x[4]) rows.push({ label: x[1] + ' sales', value: x[4], color: AN.venue(x[3]).color });
       if (x[2]) rows.push({ label: x[1] + ' ask', value: x[2] });
       var gi = AN.likeGapInfo(c, x[0]);
       if (!gi) { if (x[2]) lines.push(x[1] + ': listed at ' + money(x[2]) + ', but too few sales there in 30 days to judge it.'); return; }
@@ -56,7 +57,7 @@
     var verdict = !k.best ? 'No live listing on either venue right now.' : (lines.join('<br>') || 'Too few recent sales on either venue to judge the listings.');
     if (vn.veve.n >= 3 && vn.stackr.n >= 3) verdict += '<br><span style="color:var(--muted)">Same item, two prices: on StackR it sells at ' + (vn.stackr.med / vn.veve.med).toFixed(2) + '× its VeVe price.</span>';
     if (k.troll) verdict += '<br><span style="color:var(--muted)">A vanity ask of 💎' + AN.num(k.troll) + ' on VeVe was ignored.</span>';
-    h += '<div class="an-card"><h3>Asking price vs. real sales</h3>' + (rows.length ? AN.compare(rows) + '<p class="an-basis" style="margin-top:8px">Sales = 30-day median on that venue · ask = cheapest live listing (gray). StackR is judged in OMI, so OMI’s own price moves don’t count as a bargain.</p>' : '<div class="an-empty">No sale and no listing.</div>') +
+    h += '<div class="an-card"><h3>Asking price vs. real sales</h3>' + (rows.length ? AN.compare(rows) + '<p class="an-basis" style="margin-top:8px">Sales = 30-day median on that venue · ask = cheapest live listing (gray). StackR is judged in OMI and both StackR bars are shown at today’s OMI price, so OMI’s own moves don’t count as a bargain.</p>' : '<div class="an-empty">No sale and no listing.</div>') +
       '<p style="font-size:13px;line-height:1.55;margin:10px 0 0">' + verdict + '</p></div></div>';
 
     // stat row
@@ -74,6 +75,7 @@
     // latest sales — each judged against its own venue
     var sales = (a && a.l) || [];
     function venueMed(code) { var s = code === 0 ? vn.veve : code === 1 ? vn.stackr : null; return s && s.n >= 3 ? s.med : 0; }
+    function spRef(s) { return s.code === 1 ? (vn.stackr.omiN >= 3 ? [s.price, vn.stackr.omi] : [s.usd, venueMed(1)]) : [s.usd, venueMed(0)]; }   // StackR specials in OMI
     function vsTypical(price, m) { if (!m) return '—'; var r = price / m; return r >= 3 ? '<span class="an-d up">' + (r >= 10 ? Math.round(r) : r.toFixed(1)) + '× typical</span>' : AN.delta((r - 1) * 100); }
     h += '<div class="an-grid c23" style="margin-top:14px"><div class="an-card"><h3>Latest sales</h3>' + (sales.length ?
       '<div class="an-scroll"><table class="an-table"><thead><tr><th>When</th><th>Venue</th><th class="n">Price</th><th class="n">vs typical there</th></tr></thead><tbody>' +
@@ -90,7 +92,7 @@
     var sp = AN.specials().filter(function (s) { return s.c === c; }).sort(function (x, y) { return x.usd - y.usd; }).slice(0, 6);
     if (sp.length) {
       h += AN.h('Special mints listed right now', 'a premium mint costs more than a floor copy — compared with ordinary sales on the same venue') + '<div class="an-card"><div class="an-scroll"><table class="an-table"><thead><tr><th>Mint</th><th>Why it is special</th><th>Venue</th><th class="n">Ask</th><th class="n">vs typical there</th></tr></thead><tbody>' +
-        sp.map(function (s) { var m = venueMed(s.code); return '<tr><td><b>#' + AN.num(s.mint) + '</b></td><td>' + esc(s.label) + '</td><td>' + AN.venueDot(s.code) + '</td><td class="n"><b>' + money(s.usd) + '</b></td><td class="n">' + vsTypical(s.usd, m) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
+        sp.map(function (s) { var m = venueMed(s.code); return '<tr><td><b>#' + AN.num(s.mint) + '</b></td><td>' + esc(s.label) + '</td><td>' + AN.venueDot(s.code) + '</td><td class="n"><b>' + money(s.usd) + '</b></td><td class="n">' + vsTypical(spRef(s)[0], spRef(s)[1]) + '</td></tr>'; }).join('') + '</tbody></table></div>' +
         (!SL.veveListingsFresh ? AN.note('VeVe-market listings are not shown: that feed is currently stale.') : '') + '</div>';
     }
     root.innerHTML = h;
@@ -104,7 +106,7 @@
       } else {
         var wv = (a && a.wv) || [[], []], E = A.weekEdges || [], st = 0;
         while (st < 12 && !(wv[0][st] > 0) && !(wv[1][st] > 0)) st++;            // start at the first traded week
-        var xw = []; for (var i = st; i < 13; i++) { var end = new Date(((E[i + 1] || A.asOf) - 1) * 1000), lab = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); xw.push({ x: lab, xl: 'week to ' + lab + (i === 12 ? ' (so far)' : '') }); }
+        var xw = []; for (var i = st; i < 13; i++) { var end = new Date(((E[i + 1] || A.asOf) - 1) * 1000), lab = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); xw.push({ x: lab, xl: 'week to ' + lab }); }
         AN.lineChart(host, { x: xw, series: [{ name: 'VeVe', color: AN.COLORS.veve, ys: (wv[0] || []).slice(st) }, { name: 'StackR', color: AN.COLORS.stackr, ys: (wv[1] || []).slice(st) }], h: 240 });
       }
     }

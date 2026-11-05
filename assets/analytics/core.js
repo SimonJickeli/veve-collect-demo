@@ -14,7 +14,10 @@
   var CAT = (g.CATALOG && g.CATALOG.items) || [];
   var FL = g.FLOOR || { byTid: {}, omiUsd: 0 };
   var norm = g.normName || function (s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
-  var AN = g.AN = { A: A, views: {}, norm: norm, MIN_VENUE_SALES: 3 };
+  var AN = g.AN = { A: A, views: Object.create(null), norm: norm, MIN_VENUE_SALES: 3 };
+  var M0 = (A.months && A.months[0]) || '2025-07';
+  AN.since = new Date(M0 + '-15T00:00:00Z').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });   // first month of trade data
+  AN.ou = function () { return (A.market && A.market.omiUsd) || (FL && FL.omiUsd) || 0; };                       // ONE OMI rate for every StackR dollar figure
 
   /* Colour roles — validated for dark mode (dataviz validator, panel #1e1e25 and page #131317, all checks pass in
      this fixed order). Blue is the brand AND the blended (all-venue) series; each venue has its own identity hue
@@ -45,11 +48,11 @@
   AN.day = function (ts) { var d = new Date(ts * 1000); return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' }); };
   AN.ago = function (ts) { var dd = Math.floor((Date.now() / 1000 - ts) / 86400); return dd <= 0 ? 'today' : dd === 1 ? 'yesterday' : dd < 30 ? dd + ' days ago' : AN.day(ts); };
   AN.daysAgo = function (n) { return n <= 0 ? 'today' : n === 1 ? 'yesterday' : n < 60 ? n + ' days ago' : Math.round(n / 30) + ' months ago'; };
-  var UN = { 'dc': 'DC', 'tmnt': 'TMNT', 'blackpink': 'BLACKPINK', 'veve-vibes': 'VeVe Vibes', 'real-world-brand': 'Real-World Brands' };
+  var UN = { 'dc': 'DC', 'tmnt': 'TMNT', 'blackpink': 'BLACKPINK', 'veve': 'VeVe', 'veve-vibes': 'VeVe Vibes', 'real-world-brand': 'Real-World Brands' };
   AN.uname = function (u) { return UN[u] || String(u || '').replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); };
 
   // ── items ─────────────────────────────────────────────────────────────────────────────────
-  AN.items = []; AN.byTid = {}; AN.bySlug = {}; var byKey = {};
+  AN.items = []; AN.byTid = Object.create(null); AN.bySlug = Object.create(null); var byKey = Object.create(null);   // no prototype: '#/item/constructor' must not resolve
   CAT.forEach(function (c) {
     if (!c.tid) return;
     c._a = A.items[c.tid] || null;
@@ -71,8 +74,9 @@
   AN.value = function (c) {
     var a = c && c._a;
     if (a && a.nt >= 1 && a.t30 > 0) return { v: a.t30, basis: 'traded', thin: a.nt < 5, how: 'median of ' + a.nt + ' sale' + (a.nt === 1 ? '' : 's') + ' in the last 30 days' };
-    if (a && a.la) return { v: a.la[1], basis: 'last', thin: true, how: 'last ordinary sale, ' + AN.daysAgo(a.la[0]) + ' — none in the last 30 days' };
-    return { v: null, basis: null, thin: true, how: 'no recorded ordinary sale since July 2025' };
+    var prem = a && a.n30 > 0 ? ' (' + a.n30 + ' premium-mint print' + (a.n30 === 1 ? '' : 's') + ' in 30 days left out)' : '';
+    if (a && a.la) return { v: a.la[1], basis: 'last', thin: true, how: 'last ordinary sale, ' + AN.daysAgo(a.la[0]) + ' — no ordinary sale in the last 30 days' + prem };
+    return { v: null, basis: null, thin: true, how: 'no recorded ordinary sale since ' + AN.since + prem };
   };
   /* Per-venue facts. veve/stackr: { med (USD, 30d), n, last:[ts,usd]|0 }; stackr also { omi: median OMI, omiN, lastOmi }. */
   AN.venues = function (c) {
@@ -91,6 +95,14 @@
     return (vn.stackr.n >= min && vn.stackr.med > 0) ? { gap: (k.stackr / vn.stackr.med - 1) * 100, basis: 'usd', ask: k.stackr, ref: vn.stackr.med, n: vn.stackr.n } : null;
   };
   AN.likeGap = function (c, venue) { var x = AN.likeGapInfo(c, venue); return x ? x.gap : null; };
+  /* StackR in dollars ON ONE BASIS: ask and typical sale both at today's OMI rate (so the bar agrees with the
+     OMI verdict). Falls back to recorded USD only when there is no OMI median. */
+  AN.stackrToday = function (c) {
+    var vn = AN.venues(c), k = AN.asks(c), ou = AN.ou();
+    var ask = k.omi > 0 && ou ? k.omi * ou : k.stackr;
+    var sales = vn.stackr.omiN >= 1 && vn.stackr.omi > 0 && ou ? vn.stackr.omi * ou : vn.stackr.med;
+    return { ask: ask, sales: sales, n: vn.stackr.omiN || vn.stackr.n, omiBasis: !!(vn.stackr.omiN && ou) };
+  };
   /* "Is the cheapest listing fair?" — the cheapest ask, judged on its own venue. */
   AN.gap = function (c) { var k = AN.asks(c); return k.best ? AN.likeGap(c, k.best.key) : null; };
   /* Market-wide facts behind copy — computed on every load, never typed in. */
@@ -156,21 +168,28 @@
     raw: function (k) { try { var v = localStorage.getItem('an.' + k); return v == null ? undefined : JSON.parse(v); } catch (e) { return undefined; } },
     set: function (k, v) { try { localStorage.setItem('an.' + k, JSON.stringify(v)); } catch (e) {} },
     bool: function (k, d) { var v = AN.store.raw(k); return typeof v === 'boolean' ? v : d; },
-    ints: function (k, d) { var v = AN.store.raw(k); return Array.isArray(v) ? v.map(Number).filter(function (n) { return Number.isInteger(n) && n > 0 && n < 1e6; }) : d; },
+    ints: function (k, d) { var v = AN.store.raw(k); return Array.isArray(v) ? v.filter(function (n) { return typeof n === 'number' && Number.isInteger(n) && n > 0 && n < 1e6; }) : d; },
     watch: function () {
       var v = AN.store.raw('watch'); if (!Array.isArray(v)) return [];
       return v.filter(function (x) { return x && typeof x.tid === 'string' && AN.byTid[x.tid]; })
-              .map(function (x) { return { tid: x.tid, below: Math.max(0, Number(x.below) || 0), under: Math.min(90, Math.max(0, Number(x.under) || 0)) }; });
+              .map(function (x) { var b = Number(x.below), u = Number(x.under);
+                return { tid: x.tid, below: Number.isFinite(b) ? Math.min(1e7, Math.max(0, b)) : 0, under: Number.isFinite(u) ? Math.min(90, Math.max(0, u)) : 0 }; });
     }
   };
-  var lazy = {};
-  AN.lazy = function (name) {               // lazily load a dataset (hour-bucketed cache key)
+  var lazy = Object.create(null);
+  AN.lazy = function (name) {               // lazily load a dataset (hour-bucketed cache key); a failed load is retried next time
     if (lazy[name]) return lazy[name];
-    return (lazy[name] = new Promise(function (res) { var s = document.createElement('script'); s.src = 'data/' + name + '.js?v=' + Math.floor(Date.now() / 3600000); s.onload = function () { res(true); }; s.onerror = function () { res(false); }; document.head.appendChild(s); }));
+    return (lazy[name] = new Promise(function (res) {
+      var s = document.createElement('script'); s.src = 'data/' + name + '.js?v=' + Math.floor(Date.now() / 3600000);
+      s.onload = function () { res(true); };
+      s.onerror = function () { delete lazy[name]; if (s.parentNode) s.parentNode.removeChild(s); res(false); };
+      document.head.appendChild(s);
+    }));
   };
 
   // ── charts (inline SVG; crosshair + tooltip, keyboard, touch, table view; tooltip text via textContent) ──
-  var tt, redraws = [], uid = 0;
+  var tt, redraws = [], uid = 0, activeLeave = null;
+  document.addEventListener('pointerdown', function (e) { if (activeLeave && !e.target.closest('.an-chart')) { activeLeave(); activeLeave = null; } });   // ONE listener for every chart
   function showTT(x, y, lines) {
     if (!tt) { tt = document.createElement('div'); tt.className = 'an-tt'; tt.setAttribute('role', 'status'); document.body.appendChild(tt); }
     tt.textContent = '';
@@ -216,13 +235,14 @@
       var xh = wrap.querySelector('.xh'); if (xh) { xh.setAttribute('x1', x); xh.setAttribute('x2', x); xh.setAttribute('visibility', 'visible'); }
       wrap.querySelectorAll('.xd').forEach(function (d, si) { var y = markY ? markY(si, cur) : null; if (y != null) { d.setAttribute('cx', x); d.setAttribute('cy', y); d.setAttribute('visibility', 'visible'); } else d.setAttribute('visibility', 'hidden'); });
       wrap.querySelectorAll('.col').forEach(function (e, m) { e.setAttribute('opacity', m === cur ? '1' : '.5'); });
+      if (activeLeave && activeLeave !== leave) activeLeave();
+      activeLeave = leave;
       showTT(cx != null ? cx : r.left + x * k, cy != null ? cy : r.top + q.T * k + 20, info);
     }
     function fromEvent(e) { var q = wrap._geo; if (!q) return; var r = wrap.getBoundingClientRect(), x = (e.clientX - r.left) / (r.width / q.W); if (x < q.L - 8 || x > q.L + q.iw + 8) { leave(); return; } at(Math.round((x - q.L) / q.iw * q.n), e.clientX, e.clientY); }
     wrap.addEventListener('pointermove', fromEvent);
     wrap.addEventListener('pointerdown', fromEvent);                                  // touch: tap / scrub reveals the value
     wrap.addEventListener('pointerleave', function (e) { if (e.pointerType !== 'touch') leave(); });
-    document.addEventListener('pointerdown', function (e) { if (cur >= 0 && !wrap.contains(e.target)) leave(); });
     wrap.addEventListener('blur', leave);
     wrap.addEventListener('keydown', function (e) { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); at(cur < 0 ? n - 1 : cur + (e.key === 'ArrowRight' ? 1 : -1)); } else if (e.key === 'Escape') leave(); });
   }

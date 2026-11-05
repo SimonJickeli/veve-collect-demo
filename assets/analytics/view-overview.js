@@ -11,20 +11,20 @@
     var vs = mk.venue30 || {}, au = mk.auction || {};
 
     var h = '<section class="an-hero"><h1>The VeVe market, <span>in real sales</span></h1>' +
-      '<p>Every number on this page comes from completed trades on the VeVe gem market, StackR and auctions — never from what sellers are asking. Asks appear only where they are labelled as asks.</p></section>';
+      '<p>Prices on this page come from completed trades on the VeVe gem market, StackR and auctions, not from what sellers are asking. Asks appear only where they are labelled as asks — the one exception, for thinly traded items, is spelled out under the market value.</p></section>';
 
     // hero figure + venue mix
     var newBits = (T.drop7 ? AN.chip('+' + money(T.drop7) + ' from new drops', 'acc') : '') + (T.resumed7 ? AN.chip('+' + money(T.resumed7) + ' from items trading again') : '');
     h += '<div class="an-grid c23"><div class="an-card"><div class="an-biglab">Market value · trade-based</div><div class="an-big">' + money(T.cap) + '</div>' +
-      '<div class="an-chips" style="margin-top:10px">' + AN.delta(T.d7, '7 days, same items') + newBits + '</div>' +
-      '<div class="an-basis">Typical traded price × copies in circulation, across ' + AN.num(T.items) + ' catalogued collectibles with a sale in the last 14 days. The 7-day change compares only items counted both times; value that newly counts is shown apart — new drops, and older items that sold again after 14+ quiet days. Items with fewer than 3 sales in 30 days are valued at their cheapest live listing when that is lower than their sale price.</div></div>' +
+      '<div class="an-chips" style="margin-top:10px">' + AN.delta(T.d7, '7 days, same items, all venues') + newBits + '</div>' +
+      '<div class="an-basis">Typical traded price × copies in circulation, across ' + AN.num(T.items) + ' catalogued collectibles with a sale in the last 14 days. The 7-day change compares only items counted both times and blends both venues; value that newly counts is shown apart — new drops (by drop date) and older items that sold again after 14+ quiet days. Items with fewer than 3 sales in 30 days are valued at their cheapest live listing when that is lower than their sale price' + (T.clamped ? ' (' + AN.num(T.clamped) + ' items right now; they are left out of the 7-day change)' : '') + '.</div></div>' +
       '<div class="an-card"><h3>Where trades happen · last 30 days</h3>' +
       AN.split([{ label: 'VeVe market', value: vs.fixed || 0, color: AN.COLORS.veve }, { label: 'StackR', value: vs.stackr || 0, color: AN.COLORS.stackr }, { label: 'Auctions', value: vs.auction || 0, color: AN.COLORS.auction }]) +
       '<div id="ov-mix" style="margin-top:12px"></div>' +
       AN.note('StackR’s share of all collectible sales, week by week. When trading moves to Collect, this is the chart that shows the migration as it happens.') + '</div></div>';
 
     if (VG && VG.n) h += '<div class="an-callout" style="margin-top:14px"><strong>Same collectible, two prices.</strong> On StackR (paid in OMI) an item sells for <strong>' + VG.ratio.toFixed(2) + '×</strong> its price on the VeVe gem market — median of ' + VG.n + ' collectibles with 3+ sales on both in 30 days; for the middle half the ratio is ' + VG.p25.toFixed(2) + '–' + VG.p75.toFixed(2) + '×.' +
-      (OMI.chg30 != null ? ' OMI itself moved ' + AN.pct(OMI.chg30, 0) + ' against the dollar in 30 days.' : '') + ' So every comparison in this prototype is made venue by venue, and StackR in OMI.</div>';
+      (OMI.chg30 != null ? ' OMI itself moved ' + AN.pct(OMI.chg30, 0) + ' against the dollar in 30 days.' : '') + ' So every ask-versus-sale comparison here is made venue by venue, and StackR in OMI; market-wide totals combine both venues.</div>';
 
     var spark = full.slice(-28).map(function (d) { return d[1]; }), vspark = full.slice(-28).map(function (d) { return d[2]; });
     h += '<div class="an-kpis" style="margin-top:14px">' +
@@ -34,13 +34,15 @@
       AN.kpi('Thinly traded', LQ.traded ? Math.round((LQ.traded - LQ.n5) / LQ.traded * 100) + '%' : '—', 'of them had fewer than 5 sales in 30 days · ' + AN.num(LQ.n1) + ' sold once') + '</div>';
 
     var narrow = (root.clientWidth || 800) < 640, dd = narrow ? daily.slice(-30) : daily;
-    h += AN.h('Daily sales', (narrow ? 'last 30 days' : 'last 90 days') + ' · all collectible sales, all venues' + (mk.partialDay ? ' · today so far is faded' : '')) + '<div class="an-card"><div id="ov-daily"></div></div>';
+    var thru = mk.dataThrough ? new Date(mk.dataThrough * 1000).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'UTC' }) + ' UTC' : '';
+    h += AN.h('Daily sales', (narrow ? 'last 30 days' : 'last 90 days') + ' · all collectible sales, all venues' + (mk.partialDay ? ' · the last day is incomplete (data through ' + thru + ') and faded' : '')) + '<div class="an-card"><div id="ov-daily"></div></div>';
 
     // movers — change measured WITHIN each venue (4+ sales in both windows), so a venue-mix shift can't fake a move
     var mv = AN.items.filter(function (c) { return c._a && c._a.c30 != null && c._a.n30 >= 5 && c._a.t30 >= 1; });
     var up = mv.slice().sort(function (a, b) { return b._a.c30 - a._a.c30; }).slice(0, 7), dn = mv.slice().sort(function (a, b) { return a._a.c30 - b._a.c30; }).slice(0, 7);
     function basis(a) { return a.cb === 'veve+stackr' ? 'both venues' : a.cb === 'veve' ? 'on VeVe' : 'on StackR'; }
-    function mrow(c) { return AN.itemRow(c, '<b>' + money(c._a.t30) + '</b><small>' + AN.delta(c._a.c30) + '</small>', esc(AN.uname(c.universe)) + ' · ' + c._a.n30 + ' sales · ' + basis(c._a)); }
+    function mprice(c) { var a = c._a; return a.cb === 'veve' ? a.vm[0] : a.cb === 'stackr' ? AN.stackrToday(c).sales : a.t30; }   // price on the venue the change was measured on
+    function mrow(c) { return AN.itemRow(c, '<b>' + money(mprice(c)) + '</b><small>' + AN.delta(c._a.c30) + '</small>', esc(AN.uname(c.universe)) + ' · ' + c._a.n30 + ' sales · ' + basis(c._a)); }
     h += AN.h('Biggest moves · 30 days', 'median sale price vs the 30 days before, measured within each venue · 5+ sales') +
       '<div class="an-grid c2"><div class="an-card"><h3>▲ Rising</h3>' + up.map(mrow).join('') + '</div><div class="an-card"><h3>▼ Falling</h3>' + dn.map(mrow).join('') + '</div></div>';
 
@@ -66,10 +68,10 @@
     root.innerHTML = h;
     AN.columns(document.getElementById('ov-daily'), { name: 'Sales', h: 200, extra: { head: ['Volume'], cells: function (p) { return [money(p.vol)]; } },
       pts: dd.map(function (d, i) { var dt = new Date(d[0] + 'T12:00:00Z'), lab = dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), part = mk.partialDay && i === dd.length - 1;
-        return { x: lab, xl: lab + (part ? ' (today so far)' : ''), y: d[1], vol: d[2], partial: part }; }) });
+        return { x: lab, xl: lab + (part ? ' (through ' + thru + ')' : ''), y: d[1], vol: d[2], partial: part }; }) });
     var E = A.weekEdges || [], wk = mk.weekly || [];
     AN.lineChart(document.getElementById('ov-mix'), { h: 150, fmt: function (v) { return Math.round(v) + '%'; },
-      x: wk.map(function (w, i) { var end = new Date(((E[i + 1] || A.asOf) - 1) * 1000), lab = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return { x: lab, xl: 'week to ' + lab + (i === wk.length - 1 ? ' (so far)' : '') }; }),
+      x: wk.map(function (w, i) { var end = new Date(((E[i + 1] || A.asOf) - 1) * 1000), lab = end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); return { x: lab, xl: 'week to ' + lab }; }),
       series: [{ name: 'StackR share of sales', color: AN.COLORS.stackr, ys: wk.map(function (w) { var t = w[0] + w[1] + w[2]; return t ? w[1] / t * 100 : 0; }) }] });
   } });
 })();
