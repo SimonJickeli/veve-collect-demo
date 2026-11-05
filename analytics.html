@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>StackR Analytics — concept prototype</title>
+<meta name="description" content="Concept prototype: StackR as an analytics page — what VeVe collectibles really sell for, your vault, deals and alerts. Real sales only." />
+<link rel="stylesheet" href="assets/style.css?v=7" />
+<link rel="stylesheet" href="assets/analytics.css?v=1" />
+</head>
+<body class="an">
+<header class="an-top">
+  <div class="an-wrap an-topin">
+    <a class="an-brand" href="#/overview" aria-label="StackR Analytics — overview">STACKR <span>ANALYTICS</span><em>concept</em></a>
+    <div class="an-search" role="search">
+      <input id="an-q" type="search" placeholder="Search a collectible — what is it really worth?" autocomplete="off" spellcheck="false" aria-label="Search collectibles" aria-controls="an-sug" />
+      <div class="an-suggest" id="an-sug" role="listbox" hidden></div>
+    </div>
+  </div>
+  <nav class="an-tabs" aria-label="Sections"><div class="an-wrap an-tabsin" id="an-tabs">
+    <a href="#/overview" data-v="overview">Market</a>
+    <a href="#/item" data-v="item">Items</a>
+    <a href="#/portfolio" data-v="portfolio">My vault</a>
+    <a href="#/deals" data-v="deals">Deals</a>
+    <a href="#/alerts" data-v="alerts">Alerts</a>
+  </div></nav>
+</header>
+
+<main class="an-wrap an-view" id="an-root"><div class="an-empty">Loading market data…</div></main>
+
+<footer class="an-wrap an-foot">
+  <p><strong>Concept prototype.</strong> A proposal for what StackR could be once trading moves to Collect — built by the VeVe Collect community toolset on real data. Not an official StackR, VeVe or Collect page.</p>
+  <p><strong>How the numbers work.</strong> Every value is computed from <strong>completed sales</strong> on both venues (VeVe gem market, StackR OMI market, auctions) since July 2025 — never from asking prices. A single sale that prints far above an item's normal level (a mint&nbsp;#1 flip, a wash trade) is excluded from “typical” prices and still shown as a record. Asking prices appear only as asks, clearly labelled. Not financial advice. <span id="an-asof"></span></p>
+  <p><a href="index.html">← community toolset</a> · <a href="wiki.html">wiki</a> · <a href="market.html">franchise &amp; character indexes</a></p>
+</footer>
+
+<script src="data/catalog.js?v=1"></script>
+<script src="data/veve_floors.js?v=202611052312"></script>
+<script src="data/floor.js?v=202611052312"></script>
+<script src="data/analytics.js?v=1"></script>
+<script src="data/indexes.js?v=202611052312"></script>
+<script src="data/marketcap.js?v=202611052312"></script>
+<script src="data/special_listings.js?v=202611052312"></script>
+<script src="assets/collectscan.js?v=9"></script>
+<script src="assets/analytics/core.js?v=1"></script>
+<script src="assets/analytics/view-item.js?v=1"></script>
+<script src="assets/analytics/view-overview.js?v=1"></script>
+<script src="assets/analytics/view-portfolio.js?v=1"></script>
+<script src="assets/analytics/view-deals.js?v=1"></script>
+<script src="assets/analytics/view-alerts.js?v=1"></script>
+<script>AN.start();</script>
+</body>
+</html>
