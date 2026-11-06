@@ -114,7 +114,7 @@
 <script src="data/historic-years.js?v=202611051002"></script>
 <script src="assets/significant-years.js?v=5"></script>
 <script src="assets/mints.js?v=15"></script>
-<script src="data/special_listings.js?v=202611060016"></script>
+<script src="data/special_listings.js?v=202611060108"></script>
 <script>
 (function () {
   var $ = function (s) { return document.querySelector(s); };
@@ -213,7 +213,7 @@
         '<div class="mid">' +
           '<div class="nm"><a href="explorer.html#/c/' + i.slug + '">' + i.name + '</a></div>' +
           '<div class="sig"><span class="tierdot t-' + i.tier + '"></span> ' + i.label + extra + '</div>' +
-          '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span>' + (i.seller ? '<span>· 👤 ' + i.seller.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>' : '') + '</div>' +
+          '<div class="meta2"><span class="' + rClass(i.rarity) + '">' + (i.rarity || '?') + '</span>' + (i.universe ? '<span>· ' + i.universe + '</span>' : '') + '<span>· edition ' + (i.edition ? i.edition.toLocaleString() : '?') + '</span></div>' +
         '</div>' +
         '<div class="right"><div class="mint">#' + i.mint.toLocaleString() + '</div><div class="price">' + priceHtml(i.price, i.market, i.usd) + '</div><div class="buy">' + mktLink(i.tid, i.market) + '</div></div>' +
       '</div>';
@@ -293,10 +293,10 @@
     var uni = $('#uni').value, mk = $('#mk').value, maxp = parseFloat($('#maxp').value) || 0;
     var rows = [];
     Object.keys(AL.veve).forEach(function (tid) {
-      AL.veve[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[1], market: 'VEVE', seller: r[2] || '' }); });
+      AL.veve[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[1], market: 'VEVE' }); });
     });
     Object.keys(AL.stackr).forEach(function (tid) {
-      AL.stackr[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[2], market: 'STACKR', seller: r[3] || '' }); });
+      AL.stackr[tid].forEach(function (r) { if (r[0] === m && byTid[tid]) rows.push({ it: byTid[tid], price: r[1], usd: r[2], market: 'STACKR' }); });
     });
     rows = rows.filter(function (x) {
       if (uni !== 'all' && x.it.universe !== uni) return false;
@@ -316,7 +316,7 @@
         '<div class="ic">🎯' + (it.img ? '<img src="' + it.img + '" loading="lazy" onerror="this.style.display=\'none\'">' : '') + '</div>' +
         '<div class="mid"><div class="nm"><a href="explorer.html#/c/' + it.slug + '">' + it.name + '</a></div>' +
           '<div class="sig">' + sig + '</div>' +
-          '<div class="meta2"><span class="' + rClass(it.rarity) + '">' + (it.rarity || '?') + '</span>' + (it.universe ? '<span>· ' + it.universe + '</span>' : '') + '<span>· edition ' + (it.edition ? it.edition.toLocaleString() : '?') + '</span>' + (x.seller ? '<span>· 👤 ' + String(x.seller).replace(/</g, '&lt;') + '</span>' : '') + '</div></div>' +
+          '<div class="meta2"><span class="' + rClass(it.rarity) + '">' + (it.rarity || '?') + '</span>' + (it.universe ? '<span>· ' + it.universe + '</span>' : '') + '<span>· edition ' + (it.edition ? it.edition.toLocaleString() : '?') + '</span></div></div>' +
         '<div class="right"><div class="mint">#' + m.toLocaleString() + '</div><div class="price">' + priceHtml(x.price, x.market, x.usd) + '</div><div class="buy">' + mktLink(it.tid, x.market) + '</div></div>' +
       '</div>';
     }).join('') + (rows.length ? '' : '<div class="note">Mint #' + m.toLocaleString() + ' isn\'t listed on either market right now (or was filtered out above).</div>');
