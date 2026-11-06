@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Market Indexes — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=7" />
+<style>
+  .ixgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:14px; }
+  .ixcard { border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg,var(--panel-2),var(--panel)); padding:16px 16px 10px; }
+  .ixcard h3 { margin:0; font-size:15.5px; }
+  .ixcard .big { font-size:26px; font-weight:800; margin:2px 0 0; }
+  .up { color:#3ddc84; } .down { color:#ff5d5d; }
+  .ixchips { display:flex; gap:8px; margin:6px 0 4px; flex-wrap:wrap; }
+  .ixchip { font-size:11.5px; font-weight:700; border:1px solid var(--border); border-radius:999px; padding:3px 9px; color:var(--muted); }
+  .ixchip b.up, .ixchip b.down { font-weight:800; }
+  .ixfoot { font-size:11px; color:var(--muted); margin-top:4px; }
+  canvas.ix { width:100%; height:150px; display:block; margin-top:8px; }
+  canvas.spark { width:140px; height:34px; display:block; }
+  .ixstory { font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.45; }
+  .ixstory b { color:var(--text); }
+  .mcap-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  .mcap-table th { text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--muted); padding:8px 10px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .mcap-table td { padding:8px 10px; border-bottom:1px solid var(--border); }
+  .mcap-table tr:last-child td { border-bottom:0; }
+  .mcap-table .r { text-align:right; font-variant-numeric:tabular-nums; }
+  .rankn { color:var(--muted); font-weight:800; font-size:12px; }
+  .sech { margin:26px 0 10px; font-size:18px; }
+  .wtoggle { display:inline-flex; gap:4px; padding:4px; background:var(--bg-2); border:1px solid var(--border); border-radius:12px; margin:2px 0 14px; }
+  .wtoggle button { background:transparent; border:0; color:var(--muted); font-weight:700; font-size:13px; padding:7px 14px; border-radius:9px; cursor:pointer; }
+  .wtoggle button.on { background:linear-gradient(135deg, var(--accent), #5b7cff); color:#fff; }
+  .thinb { color:#ffcf5c; font-size:11px; }
+  th.sortable { cursor:pointer; user-select:none; } th.sortable:hover { color:var(--text); }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="wiki.html">Wiki</a>
+    <a href="market.html" class="active">Market</a>
+    <a href="nft.html">NFT Market</a>
+    <a href="portfolio.html">Portfolio</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:34px 0 12px">
+    <h1>Market <span class="grad">Indexes</span></h1>
+    <p>Franchise &amp; character performance indexes computed from <strong>every real market sale</strong> (VeVe 💠 + StackR ⛓, 300k+ trades since Jul 2025) — plus the marketcap leaderboard. <span class="small" id="stat"></span></p>
+  </section>
+
+  <div class="wtoggle" id="wt">
+    <button data-w="ew" class="on" title="One of every traded item, bought at its first sale — like a collector's portfolio">👤 Collector view · 1 of each</button>
+    <button data-w="cw" title="Every item weighted by its market size (price × supply) — how the whole market moved">🏦 Whole market · size-weighted</button>
+  </div>
+
+  <h2 class="sech">📈 Franchise indexes</h2>
+  <div class="ixgrid" id="fr"></div>
+
+  <h2 class="sech">🦸 Character indexes <span class="small" id="chn"></span></h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="chart-table"></table>
+  </div>
+
+  <h2 class="sech">🏆 Marketcap leaderboard</h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="mcap"></table>
+  </div>
+
+  <h2 class="sech">💎 Top collectibles by marketcap</h2>
+  <div class="card" style="overflow-x:auto">
+    <table class="mcap-table" id="topc"></table>
+  </div>
+
+  <div class="note" style="margin-top:22px">
+    🌐 Looking beyond VeVe? The <a href="nft.html"><strong>Cross-Platform NFT Market</strong></a> ranks VeVe's franchises against Ethereum, Solana and Bitcoin blue chips — each with its own wiki page. <em>(Everything on this page — and all the tools — is VeVe only.)</em>
+  </div>
+
+  <div class="note warn" style="margin-top:18px">
+    <strong>How these numbers work</strong> — in plain words:<br>
+    · Everything is computed from <strong>real sales only</strong> (both markets, since 2025-07-12) — never from listing/ask prices.<br>
+    · <strong>Premium-mint sales are excluded:</strong> when a collectible's price suddenly prints several times its normal level on a single sale (a mint&nbsp;#1 flip, a wash trade), that sale doesn't count. The index tracks <em>ordinary floor-tier items</em> — what a normal collector actually holds.<br>
+    · <strong>👤 Collector view</strong> answers: "if I'd bought one of every traded item at its first sale, how am I doing?" <strong>🏦 Whole market</strong> weights items by size, so big editions dominate.<br>
+    · <strong>Marketcap</strong> = the item's typical traded price over the last 30 days × copies in circulation. Items with <strong>no sale in 14 days don't count</strong> — we won't value a whole edition off an old print. And when an item has under 3 recent sales but a <em>cheaper live listing</em>, the listing price wins — a special-mint sale can't set the value of something you can buy for less right now. Top collectibles additionally need <strong>≥3 trades in 30 days</strong> to rank.<br>
+    · <strong>Typical item</strong> = the MIDDLE item's change (half the basket did better, half worse), and <strong>breadth</strong> = the share of the basket actually up since entry. Read them together with the headline: a big index number next to low breadth means <em>one item carried the basket</em>, not that the whole franchise rose.<br>
+    · <strong>🛒 from $</strong> = the cheapest live listing in that basket right now (an entry price, never used in the index math). <span class="thinb">⚠ few trades</span> = under 12 traded items, take the curve with a grain of salt. Not financial advice.
+  </div>
+  <footer class="foot">Market Indexes · computed from the on-chain + marketplace sale history, refreshed with every data sync.</footer>
+</div>
+
+<script src="data/indexes.js?v=202611072329"></script>
+<script src="data/marketcap.js?v=202611072329"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var IX = window.INDEXES || { indexes: [] }, MC = window.MARKETCAP || { rows: [] };
+  var W = 'ew';                                   // active weighting
+  var chSort = { col: 'r_all', dir: -1 };         // character-table sort state
+  $('#stat').textContent = IX.indexes.length + ' indexes · base 100 = first trade · updated ' + (IX.asOf ? new Date(IX.asOf * 1000).toISOString().slice(0, 10) : '—');
+
+  function pct(v) { v = (v == null || isNaN(+v)) ? null : +v; if (v == null) return '—'; return (v > 0 ? '+' : '') + v.toFixed(1) + '%'; }
+  function cls(v) { return v == null ? '' : (v >= 0 ? 'up' : 'down'); }
+  var UNAME = { 'dc': 'DC', 'tmnt': 'TMNT', 'blackpink': 'BLACKPINK', 'veve-vibes': 'VeVe Vibes', 'real-world-brand': 'Real-World Brands' };
+  function uname(u) { return UNAME[u] || String(u).replace(/-/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+  function money(n) { return n >= 1e6 ? '$' + (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? '$' + Math.round(n / 1000).toLocaleString() + 'k' : '$' + Math.round(n).toLocaleString(); }
+
+  function line(cv, series, big) {
+    var dpr = window.devicePixelRatio || 1, Wd = cv.clientWidth * dpr, H = cv.clientHeight * dpr;
+    cv.width = Wd; cv.height = H;
+    var c = cv.getContext('2d'), vals = series.map(function (p) { return p[1]; }), n = vals.length;
+    if (n < 2) return;
+    var mn = Math.min.apply(null, vals.concat([100])), mx = Math.max.apply(null, vals.concat([100]));
+    var pad = (mx - mn) * 0.08 + 1; mn -= pad; mx += pad;
+    function X(i) { return (i / (n - 1)) * (Wd - 6 * dpr) + 3 * dpr; }
+    function Y(v) { return H - ((v - mn) / (mx - mn)) * (H - 6 * dpr) - 3 * dpr; }
+    if (big) { c.strokeStyle = 'rgba(150,160,190,.35)'; c.setLineDash([4 * dpr, 4 * dpr]); c.lineWidth = dpr;
+      c.beginPath(); c.moveTo(0, Y(100)); c.lineTo(Wd, Y(100)); c.stroke(); c.setLineDash([]); }
+    var up = vals[n - 1] >= 100;
+    c.strokeStyle = up ? '#3ddc84' : '#ff5d5d'; c.lineWidth = (big ? 2 : 1.4) * dpr;
+    c.beginPath();
+    for (var i = 0; i < n; i++) { i ? c.lineTo(X(i), Y(vals[i])) : c.moveTo(X(i), Y(vals[i])); }
+    c.stroke();
+    if (big) {
+      // plain-language labels: what am I looking at, where does it start/end
+      var f = 10 * dpr;
+      c.font = '600 ' + f + 'px system-ui, sans-serif';
+      c.fillStyle = 'rgba(150,160,190,.75)';
+      c.fillText(series[0][0], 4 * dpr, H - 3 * dpr);
+      var lastD = series[series.length - 1][0];
+      c.fillText(lastD, Wd - c.measureText(lastD).width - 4 * dpr, H - 3 * dpr);
+      c.fillText('start', 4 * dpr, Math.min(H - 14 * dpr, Math.max(f + 1, Y(100) - 3 * dpr)));
+      var endPct = (vals[n - 1] - 100), endTxt = (endPct >= 0 ? '+' : '') + endPct.toFixed(0) + '%';
+      c.font = '800 ' + 12 * dpr + 'px system-ui, sans-serif';
+      c.fillStyle = up ? '#3ddc84' : '#ff5d5d';
+      var ex = Math.min(Wd - c.measureText(endTxt).width - 4 * dpr, X(n - 1) + 4 * dpr);
+      c.fillText(endTxt, ex, Math.max(12 * dpr, Math.min(H - 16 * dpr, Y(vals[n - 1]) - 5 * dpr)));
+      var g = c.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, up ? 'rgba(61,220,132,.25)' : 'rgba(255,93,93,.25)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      c.lineTo(X(n - 1), H); c.lineTo(X(0), H); c.closePath(); c.fillStyle = g; c.fill(); }
+  }
+
+  // ── franchise cards ──
+  function frCards() {
+    var fr = IX.indexes.filter(function (i) { return i.type === 'franchise'; });
+    $('#fr').innerHTML = fr.map(function (ix) {
+      var w = ix[W], name = ix.label.replace(' Index', '');
+      var spread = (ix.breadth != null && ix.med_all != null)
+        ? ' The middle item is <b class="' + cls(ix.med_all) + '">' + (ix.med_all >= 0 ? 'up ' : 'down ') + Math.abs(ix.med_all).toFixed(1) +
+          '%</b> and <b>' + ix.breadth + '%</b> of the basket is up' + (ix.breadth < 50 ? ' — so the headline leans on a minority.' : '.')
+        : '';
+      var story = (W === 'ew')
+        ? 'One of every traded <b>' + name + '</b> item, bought at its first sale, is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> today.' + spread
+        : 'The <b>' + name + '</b> market as a whole (weighted by size) is <b class="' + cls(w.r_all) + '">' + (w.r_all >= 0 ? 'up ' : 'down ') + Math.abs(w.r_all).toFixed(1) + '%</b> since ' + w.series[0][0] + '.';
+      return '<div class="ixcard"><h3><a href="wiki.html#/domains/' + ix.key + '" style="color:inherit" title="open the ' + name + ' wiki page">' + name + ' <span style="font-size:11px;color:var(--accent-2)">wiki \u2197</span></a></h3>' +
+        '<div class="big ' + cls(w.r_all) + '">' + pct(w.r_all) + ' <span class="small" style="font-weight:600">since ' + w.series[0][0] + '</span></div>' +
+        '<div class="ixchips">' +
+          (ix.floor != null ? '<span class="ixchip" title="cheapest ' + name + ' listing right now: ' + (ix.floor_item || '') + '">🛒 from $' + ix.floor.toLocaleString() + '</span>' : '') +
+          '<span class="ixchip" title="items with at least one real sale">' + ix.traded + ' items</span>' +
+          '<span class="ixchip" title="the MIDDLE item\'s change — half the basket did better, half worse">typical item <b class="' + cls(ix.med_all) + '">' + pct(ix.med_all) + '</b></span>' +
+          (ix.breadth != null ? '<span class="ixchip" title="share of the basket that is actually up since entry — a high mean with low breadth means one item carried it">breadth <b class="' + (ix.breadth >= 50 ? 'up' : 'down') + '">' + ix.breadth + '%</b></span>' : '') +
+          '<span class="ixchip">30d <b class="' + cls(w.r30) + '">' + pct(w.r30) + '</b></span>' +
+          '<span class="ixchip">90d <b class="' + cls(w.r90) + '">' + pct(w.r90) + '</b></span>' +
+          (ix.thin ? '<span class="ixchip thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠ few trades</span>' : '') +
+        '</div><canvas class="ix" id="cv-' + ix.key + '"></canvas>' +
+        '<div class="ixstory">' + story + '</div></div>';
+    }).join('');
+    fr.forEach(function (ix) { line(document.getElementById('cv-' + ix.key), ix[W].series, true); });
+  }
+
+  // ── character table (sortable, sparklines) ──
+  function chTable() {
+    var ch = IX.indexes.filter(function (i) { return i.type === 'character'; });
+    $('#chn').textContent = '· ' + ch.length + ' characters, ranked';
+    function val(ix, col) {
+      if (col === 'floor') return ix.floor;
+      if (col === 'traded') return ix.traded;
+      if (col === 'med_all') return ix.med_all;
+      if (col === 'breadth') return ix.breadth;
+      return ix[W][col];
+    }
+    ch.sort(function (a, b) { return ((val(b, chSort.col) == null ? -1e9 : val(b, chSort.col)) - (val(a, chSort.col) == null ? -1e9 : val(a, chSort.col))) * (chSort.dir < 0 ? 1 : -1); });
+    var TH = [['', null], ['Character', null], ['Since start', 'r_all'], ['Typical item', 'med_all'],
+              ['Breadth', 'breadth'], ['30d', 'r30'], ['90d', 'r90'], ['Cheapest listing', 'floor'],
+              ['Items', 'traded'], ['Trend', null]];
+    $('#chart-table').innerHTML = '<tr>' + TH.map(function (h) {
+      var s = h[1] ? ' class="sortable r" data-col="' + h[1] + '"' : (h[0] === 'Character' || h[0] === '' ? '' : ' class="r"');
+      var arrow = (h[1] === chSort.col) ? (chSort.dir < 0 ? ' ↓' : ' ↑') : '';
+      return '<th' + s + '>' + h[0] + arrow + '</th>';
+    }).join('') + '</tr>' + ch.map(function (ix, i) {
+      return '<tr><td class="rankn">' + (i + 1) + '</td>' +
+        '<td style="font-weight:700"><a href="wiki.html#/entities/' + ix.key.replace(/^char-/, '') + '" style="color:inherit" title="open wiki page">' + ix.label.replace(' Index', '') + '</a>' + (ix.thin ? ' <span class="thinb" title="fewer than 12 traded items — one collectible can move this a lot">⚠</span>' : '') + '</td>' +
+        '<td class="r ' + cls(ix[W].r_all) + '" style="font-weight:800" title="value change of holding one of each since its first sale">' + pct(ix[W].r_all) + '</td>' +
+        '<td class="r ' + cls(ix.med_all) + '" title="the middle item — half the basket did better">' + pct(ix.med_all) + '</td>' +
+        '<td class="r" title="share of the basket up since entry">' + (ix.breadth == null ? '—' :
+          '<span class="' + (ix.breadth >= 50 ? 'up' : 'down') + '">' + ix.breadth + '%</span>') + '</td>' +
+        '<td class="r ' + cls(ix[W].r30) + '">' + pct(ix[W].r30) + '</td>' +
+        '<td class="r ' + cls(ix[W].r90) + '">' + pct(ix[W].r90) + '</td>' +
+        '<td class="r"' + (ix.floor != null ? ' title="' + String(ix.floor_item || '').replace(/"/g, '&quot;') + '"' : '') + '>' + (ix.floor != null ? '$' + ix.floor.toLocaleString() : '—') + '</td>' +
+        '<td class="r" title="items with at least one real sale">' + ix.traded + '</td>' +
+        '<td><canvas class="spark" id="sp-' + ix.key + '"></canvas></td></tr>';
+    }).join('');
+    ch.forEach(function (ix) { line(document.getElementById('sp-' + ix.key), ix[W].series, false); });
+  }
+  $('#chart-table').addEventListener('click', function (e) {
+    var th = e.target.closest('th.sortable'); if (!th) return;
+    var col = th.dataset.col;
+    if (chSort.col === col) chSort.dir = -chSort.dir; else chSort = { col: col, dir: -1 };
+    chTable();
+  });
+
+  // ── weighting toggle ──
+  $('#wt').addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b || b.dataset.w === W) return;
+    W = b.dataset.w;
+    [].forEach.call($('#wt').children, function (x) { x.classList.toggle('on', x.dataset.w === W); });
+    frCards(); chTable();
+  });
+
+  // ── marketcap tables (weighting-independent) ──
+  $('#mcap').innerHTML = '<tr><th>#</th><th>Universe</th><th class="r">Marketcap</th><th class="r">Items traded</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">7d (same items)</th><th class="r" title="price change of the SAME items at both dates — new drops don\'t count as performance">30d (same items)</th><th class="r" title="marketcap added by items that newly started trading in the last 7 days (new drops + items resuming trade) — kept separate so it never reads as gains">🆕 7d newly priced</th></tr>' +
+    (MC.rows || []).slice(0, 20).map(function (r, i) {
+      return '<tr><td class="rankn">' + (i + 1) + '</td><td style="font-weight:700"><a href="wiki.html#/domains/' + r.universe + '" style="color:inherit" title="open wiki page">' + uname(r.universe) + '</a></td>' +
+        '<td class="r">' + money(r.cap) + '</td><td class="r">' + r.items + '</td>' +
+        '<td class="r ' + cls(r.d7) + '">' + pct(r.d7) + '</td><td class="r ' + cls(r.d30) + '">' + pct(r.d30) + '</td>' +
+        '<td class="r">' + (r.new7 ? '<span title="value of items that started counting this week: ' + money(r.drop7 || 0) + ' from new drops, ' + money(r.resumed7 != null ? r.resumed7 : r.new7) + ' from older items trading again after 14+ quiet days">+' + money(r.new7) + '</span>' : '—') + '</td></tr>';
+    }).join('');
+  $('#topc').innerHTML = '<tr><th>#</th><th>Collectible</th><th>Universe</th><th class="r">30d median price</th><th class="r">30d trades</th><th class="r">Circulating</th><th class="r">Marketcap</th></tr>' +
+    (MC.top || []).map(function (r, i) {
+      return '<tr><td class="rankn">' + (i + 1) + '</td>' +
+        '<td style="font-weight:700"><a href="explorer.html#/c/' + r.slug + '" style="color:var(--text)">' + r.name + '</a> <a href="wiki.html#/collectibles/' + r.slug + '" title="wiki page" style="font-size:11px;color:var(--accent-2)">\u{1F4D6}</a></td>' +
+        '<td>' + uname(r.universe) + '</td>' +
+        '<td class="r">$' + Math.round(r.last).toLocaleString() + '</td>' +
+        '<td class="r">' + (r.n30 != null ? r.n30 : '—') + '</td>' +
+        '<td class="r">' + r.supply.toLocaleString() + '</td>' +
+        '<td class="r" style="font-weight:800">' + money(r.cap) + '</td></tr>';
+    }).join('');
+
+  frCards(); chTable();
+  window.addEventListener('resize', function () { frCards(); chTable(); });
+})();
+</script>
+</body>
+</html>

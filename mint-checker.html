@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mint Checker — VeVe Collect</title>
+<link rel="stylesheet" href="assets/style.css?v=7" />
+<script>if(/[?&]embed=1\b/.test(location.search))document.documentElement.className+=' embed';</script>
+<style>
+  html.embed nav.main{display:none!important;}
+  .tchip { display:inline-block; font-size:12px; font-weight:700; padding:3px 10px; border-radius:999px; margin:3px 4px 0 0; border:1px solid var(--border); }
+  .t-legendary { color:#ffdf6b; background:#2a230c; border-color:#6e5a23; }
+  .t-epic      { color:#c79bff; background:#1e1633; border-color:#46306e; }
+  .t-rare      { color:#67b8ff; background:#0f2034; border-color:#274a72; }
+  .t-notable   { color:#7fe3a3; background:#0e2419; border-color:#2c5b3f; }
+  .verdict { font-size:22px; font-weight:800; }
+  .scan-row { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .scan-row .ic { font-size:26px; }
+  .filters { display:flex; flex-wrap:wrap; gap:8px; }
+  .filters label { display:inline-flex; align-items:center; gap:7px; background:var(--bg-2); border:1px solid var(--border); border-radius:999px; padding:7px 13px; font-size:13.5px; font-weight:600; color:var(--muted); cursor:pointer; user-select:none; }
+  .filters label:has(input:checked) { color:#fff; border-color:var(--accent); background:linear-gradient(135deg, #2a2350, #1c2340); }
+  .filters input { accent-color: var(--accent); width:15px; height:15px; }
+</style>
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <div class="brand">VeVe<span class="dot">.</span>Collect</div>
+  <nav class="main">
+    <a href="index.html">Home</a>
+    <a href="wiki.html">Wiki</a>
+    <a href="market.html">Market</a>
+    <a href="nft.html">NFT Market</a>
+    <a href="portfolio.html">Portfolio</a>
+    <a href="sets.html">Set Tracker</a>
+    <a href="mcp.html">MCP Optimizer</a>
+    <a href="mint-checker.html" class="active">Mint Checker</a>
+    <a href="special-mints.html">Mint Listings</a>
+    <a href="ask.html">Ask</a>
+    <a href="explorer.html">Explorer</a>
+  </nav>
+</div></header>
+<script src="assets/i18n.js?v=2"></script>
+
+<div class="wrap">
+  <section class="hero" style="padding:36px 0 18px">
+    <h1>Mint Checker</h1>
+    <p>Scan your VeVe / Collect Chain wallet to surface your <strong>significant mints</strong> — lowest public mints, palindromes, meme numbers, historic years and more.</p>
+  </section>
+
+  <!-- Wallet scan -->
+  <div class="card" style="margin-top:18px">
+    <h3 style="margin:0 0 10px">Scan a collection for significant mints</h3>
+    <div class="row">
+      <div>
+        <label class="field" for="wallet">Collect Chain wallet address</label>
+        <input type="text" id="wallet" placeholder="0x… your VeVe / Collect Chain address" />
+        <details class="whelp"><summary>Where do I find my wallet address?</summary><ol>
+          <li>It's your VeVe <strong>Collect Chain (OMI) address</strong> — starts <span class="mono">0x…</span>, 42 characters. VeVe manages it for you (self-custody isn't live yet), so you only need to <em>read</em> it.</li>
+          <li><strong>Where it is (if your app has it):</strong> in the VeVe app (or <a href="https://www.veve.me/en/wallet/" target="_blank" rel="noopener">veve.me/en/wallet</a>, log in) open your <strong>OMI wallet → Receive</strong> — the <span class="mono">0x…</span> with the QR code is your address; tap to copy.</li>
+          <li><strong>Only see “Send OMI”, no address?</strong> VeVe is bridging OMI to StackR and is hiding the <strong>Receive</strong> screen on newer app versions, so the raw <span class="mono">0x…</span> isn't shown in-app there. It's the same address that holds your collectibles and it <strong>never changes</strong> — once you have it, paste it here and we remember it. <span style="color:var(--muted)">(Username auto-connect is coming with the StackR integration.)</span></li>
+          <li>Paste it above — <strong>we remember it on this device</strong>, so you only enter it once. <span style="color:var(--muted)">Coming: connect StackR to auto-fill.</span></li>
+        </ol></details>
+      </div>
+      <div style="flex:0 0 auto; display:flex; gap:10px; align-items:end">
+        <button class="btn" id="scanlive">Scan wallet</button>
+        <button class="btn ghost" id="sample">Use sample</button>
+      </div>
+    </div>
+    <p class="small" id="scanstatus" style="margin:10px 0 0">Paste a Collect Chain wallet to scan your real on-chain mints — or click <strong>Use sample</strong>.</p>
+    <div id="scan" style="margin-top:14px"></div>
+  </div>
+
+  <footer class="foot">"Significant mints" are a collector convention, not an official VeVe designation. Chasing cheap set completions? That moved to the <a href="sets.html">Set Tracker → <strong>Cheapest to complete</strong></a>.</footer>
+</div>
+
+<script src="assets/data.js?v=2"></script>
+<script src="data/catalog.js?v=202611071104"></script>
+<script src="data/veve_floors.js?v=202611072329"></script>
+<script src="data/floor.js?v=202611072329"></script>
+<script src="data/historic-years.js?v=202611071104"></script>
+<script src="assets/significant-years.js?v=5"></script>
+<script src="assets/mints.js?v=15"></script>
+<script src="assets/collectscan.js?v=6"></script>
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var tier = function (t) { return '<span class="tchip t-' + t + '">' + t + '</span>'; };
+  var scanMode = null, liveHoldings = null, liveById = null;  // 'sample' | 'live'
+
+  // the wallet scan surfaces EVERY significant-mint category (the category picker was removed)
+  function selectedCats() {
+    return MINTS.CATEGORIES.map(function (c) { return c.key; });
+  }
+
+  // groups for the scan results — a holding appears under every category it matches. Predicates take the
+  // whole flag: eggs share the tag 'egg-<mint>' so meme-vs-milestone is told apart by category, and
+  // milestone years (tag 'historic-<yr>', cat 'milestone') route to Milestone, not Historic.
+  var SECTIONS = [
+    { title: '🥇 Lowest public mint',          match: function (f) { return f.tag === 'lowest-public' || f.tag === 'ace'; } },
+    { title: '🏁 Highest (final) mint',         match: function (f) { return f.tag === 'highest-public'; } },
+    { title: '➡️ Ascending runs',               match: function (f) { return f.tag === 'ascending'; } },
+    { title: '⬅️ Descending runs',              match: function (f) { return f.tag === 'descending'; } },
+    { title: '🔢 Palindromes',                  match: function (f) { return f.tag === 'palindrome'; } },
+    { title: '🔁 Repeating digits',             match: function (f) { return f.tag === 'repdigit'; } },
+    { title: '🎂 Anniversary / milestone',      match: function (f) { return f.cats.indexOf('milestone') >= 0; } },
+    { title: '😎 Meme / iconic & easter eggs',  match: function (f) { return f.tag === 'meme' || (f.tag.indexOf('egg-') === 0 && f.cats.indexOf('meme') >= 0); } },
+    { title: '📅 Historically significant',     match: function (f) { return f.tag.indexOf('historic-') === 0 && f.cats.indexOf('milestone') < 0; } }
+  ];
+
+  function scanRow(r, flags) {
+    var img = r.collectible.img || '';
+    var ic = /^https?:/.test(img) ? '<img class="rthumb" src="' + img + '" loading="lazy" onerror="this.replaceWith(document.createTextNode(\'🎴\'))">' : '<span class="ic">' + (img || '🎴') + '</span>';
+    var ageChip = r.age ? ' <span class="pill">' + r.age + '</span>' : '';
+    return '<div class="scanitem">' + ic +
+      '<div class="body"><div class="nm">' + r.collectible.name + '</div>' +
+      '<div class="sub2">#' + r.holding.mintNumber + ' / ' + (r.collectible.editionSize || '?') + ageChip + '</div>' +
+      '<div class="flagline">' + flags.map(function (f) { return tier(f.tier) + ' ' + f.label; }).join('') + '</div>' +
+      '</div></div>';
+  }
+
+  function renderScan() {
+    var holdings, byId, total;
+    if (scanMode === 'live') { holdings = liveHoldings; byId = liveById; }
+    else if (scanMode === 'sample') { holdings = DATA.sampleHoldings; byId = DATA.byId; }
+    else return;
+    total = holdings.length;
+    var scannable = holdings.filter(function (h) { return h.mintNumber && (byId[h.collectibleId] || {}).editionSize; });
+    var rows = MINTS.scanHoldings(scannable, byId, selectedCats(), SIG.lookup, SIG.lookupUniverse, SIG.lookupEggs);
+    if (!rows.length) { $('#scan').innerHTML = '<div class="note">No significant mints found in this wallet.</div>'; return; }
+
+    var html = '<p class="small"><strong>' + rows.length + '</strong> of ' + total + ' holdings have a special mint — grouped by category:</p>';
+    SECTIONS.forEach(function (sec) {
+      var hits = [];
+      rows.forEach(function (r) {
+        var fl = r.analysis.flags.filter(function (f) { return sec.match(f); });
+        if (fl.length) hits.push({ r: r, flags: fl });
+      });
+      if (!hits.length) return;
+      hits.sort(function (a, b) { return (b.r.collectible.editionSize || 0) - (a.r.collectible.editionSize || 0); });
+      html += '<div class="sec-title">' + sec.title + '<span class="count">' + hits.length + '</span></div>' +
+              '<div class="scanlist">' + hits.map(function (x) { return scanRow(x.r, x.flags); }).join('') + '</div>';
+    });
+    $('#scan').innerHTML = html;
+  }
+
+  async function scanLive() {
+    var addr = $('#wallet').value.trim();
+    if (!COLLECTSCAN.isAddress(addr)) { $('#scanstatus').innerHTML = 'Enter a valid <span class="mono">0x…</span> Collect Chain wallet address.'; return; }
+    try { localStorage.setItem('veve_wallet', addr); } catch (e) {}   // remember once entered
+    $('#scanlive').disabled = true;
+    $('#scanstatus').textContent = 'Fetching holdings from collectscan…';
+    try {
+      var holdings = await COLLECTSCAN.fetchHoldings(addr, { maxPages: 400, onProgress: function (n) { $('#scanstatus').textContent = 'Fetched ' + n + ' editions…'; } });
+      liveHoldings = holdings; liveById = COLLECTSCAN.catalogFromHoldings(holdings); scanMode = 'live';
+      // enrich EACH holding with the authoritative researched reserve (lowmint) + edition, matched by
+      // normName(name/aka) + rarity — so #21/#16/#11/#6 lowest-public mints are recognised per rarity/variant.
+      // (was a plain toLowerCase name-only match, which missed variants + curly-apostrophe/zero-width names.)
+      if (typeof CATALOG !== 'undefined' && CATALOG.items) {
+        var nn = window.normName || function (s) { return (s || '').toLowerCase(); };
+        var idx = {}, bareKeys = [];
+        CATALOG.items.forEach(function (it) {
+          var r = nn(it.rarity || '');
+          [nn(it.name), it.aka ? nn(it.aka) : null].forEach(function (k) {
+            if (!k) return; var key = k + '|' + r; if (!idx[key]) idx[key] = it; if (!idx[k]) { idx[k] = it; bareKeys.push(k); }
+          });
+        });
+        // tolerate a differing LEADING prefix (on-chain names sometimes carry an artist/brand prefix the
+        // catalog name lacks) — ≥3 shared trailing tokens + word-aligned suffix, so no false match.
+        function suffixMatch(a, b) { if (a === b) return true; if (a.length > b.length) { var t = a; a = b; b = t; } return a.split(' ').length >= 3 && b.length > a.length && b.slice(-(a.length + 1)) === ' ' + a; }
+        holdings.forEach(function (h) {
+          var nk = h.nameKey || nn(h.name), rk = h.rarityKey || nn(h.rarity);
+          var it = idx[nk + '|' + rk] || idx[nk];
+          if (!it && nk.length >= 3) { for (var i = 0; i < bareKeys.length; i++) if (suffixMatch(nk, bareKeys[i])) { it = idx[bareKeys[i]]; break; } }
+          if (it) {
+            if (it.lowmint) h.lowmint = it.lowmint;                                     // researched reserve → exact LPM
+            else if (it.drop) { var y = +String(it.drop).slice(0, 4); if (y >= 2021 && y <= 2023) h.lpmEra = 41; }  // 2021-23 era → VeVe reserved 40 → LPM #41
+            if (it.edition && !h.editionSize) h.editionSize = it.edition;
+          }
+        });
+      }
+      $('#scanstatus').innerHTML = '✓ <strong>' + holdings.length + '</strong> editions on-chain for <span class="mono">' + addr.slice(0, 6) + '…' + addr.slice(-4) + '</span> · <a href="' + COLLECTSCAN.explorerUrl(addr) + '" target="_blank" rel="noopener">collectscan ↗</a>' + (holdings.truncated ? ' · ⚠ <strong>wallet exceeds the 20k cap — partial</strong>' : '');
+      renderScan();
+    } catch (e) {
+      $('#scanstatus').innerHTML = '⚠️ ' + (e && e.message ? e.message : 'fetch failed') + ' (collectscan may be rate-limiting — try again).';
+    } finally { $('#scanlive').disabled = false; }
+  }
+
+  $('#scanlive').addEventListener('click', scanLive);
+  $('#wallet').addEventListener('keydown', function (e) { if (e.key === 'Enter') scanLive(); });
+  $('#sample').addEventListener('click', function () { scanMode = 'sample'; $('#scanstatus').textContent = 'Scanning the sample wallet (mock data).'; renderScan(); });
+  (function () { var s = ''; try { s = localStorage.getItem('veve_wallet') || ''; } catch (e) {} if (COLLECTSCAN.isAddress(s) && !$('#wallet').value) { $('#wallet').value = s; scanLive(); } })();   // auto-restore remembered wallet
+})();
+</script>
+</body>
+</html>
