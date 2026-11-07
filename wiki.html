@@ -594,7 +594,7 @@
   // Live-rendered collectible / collection / set / comic pages (data, not markdown)
   function renderDataPage(slug, i, head, anchor) {
     Promise.all([loadScript('data/catalog.js?v=202611071104'), loadScript('data/wiki.js?v=202611071104')])
-      .then(function () { return loadScript('data/veve_floors.js?v=202611071621'); })   // hourly floors overlay (patches CATALOG in place)
+      .then(function () { return loadScript('data/veve_floors.js?v=202611071747'); })   // hourly floors overlay (patches CATALOG in place)
       .then(function () {
       var CAT = (window.CATALOG && window.CATALOG.items) || [];
       var W = window.WIKI || {};
